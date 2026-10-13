@@ -1,0 +1,19 @@
+
+# Configuration and validation
+python-dotenv>=1.0,<2.0
+PyYAML>=6.0,<7.0
+jsonschema>=4.20,<5.0
+
+# Media processing and signal analysis
+numpy>=1.26,<3.0
+scipy>=1.11,<2.0
+librosa>=0.10.2,<1.0
+soundfile>=0.12,<1.0
+opencv-python-headless>=4.9,<5.0
+
+# Subtitle processing and evaluation
+pysrt>=1.1.2,<2.0
+pandas>=2.1,<4.0
+
+# Testing
+pytest>=8.0,<9.0

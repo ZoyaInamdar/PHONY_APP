@@ -53,3 +53,5 @@ huggingface_cache/
 *.pem
 *.key
 credentials.json
+# Node.js dependencies
+node_modules/

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "record_type": "raw_detections",
+  "film_id": "sintel",
+  "synthetic": true,
+  "description": "Synthetic raw detector outputs for pipeline integration testing and validation. Not detected from real media.",
+  "detections": [
+    {
+      "start": 10.2,
+      "end": 11.8,
+      "trigger": "flashing",
+      "score": 0.85,
+      "source": "flash_detector"
+    },
+    {
+      "start": 14.0,
+      "end": 14.8,
+      "trigger": "loud_spike",
+      "score": 0.92,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 18.5,
+      "end": 20.0,
+      "trigger": "gunshot",
+      "score": 0.78,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 22.0,
+      "end": 24.5,
+      "trigger": "explosion",
+      "score": 0.88,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 26.1,
+      "end": 27.4,
+      "trigger": "scream",
+      "score": 0.74,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 30.0,
+      "end": 30.8,
+      "trigger": "profanity",
+      "score": 1.0,
+      "source": "profanity_detector"
+    },
+    {
+      "start": 34.0,
+      "end": 36.5,
+      "trigger": "spider",
+      "score": 0.81,
+      "source": "spider_detector"
+    },
+    {
+      "start": 40.0,
+      "end": 42.0,
+      "trigger": "fast_motion",
+      "score": 0.65,
+      "source": "motion_detector"
+    },
+    {
+      "start": 45.0,
+      "end": 46.2,
+      "trigger": "jump_scare",
+      "score": 0.79,
+      "source": "jump_scare_detector"
+    }
+  ]
+}

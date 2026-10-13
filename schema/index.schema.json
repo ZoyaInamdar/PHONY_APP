@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trigger-aware-player.org/schemas/index.schema.json",
+  "title": "TriggerAwarePlayerIndex",
+  "description": "Validation schema for Trigger-Aware Player packaged index (index.json). Enforces structural validity, types, score ranges, and canonical trigger enumeration. Programmatic business rules (end > start, timestamps <= duration, cue ID uniqueness, non-finite values, and chronological ordering) are enforced by scripts/validate_index.py.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "film_id",
+    "timeline",
+    "cues"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Index specification schema version."
+    },
+    "film_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier for the media asset (e.g. 'sintel')."
+    },
+    "synthetic": {
+      "type": "boolean",
+      "description": "Explicit marker indicating whether the cue data is synthetic/simulated."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the index or test fixture."
+    },
+    "timeline": {
+      "type": "object",
+      "required": [
+        "duration_seconds"
+      ],
+      "properties": {
+        "duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Total media playback duration in seconds."
+        },
+        "timestamp_unit": {
+          "type": "string",
+          "enum": ["seconds"],
+          "description": "Timestamp unit. Must be 'seconds'."
+        },
+        "interval_convention": {
+          "type": "string",
+          "enum": ["half_open"],
+          "description": "Interval convention. Must be 'half_open' [start, end)."
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Optional video frame rate in frames per second, if known."
+        },
+        "frame_rate": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Alias for fps, if known."
+        }
+      },
+      "additionalProperties": false
+    },
+    "cues": {
+      "type": "array",
+      "description": "Packaged, chronologically ordered trigger avoidance cues.",
+      "items": {
+        "$ref": "#/$defs/packaged_cue"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "packaged_cue": {
+      "type": "object",
+      "required": [
+        "id",
+        "start",
+        "end",
+        "trigger",
+        "score",
+        "source"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deterministic, unique identifier for the cue."
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Interval start timestamp in seconds (presentation timestamp)."
+        },
+        "end": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Interval end timestamp in seconds. Must be strictly greater than start."
+        },
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "flashing",
+            "loud_spike",
+            "gunshot",
+            "explosion",
+            "scream",
+            "profanity",
+            "spider",
+            "fast_motion",
+            "jump_scare"
+          ],
+          "description": "Canonical trigger identifier defined in config.yaml."
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Normalized detector confidence or intensity score in [0.0, 1.0]."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable component identifier that produced the detection record."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

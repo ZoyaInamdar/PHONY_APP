@@ -1,0 +1,863 @@
+# ==============================================================================
+# Trigger-Aware Player — Shared Pipeline Configuration
+# Amazon Developer Hackathon 2026 | Target: Fire TV (Vega OS) On-Device Playback
+# ==============================================================================
+#
+# ARCHITECTURE & COMPONENT RESPONSIBILITIES:
+# - Person A: Player-side cue-sheet engine, on-device action application (blur, mute,
+#             skip, dim, warn), and runtime viewer action precedence resolution.
+# - Person B: Shared pipeline configuration, schema definition and validation, media
+#             ingest, loudness detection, cue merging/packaging, and evaluation harness.
+# - Person C: Additional offline detectors (visual flashing, zero-shot spider, audio events).
+#
+# SHARED DETECTION RECORD CONTRACT:
+# Every offline detector emits records adhering to this minimal contract:
+#   - start:   float (seconds, >= 0.0, presentation timestamp)
+#   - end:     float (seconds, strictly > start)
+#   - trigger: string (one of the 9 canonical trigger IDs below)
+#   - score:   float ([0.0, 1.0], detector-specific metric; not cross-comparable)
+#   - source:  string (stable detector component identifier)
+#
+# IMPORTANT NOTES:
+# 1. TIMING: All timestamps are in seconds using half-open intervals [start, end).
+# 2. RAW VS PACKAGED: Raw detector records do NOT include player-side fields like
+#    viewer actions or padded intervals. Padding and packaging occur downstream.
+# 3. SECRETS: No API keys, credentials, or machine paths are stored in this file.
+# 4. TUNABILITY: Thresholds are initial provisional starting points for calibration.
+# ==============================================================================
+
+version: 1
+
+project_metadata:
+  name: "Trigger-Aware Player"
+  hackathon: "Amazon Developer Hackathon 2026"
+  target_platform: "Fire TV (Vega OS)"
+  default_film_id: "sintel"
+
+# ------------------------------------------------------------------------------
+# 1. Timeline and Interval Conventions
+# ------------------------------------------------------------------------------
+timeline:
+  # Timestamp unit used across all detectors, merges, and cues
+  timestamp_unit: "seconds"
+  # Mathematical interval convention: [start, end)
+  # An event active from 12.0s to 14.0s includes 12.0s up to, but not including, 14.0s.
+  interval_convention: "half_open"
+  # Fractional seconds are explicitly supported and expected (e.g. 12.35)
+  allow_fractional_seconds: true
+  # Reference clock baseline
+  reference_clock: "presentation_timestamp"
+
+# ------------------------------------------------------------------------------
+# 2. Shared Detection Record Contract
+# ------------------------------------------------------------------------------
+detection:
+  # Mandatory fields present on every raw detection record produced by any detector
+  common_record_fields:
+    - "start"
+    - "end"
+    - "trigger"
+    - "score"
+    - "source"
+
+  field_contracts:
+    start:
+      type: "number"
+      minimum: 0.0
+      unit: "seconds"
+      description: "Interval start timestamp in seconds. Fractional seconds allowed."
+    end:
+      type: "number"
+      minimum: 0.0
+      unit: "seconds"
+      description: "Interval end timestamp in seconds. Must be strictly greater than start."
+    trigger:
+      type: "string"
+      description: "Canonical trigger identifier defined in the triggers registry."
+    score:
+      type: "number"
+      minimum: 0.0
+      maximum: 1.0
+      description: "Normalized detector-specific score in range [0.0, 1.0]. Not calibrated across detectors."
+    source:
+      type: "string"
+      description: "Stable component identifier that produced the detection record."
+
+  # Critical architectural notes on scoring and packaging
+  score_semantics_note: >
+    Scores from different detectors are detector-specific metrics normalized to [0.0, 1.0].
+    They represent detector confidence, signal intensity, or model affinity (e.g., softmax
+    over prompt embeddings for CLIP/SigLIP, relative dB ratio for loudness spikes, binary match
+    for profanity). Scores from different detectors are NOT directly comparable and must not
+    be treated as calibrated posterior probabilities (e.g. a score of 0.9 does not mean a 90%
+    probability). Proper calibration requires empirical evaluation against labeled test clips.
+    Thresholds must be configured and tuned independently per detector and trigger, never
+    treated as a universal confidence scale. Raw detector score semantics are kept strictly
+    distinct from any future calibrated probability field.
+  packaging_metadata_note: >
+    The raw detection record contains only detection bounds and confidence. Downstream cue
+    packaging (scripts/package_cues.py) adds packaging metadata, resolves modality from config,
+    and assigns default or user-configured actions before export to index.json.
+  field_naming_note: >
+    Field names are strictly 'start' and 'end', not 'start_seconds' or 'end_seconds'.
+    All consumers must adhere to this naming convention to maintain cross-component compatibility.
+
+# ------------------------------------------------------------------------------
+# 3. Canonical Trigger Definitions
+# ------------------------------------------------------------------------------
+# All detectors and player components must use these 9 canonical identifiers:
+# 1. flashing
+# 2. loud_spike
+# 3. gunshot
+# 4. explosion
+# 5. scream
+# 6. profanity
+# 7. spider
+# 8. fast_motion  (stretch / experimental)
+# 9. jump_scare   (stretch / experimental)
+# ------------------------------------------------------------------------------
+triggers:
+
+  # ----------------------------------------------------------------------------
+  # A. Flashing (Visual — Rule-Based Signal Processing)
+  # ----------------------------------------------------------------------------
+  flashing:
+    display_name: "Rapid Flashing / Strobe Lights"
+    description: "Rapid repetitive luminance transitions that may trigger photosensitive discomfort or seizures."
+    enabled: true
+    status: "baseline"
+    modality: "visual"
+    method: "rule_based_signal_processing"
+    ml_model_required: false
+    input: "Native-frame-rate video decoded to small RGB frames (128x72)"
+    timing_resolution_seconds: 0.0417  # Approx 1 frame at 24 fps
+    source: "flash_detector"
+    threshold: 0.10  # Provisional per-cell relative luminance change threshold
+    default_action: "dim"
+    allowed_actions:
+      - "dim"
+      - "blur"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 0.5
+    padding_after_seconds: 0.5
+    merge_gap_seconds: 1.5
+    min_segment_duration_seconds: 0.2
+    max_segment_duration_seconds: 30.0
+
+    # Algorithm-specific parameters
+    algorithm:
+      frame_dimensions:
+        width: 128
+        height: 72
+      # Convert non-linear sRGB (gamma ~2.2) to linear light prior to luminance calculation
+      linearize_srgb: true
+      # ITU-R BT.709 relative luminance coefficients: Y = 0.2126*R + 0.7152*G + 0.0722*B
+      luminance_coefficients:
+        r: 0.2126
+        g: 0.7152
+        b: 0.0722
+      # Spatial grid division: 16 columns x 9 rows = 144 cells (8x8 pixels per cell)
+      spatial_grid:
+        columns: 16
+        rows: 9
+        total_cells: 144
+      # Provisional luminance change between consecutive frames within a grid cell
+      cell_luminance_change_threshold: 0.10
+      # Upper luminance ceiling for the darker frame of a transition pair
+      darker_frame_luminance_threshold: 0.80
+      # Sliding temporal window over which flash transitions are counted
+      flash_count_window_seconds: 1.0
+      # Opposite-direction luminance transitions required within window (> 3 transitions)
+      min_opposite_transitions_threshold: 4
+      # Area of screen simultaneously flashing to trigger detection (provisional: < 25%)
+      simultaneous_flashing_area_threshold: 0.25  # 25% of grid cells (36 cells)
+      # Segment construction policy: span from first detected flash transition to last in continuous run
+      segment_building_policy: "first_to_last_flash"
+      # Scene cut detection to exclude single-cut false positives
+      cut_detector:
+        exclude_scene_cuts: true
+        mean_frame_difference_threshold: 0.35  # Frames with MAD > 0.35 treated as camera cut
+      # Important safety disclaimers
+      compliance_disclaimer: >
+        Thresholds 0.10 and 0.80 are provisional engineering starting points and NOT certified
+        WCAG 2.1 or ITU-R BT.1702 safety standards. This detector identifies rapid luminance
+        flashing only and makes no medical safety guarantees.
+      ambiguity_documentation: >
+        Spatial area threshold metric (connected contiguous area vs unconstrained cell count)
+        and transition count interpretation (sign reversals vs zero-crossings) are provisional
+        and must be empirically tuned against labeled synthetic and real-world flash clips.
+
+  # ----------------------------------------------------------------------------
+  # B. Loud Spike (Audio — Rule-Based Signal Processing)
+  # ----------------------------------------------------------------------------
+  loud_spike:
+    display_name: "Sudden Loudness Increase"
+    description: "Abrupt, sharp increase in audio root-mean-square loudness relative to local background level."
+    enabled: true
+    status: "baseline"
+    modality: "audio"
+    method: "rule_based_signal_processing"
+    ml_model_required: false
+    input: "audio.wav (downmixed mono PCM, 44.1 kHz or 48 kHz)"
+    timing_resolution_seconds: 0.1
+    source: "loudness_detector"
+    threshold: 12.0  # Decibels above rolling median reference
+    default_action: "mute"
+    allowed_actions:
+      - "mute"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 0.3
+    padding_after_seconds: 0.7
+    merge_gap_seconds: 2.0
+    min_segment_duration_seconds: 0.1
+    max_segment_duration_seconds: 15.0
+
+    # Algorithm-specific parameters
+    algorithm:
+      # Short-term RMS analysis window
+      rms_window_duration_seconds: 0.1
+      # Decibel conversion formula: 20 * log10(rms / reference_floor)
+      decibel_scale: "dB_FS"
+      # Numerical floor to prevent log(0) and -inf
+      numerical_floor_db: -90.0
+      epsilon: 1.0e-9
+      # Rolling median reference duration against which spikes are measured
+      rolling_median_duration_seconds: 10.0
+      # Spike threshold in dB relative to rolling median
+      relative_spike_threshold_db: 12.0
+      # Handling of leading audio windows (first 10 seconds before full history exists)
+      leading_window_policy: "use_available_history"  # options: use_available_history, pad_with_initial_median
+      # Segment construction policy
+      segment_building_policy: "continuous_above_threshold"
+      # Important acoustic limitations
+      user_facing_semantics: "sudden loudness increase"
+      limitation_notes: >
+        This detector measures RELATIVE loudness increases against a 10-second rolling median.
+        It is designed to catch sudden gunshots, slams, or shouts in quiet-to-moderate scenes.
+        It will NOT reliably flag sustained, consistently loud audio (e.g. continuous war
+        battles, rock concerts, or sustained jet engines), where the median rises to meet the signal.
+
+  # ----------------------------------------------------------------------------
+  # C. Gunshot (Audio — Pretrained Audio Classification)
+  # ----------------------------------------------------------------------------
+  gunshot:
+    display_name: "Gunshot / Gunfire"
+    description: "Acoustic signature of gunshots, firearms, rifle fire, or artillery discharge."
+    enabled: true
+    status: "experimental"  # Model selection pending evaluation on hackathon clips
+    modality: "audio"
+    method: "pretrained_audio_classification"
+    ml_model_required: true
+    input: "audio.wav"
+    timing_resolution_seconds: 1.0
+    source: "audio_event_classifier"
+    threshold: 0.65  # Provisional model confidence threshold
+    default_action: "mute"
+    allowed_actions:
+      - "mute"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 0.5
+    padding_after_seconds: 1.5
+    merge_gap_seconds: 2.5
+    min_segment_duration_seconds: 0.5
+    max_segment_duration_seconds: 30.0
+
+    # Classifier settings shared with explosion and scream
+    classifier_settings:
+      candidate_backends:
+        - "AST"     # Audio Spectrogram Transformer (MIT / Hugging Face)
+        - "YAMNet"  # MobileNet-based AudioSet model (TensorFlow / ONNX)
+        - "PANNs"   # Pretrained Audio Neural Networks (CNN14)
+      # UNRESOLVED: Model choice must be agreed with Person C after benchmark evaluation
+      selected_backend: null
+      backend_selection_status: "unresolved"
+      window_duration_seconds: 1.5
+      window_overlap_seconds: 0.75  # 50% overlap for continuous event tracking
+      # Candidate label mappings per backend (model labels mapped to canonical trigger)
+      model_class_mapping:
+        YAMNet:
+          - "Gunshot, gunfire"
+          - "Machine gun"
+          - "Fusillade"
+          - "Cap gun"
+        AST:
+          - "Gunshot, gunfire"
+          - "Artillery fire"
+          - "Cap gun"
+        PANNs:
+          - "Gunshot, gunfire"
+          - "Machine gun"
+      score_aggregation: "max_mapped_class_probability"
+      merge_policy: "merge_adjacent_flagged_windows"
+      limitation_notes: >
+        Short-window performance requires empirical testing. Loud background score, musical
+        percussion, and dialogue can mask firearm acoustic signatures. High potential for
+        confusion between gunshots, fireworks, and sharp metallic impacts.
+
+  # ----------------------------------------------------------------------------
+  # D. Explosion (Audio — Pretrained Audio Classification)
+  # ----------------------------------------------------------------------------
+  explosion:
+    display_name: "Explosion / Blast"
+    description: "Acoustic signature of detonations, bomb blasts, concussive explosions, and fiery bursts."
+    enabled: true
+    status: "experimental"  # Model selection pending evaluation
+    modality: "audio"
+    method: "pretrained_audio_classification"
+    ml_model_required: true
+    input: "audio.wav"
+    timing_resolution_seconds: 1.0
+    source: "audio_event_classifier"
+    threshold: 0.70  # Provisional model confidence threshold
+    default_action: "mute"
+    allowed_actions:
+      - "mute"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 0.5
+    padding_after_seconds: 2.0
+    merge_gap_seconds: 3.0
+    min_segment_duration_seconds: 0.5
+    max_segment_duration_seconds: 45.0
+
+    classifier_settings:
+      candidate_backends:
+        - "AST"
+        - "YAMNet"
+        - "PANNs"
+      selected_backend: null
+      backend_selection_status: "unresolved"
+      window_duration_seconds: 1.5
+      window_overlap_seconds: 0.75
+      model_class_mapping:
+        YAMNet:
+          - "Explosion"
+          - "Burst, pop"
+          - "Boom"
+          - "Eruption"
+        AST:
+          - "Explosion"
+          - "Burst, pop"
+          - "Boom"
+        PANNs:
+          - "Explosion"
+          - "Boom"
+      score_aggregation: "max_mapped_class_probability"
+      merge_policy: "merge_adjacent_flagged_windows"
+      limitation_notes: >
+        Explosions frequently co-occur with loud orchestral percussion, low-frequency sound
+        design rumblings, and building collapses. May be confused with thunder, vehicle crashes,
+        or heavy bass drops.
+
+  # ----------------------------------------------------------------------------
+  # E. Scream (Audio — Pretrained Audio Classification)
+  # ----------------------------------------------------------------------------
+  scream:
+    display_name: "Scream / Screaming"
+    description: "High-pitched vocalizations of terror, pain, distress, or intense screaming."
+    enabled: true
+    status: "experimental"  # Model selection pending evaluation
+    modality: "audio"
+    method: "pretrained_audio_classification"
+    ml_model_required: true
+    input: "audio.wav"
+    timing_resolution_seconds: 1.0
+    source: "audio_event_classifier"
+    threshold: 0.60  # Provisional model confidence threshold
+    default_action: "mute"
+    allowed_actions:
+      - "mute"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 0.3
+    padding_after_seconds: 1.2
+    merge_gap_seconds: 2.0
+    min_segment_duration_seconds: 0.3
+    max_segment_duration_seconds: 20.0
+
+    classifier_settings:
+      candidate_backends:
+        - "AST"
+        - "YAMNet"
+        - "PANNs"
+      selected_backend: null
+      backend_selection_status: "unresolved"
+      window_duration_seconds: 1.5
+      window_overlap_seconds: 0.75
+      model_class_mapping:
+        YAMNet:
+          - "Screaming"
+          - "Shout"
+          - "Yell"
+          - "Battle cry"
+        AST:
+          - "Screaming"
+          - "Shout"
+          - "Yell"
+        PANNs:
+          - "Screaming"
+          - "Shout"
+      score_aggregation: "max_mapped_class_probability"
+      merge_policy: "merge_adjacent_flagged_windows"
+      limitation_notes: >
+        Singing (especially operatic or rock vocals), cheering in crowd scenes, high-pitched
+        laughter, and baby crying can yield false positives. Male and female screams have
+        divergent formant structures that must be verified across test clips.
+
+  # ----------------------------------------------------------------------------
+  # F. Profanity (Text / Audio — Rule-Based Text Matching with STT Fallback)
+  # ----------------------------------------------------------------------------
+  profanity:
+    display_name: "Profanity / Offensive Language"
+    description: "Spoken vulgarity, slurs, or explicit language detected via subtitles or speech-to-text."
+    enabled: true
+    status: "baseline"
+    modality: "text"  # Primary modality is text matching over timed subtitles
+    method: "rule_based_text_matching"
+    ml_model_required: false  # True only if speech-to-text fallback is engaged
+    input: ".srt / .vtt subtitle file, with fallback to audio.wav via speech-to-text"
+    timing_resolution_seconds: 0.1
+    source: "profanity_detector"
+    threshold: 1.0  # Exact dictionary match produces confidence 1.0
+    default_action: "mute"
+    allowed_actions:
+      - "mute"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 1.0  # Conservative 1.0 second lead padding
+    padding_after_seconds: 1.0   # Conservative 1.0 second trail padding
+    merge_gap_seconds: 2.0
+    min_segment_duration_seconds: 0.2
+    max_segment_duration_seconds: 10.0
+
+    # Matching and subtitle parsing configuration
+    matching_settings:
+      prefer_subtitles: true
+      subtitle_extensions:
+        - ".srt"
+        - ".vtt"
+      encoding: "utf-8"
+      case_sensitive: false
+      match_whole_words: true
+      word_boundary_regex: "\\b"
+      tokenization:
+        language: "en"
+        strip_punctuation: true
+        handle_contractions: true
+      # Word list configuration
+      # Safe placeholder dictionary: no explicit slurs or offensive vocabulary committed here
+      word_list:
+        mode: "external_file_with_fallback"
+        external_file_path: "data/profanity_wordlist.txt"
+        placeholder_terms:
+          - "curse_placeholder_1"
+          - "curse_placeholder_2"
+          - "curse_placeholder_3"
+        instructions: >
+          The actual profanity vocabulary must be maintained in data/profanity_wordlist.txt.
+          Terms must be lowercased, one per line. Do not commit inappropriate words directly
+          into this shared YAML configuration file.
+      # Word-level timing approximation policy
+      timing_approximation:
+        method: "linear_interpolation_across_cue"
+        is_exact: false
+        cue_timing_disclaimer: >
+          Standard SRT subtitles provide only cue-level timing (start/end of subtitle block).
+          Word-level start and end times within a cue are approximated by uniform linear
+          interpolation across word tokens. Downstream player muting applies 1.0s padding to
+          safeguard against cue timing inaccuracies.
+      # Speech-to-text fallback configuration
+      stt_fallback:
+        enabled: false  # Disabled by default; engaged only when subtitle files are unavailable
+        candidate_backends:
+          - "faster-whisper"      # Local offline STT via CTranslate2
+          - "Amazon Transcribe"   # Cloud-based managed speech recognition
+        selected_backend: null
+        backend_selection_status: "unresolved"
+        local_model_size: "base.en"
+      # Downstream caption censorship metadata
+      caption_censorship:
+        store_caption_context: true
+        redact_captions: true
+        redaction_replacement_string: "[BLEEP]"
+
+  # ----------------------------------------------------------------------------
+  # G. Spider (Visual — Zero-Shot Multimodal Image-Text Matching)
+  # ----------------------------------------------------------------------------
+  spider:
+    display_name: "Spiders / Arachnids"
+    description: "Visual appearance of spiders, tarantulas, webs, or arachnid creatures for phobia avoidance."
+    enabled: true
+    status: "baseline"
+    modality: "visual"
+    method: "zero_shot_multimodal"
+    ml_model_required: true
+    input: "Precomputed video frames sampled at 1 frame per second (1 fps)"
+    timing_resolution_seconds: 1.0
+    source: "spider_detector"
+    threshold: 0.70  # Softmax probability threshold over positive and negative prompt set
+    default_action: "blur"
+    allowed_actions:
+      - "blur"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 1.0
+    padding_after_seconds: 1.5
+    merge_gap_seconds: 3.0
+    min_segment_duration_seconds: 1.0
+    max_segment_duration_seconds: 60.0
+
+    # Model and prompt configuration
+    algorithm:
+      candidate_backends:
+        - "CLIP"    # OpenAI / OpenCLIP (e.g. ViT-B/32 or ViT-L/14)
+        - "SigLIP"  # Google Sigmoid Loss for Language-Image Pre-Training
+      # UNRESOLVED: Model selection must be confirmed with Person C
+      selected_backend: null
+      backend_selection_status: "unresolved"
+      frame_sampling_fps: 1.0
+      # Multi-tile spatial cropping to capture small subjects in widescreen frames
+      spatial_tiling:
+        enabled: true
+        num_tiles: 3  # Left, center, right square crops across 16:9 frame
+        overlap_ratio: 0.25
+        include_full_frame: true
+      # Positive target prompts
+      positive_prompts:
+        - "a photo of a spider"
+        - "a close-up photo of a tarantula"
+        - "a large spider or arachnid crawling"
+      # Negative contrastive prompts to suppress false positives on background clutter
+      negative_prompts:
+        - "a photo of a room"
+        - "a photo of a person"
+        - "a natural landscape"
+        - "tree branches and leaves"
+        - "indoor furniture and walls"
+        - "a dark empty background"
+      # Scoring semantics
+      scoring:
+        method: "cosine_similarity_with_softmax"
+        temperature: 0.05
+        score_semantics_notes: >
+          Raw cosine similarity between image and text embeddings is in [-1.0, 1.0] and is
+          NOT a probability. The reported score is computed via softmax with temperature 0.05
+          over the combined positive and negative prompt sets, representing relative affinity.
+          Scores are not calibrated posterior probabilities.
+      # Temporal filtering to eliminate single-frame transient false positives
+      temporal_filtering:
+        min_consecutive_positive_seconds: 2  # Requires at least 2 consecutive qualifying seconds
+        segment_building_policy: "first_to_last_qualifying_frame"
+      # Feature caching to accelerate iterative parameter tuning
+      caching:
+        cache_image_embeddings: true
+        cache_prompt_embeddings: true
+        cache_directory: "data/cache/embeddings"
+      # Documented visual limitations
+      limitation_notes: >
+        Small spiders occupying < 5% of screen area may be missed. Spiders appearing briefly
+        between 1 fps samples (< 1.0s duration) will escape detection. Dark scenes, heavy motion
+        blur, and visually similar objects (crabs, scorpions, octopus tentacles, bare twigs,
+        dense cobwebs) can trigger false positives.
+
+  # ----------------------------------------------------------------------------
+  # H. Fast Motion (Visual — Stretch Feature / Experimental)
+  # ----------------------------------------------------------------------------
+  fast_motion:
+    display_name: "Rapid Motion / Camera Shake"
+    description: "Intense camera shaking, chaotic motion, or rapid panning causing motion sickness or disorientation."
+    enabled: false  # STRETCH FEATURE: Disabled by default for baseline pipeline
+    status: "experimental"
+    modality: "visual"
+    method: "frame_difference_rule"
+    ml_model_required: false
+    input: "Native-rate small RGB frames (128x72)"
+    timing_resolution_seconds: 1.0
+    source: "motion_detector"
+    threshold: 0.20  # Provisional mean absolute difference (MAD) threshold
+    default_action: "warn"
+    allowed_actions:
+      - "warn"
+      - "dim"
+      - "skip"
+    padding_before_seconds: 0.5
+    padding_after_seconds: 0.5
+    merge_gap_seconds: 2.0
+    min_segment_duration_seconds: 1.0
+    max_segment_duration_seconds: 30.0
+
+    algorithm:
+      frame_dimensions:
+        width: 128
+        height: 72
+      metric: "mean_absolute_difference"
+      temporal_smoothing_window_seconds: 1.0
+      cut_detector_integration:
+        exclude_hard_cuts: true
+        hard_cut_mad_threshold: 0.40  # Single-frame jumps exceeding this are flagged as cuts, not motion
+      optical_flow_enabled: false  # Explicitly disabled; Farneback dense flow is NOT part of initial detector
+      segment_building_policy: "continuous_above_threshold"
+      limitation_notes: >
+        STRETCH FEATURE. Frame difference rule confuses rapid editorial montage cuts with motion.
+        Dense optical flow (Farneback or RAFT) is NOT enabled in this initial configuration due
+        to compute constraints. This detector must not be used in demo without ground-truth validation.
+
+  # ----------------------------------------------------------------------------
+  # I. Jump Scare (Audio-Visual — Stretch Feature / Experimental)
+  # ----------------------------------------------------------------------------
+  jump_scare:
+    display_name: "Jump Scare"
+    description: "Compound heuristic: sharp audio and visual onset immediately preceded by quiet suspense interval."
+    enabled: false  # STRETCH FEATURE: Disabled by default for baseline pipeline
+    status: "experimental"
+    modality: "audio_visual"
+    method: "combined_heuristic"
+    ml_model_required: false
+    input: "Audio RMS stream and visual frame-difference stream"
+    timing_resolution_seconds: 0.5
+    source: "jump_scare_detector"
+    threshold: 0.75  # Provisional heuristic compound score
+    default_action: "warn"
+    allowed_actions:
+      - "warn"
+      - "mute"
+      - "skip"
+    padding_before_seconds: 1.0
+    padding_after_seconds: 1.0
+    merge_gap_seconds: 3.0
+    min_segment_duration_seconds: 0.5
+    max_segment_duration_seconds: 10.0
+
+    algorithm:
+      # Preceding quiet suspense condition
+      preceding_quiet_interval_seconds: 3.0
+      preceding_quiet_rms_ceiling_db: -30.0
+      # Sharp loudness spike condition
+      sharp_loudness_increase_threshold_db: 15.0
+      # Coincident visual change condition
+      visual_change_condition:
+        enabled: true
+        min_frame_difference: 0.25
+      # Temporal alignment tolerance: audio and visual spikes must align within window
+      temporal_alignment_tolerance_seconds: 0.5
+      segment_building_policy: "align_to_audio_spike"
+      limitation_notes: >
+        STRETCH FEATURE. This is a heuristic compounding two distinct signals, NOT a validated
+        machine learning jump-scare classifier. It has high risk of false alarms on musical hits
+        and false negatives on quiet scares. It MUST be disabled for the final hackathon demo
+        unless verified against horror test clips.
+
+# ------------------------------------------------------------------------------
+# 4. Audio Processing Pipeline Settings
+# ------------------------------------------------------------------------------
+audio_processing:
+  target_sample_rate_hz: 44100
+  target_channels: 1  # Downmix multichannel audio to mono for consistent signal analysis
+  target_format: "pcm_s16le"
+  extraction:
+    temp_wav_filename: "audio.wav"
+    output_dir: "data/audio"
+    ffmpeg_downmix_command_template: "ffmpeg -y -i {input_media} -vn -ac 1 -ar {sample_rate} {output_wav}"
+  spectrogram:
+    n_fft: 2048
+    hop_length: 512
+    window: "hann"
+
+# ------------------------------------------------------------------------------
+# 5. Visual Processing Pipeline Settings
+# ------------------------------------------------------------------------------
+visual_processing:
+  # Native video decoding parameters for rapid signal-based detectors (flashing, motion)
+  low_res_frames:
+    width: 128
+    height: 72
+    pixel_format: "rgb24"
+    output_dir: "data/frames/low_res"
+  # Low-frequency snapshot extraction for multimodal zero-shot classification (spider)
+  snapshot_sampling:
+    fps: 1.0
+    max_dimension: 512
+    output_dir: "data/frames/snapshots"
+    manifest_filename: "frames_manifest.json"
+
+# ------------------------------------------------------------------------------
+# 6. Profanity Pipeline Settings
+# ------------------------------------------------------------------------------
+profanity:
+  primary_source: "subtitles"
+  fallback_source: "speech_to_text"
+  subtitle_search_paths:
+    - "data/media/{film_id}.srt"
+    - "data/media/{film_id}.vtt"
+    - "data/subtitles/{film_id}.srt"
+  word_list_path: "data/profanity_wordlist.txt"
+  default_padding_before_seconds: 1.0
+  default_padding_after_seconds: 1.0
+  stt_fallback_enabled: false
+
+# ------------------------------------------------------------------------------
+# 7. Merge and Packaging Engine
+# ------------------------------------------------------------------------------
+# Shared merge logic implemented by Person B in scripts/merge_cues.py
+# ------------------------------------------------------------------------------
+merge:
+  # Grouping contract: merge logic operates strictly within the same trigger and source
+  group_by:
+    primary: "trigger"
+    secondary: "source"
+
+  # Default maximum time gap between adjacent intervals of the SAME trigger to bridge
+  default_merge_gap_seconds: 2.5
+  # Maximum allowable continuous duration for any single merged cue interval
+  # Prevents runaway segment extension across long movie scenes
+  max_segment_duration_seconds: 60.0
+
+  # Deterministic chronological sorting order
+  sort_order:
+    - "start"
+    - "end"
+    - "trigger"
+    - "source"
+
+  # Validation rules applied to all incoming raw detection records
+  validation:
+    require_positive_duration: true  # Rejects any record where end <= start
+    min_allowed_duration_seconds: 0.01
+    allowed_trigger_ids:
+      - "flashing"
+      - "loud_spike"
+      - "gunshot"
+      - "explosion"
+      - "scream"
+      - "profanity"
+      - "spider"
+      - "fast_motion"
+      - "jump_scare"
+    score_rules:
+      clamp_to_unit_range: true  # Clamp any minor numerical drift into [0.0, 1.0]
+      reject_nan_or_infinite: true
+    missing_source_policy: "reject"  # Options: 'reject' (raise error) or 'assign_unknown'
+
+  # Cross-trigger policy: MUST NEVER combine different triggers into one record
+  cross_trigger_policy:
+    keep_separate: true
+    allow_cross_trigger_merging: false
+    policy_explanation: >
+      Detections from different triggers (e.g. a gunshot occurring during a flashing scene)
+      must remain independent cue records in index.json. Merging is only performed between
+      adjacent intervals of the SAME trigger and source. Person A's player-side engine handles
+      overlapping viewer actions at playback time according to user preferences.
+
+  # Score merging strategy for contiguous intervals of the same trigger
+  score_aggregation_strategy: "max_score"  # Options: 'max_score', 'mean_score'
+
+  # Modality resolution: modality is looked up from this config file, not invented by detectors
+  modality_resolution: "lookup_from_config"
+
+# ------------------------------------------------------------------------------
+# 8. Evaluation Harness Configuration
+# ------------------------------------------------------------------------------
+# Evaluates detector predictions against human ground-truth annotations
+# ------------------------------------------------------------------------------
+evaluation:
+  # Path to ground-truth annotation files
+  annotations_directory: "data/annotations"
+  ground_truth_filename_pattern: "{film_id}_ground_truth.json"
+
+  # Temporal matching criteria
+  matching_criterion: "temporal_iou"  # Temporal Intersection over Union (tIoU)
+  tiou_threshold: 0.5                 # Predictions with tIoU >= 0.5 count as True Positives
+
+  # Alternative point-in-interval tolerance for instantaneous events (e.g. gunshots)
+  instantaneous_event_tolerance_seconds: 1.0
+
+  # Evaluation metrics computed per trigger and detector
+  metrics:
+    - "precision"
+    - "recall"
+    - "f1_score"
+    - "true_positives"
+    - "false_positives"
+    - "false_negatives"
+
+  # Standard test clips used for evaluation
+  evaluation_clips:
+    film_id: "sintel"
+    clips:
+      - clip_id: "sintel_trailer"
+        file_path: "data/media/sintel_trailer.mp4"
+        duration_seconds: 52.0
+      - clip_id: "sintel_fight_scene"
+        file_path: "data/media/sintel_fight_scene.mp4"
+        duration_seconds: 85.0
+
+  # Output destination for evaluation metrics and markdown reports
+  reporting:
+    reports_directory: "reports"
+    require_evidence_for_status_promotion: true
+    evidence_policy: >
+      A detector cannot be promoted from 'experimental' to 'baseline' status without
+      documented evaluation metrics meeting the agreed team threshold (e.g. F1 >= 0.70)
+      on the official hackathon test clips.
+
+# ------------------------------------------------------------------------------
+# 9. Experimental Features and Model Selection Registry
+# ------------------------------------------------------------------------------
+experimental_features:
+  # Stretch features that are experimental and disabled by default
+  stretch_features:
+    fast_motion:
+      enabled: false
+      status: "experimental"
+      decision_owner: "Person C"
+      notes: "Heuristic frame-difference rule unvalidated against varied camera motions."
+    jump_scare:
+      enabled: false
+      status: "experimental"
+      decision_owner: "Person B and Person C"
+      notes: "Weak heuristic; requires evaluation on horror clips before demo inclusion."
+
+  # Explicit tracking of unresolved model backend choices
+  unresolved_model_selections:
+    audio_event_classifier:
+      description: "Audio neural network for gunshot, explosion, and scream detection"
+      candidates:
+        - "AST"
+        - "YAMNet"
+        - "PANNs"
+      selected_backend: null
+      status: "unresolved"
+      decision_owner: "Person C (detector author) and Person B (pipeline integrator)"
+      decision_criteria:
+        - "Inference latency on target CPU"
+        - "Model parameter size / memory footprint"
+        - "F1 score on test clips"
+        - "Permissive license compatibility"
+
+    speech_to_text_fallback:
+      description: "Speech-to-text fallback when subtitle files are unavailable"
+      candidates:
+        - "faster-whisper"
+        - "Amazon Transcribe"
+      selected_backend: null
+      status: "unresolved"
+      decision_owner: "Person B"
+      decision_criteria:
+        - "Local offline execution requirement vs AWS cloud dependency"
+        - "Transcription accuracy on noisy movie dialogue"
+
+    zero_shot_visual_classifier:
+      description: "Vision-language foundation model for spider / object detection"
+      candidates:
+        - "CLIP"
+        - "SigLIP"
+      selected_backend: null
+      status: "unresolved"
+      decision_owner: "Person C"
+      decision_criteria:
+        - "Zero-shot classification calibration"
+        - "Frame inference speed"
+        - "Embedding cache storage footprint"

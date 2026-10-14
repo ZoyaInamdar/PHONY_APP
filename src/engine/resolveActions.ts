@@ -4,6 +4,8 @@ import {
   ViewerOptions,
 } from './types';
 
+import { applyReviewPolicy } from './reviewPolicy';
+
 export function resolveActions(
   time: number,
   cues: Cue[],
@@ -13,7 +15,9 @@ export function resolveActions(
     throw new Error('Playback time must be a finite, non-negative number.');
   }
 
-  const active = cues.filter((cue) => {
+  const policyCues = applyReviewPolicy(cues, options);
+
+  const active = policyCues.filter((cue) => {
     if (
       !cue.id ||
       !Number.isFinite(cue.start) ||

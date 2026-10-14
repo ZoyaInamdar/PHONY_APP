@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phony-app.local/schema/cue.schema.json",
+  "title": "Trigger-Aware Player Cue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "start", "end", "source", "action"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "start": {
+      "type": "number",
+      "minimum": 0
+    },
+    "end": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "source": {
+      "type": "string",
+      "enum": ["visual", "audio"]
+    },
+    "action": {
+      "type": "string",
+      "enum": ["hide", "mute", "reduce", "skip", "warn"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ready", "needs_review"]
+    },
+    "gain": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

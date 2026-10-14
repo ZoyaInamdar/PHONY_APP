@@ -101,6 +101,15 @@ describe('resolveActions', () => {
     ).toThrow('Playback time must be a finite, non-negative number.');
   });
 
+  it('treats cue start as inclusive', () => {
+    const result = resolveActions(5, cues, {
+      ...DEFAULT_VIEWER_OPTIONS,
+    });
+
+    expect(result.hide).toBe(true);
+    expect(result.activeCueIds).toContain('visual-1');
+  });
+
   it('treats cue end as exclusive', () => {
     const result = resolveActions(10, cues, {
       ...DEFAULT_VIEWER_OPTIONS,

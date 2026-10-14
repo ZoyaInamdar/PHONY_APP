@@ -3,12 +3,16 @@
 # Amazon Developer Hackathon 2026 | Target: Fire TV (Vega OS) On-Device Playback
 # ==============================================================================
 #
-# ARCHITECTURE & COMPONENT RESPONSIBILITIES:
-# - Person A: Player-side cue-sheet engine, on-device action application (blur, mute,
-#             skip, dim, warn), and runtime viewer action precedence resolution.
-# - Person B: Shared pipeline configuration, schema definition and validation, media
-#             ingest, loudness detection, cue merging/packaging, and evaluation harness.
-# - Person C: Additional offline detectors (visual flashing, zero-shot spider, audio events).
+# ARCHITECTURE & COMPONENT RESPONSIBILITIES (Split v3):
+# - Person A: App core & signal detectors: action-resolution engine, player setup (Vega),
+#             flash detector, AudioSet audio-event classifier (gunshot, explosion, scream).
+# - Person B: Pipeline backbone & player behaviour: config & schema, ingest with timeline
+#             contract, loudness detector, merge/package/validate, evaluation harness,
+#             player actions & heads-up prompt, settings & on-device profile, catalog hosting.
+# - Person C: Speech, test data, captions & presentation: subtitles & profanity detector
+#             with evidence/timing types, cues.json, test-clip generator (labels.csv & sync),
+#             demo film prep & rights data, caption renderer & censoring, 'that bothered me'
+#             log & recap view, D-pad polish, demo video & Devpost submission.
 #
 # SHARED DETECTION RECORD CONTRACT:
 # Every offline detector emits records adhering to this minimal contract:
@@ -830,7 +834,7 @@ experimental_features:
         - "PANNs"
       selected_backend: null
       status: "unresolved"
-      decision_owner: "Person C (detector author) and Person B (pipeline integrator)"
+      decision_owner: "Person A (detector author) and Person B (pipeline integrator)"
       decision_criteria:
         - "Inference latency on target CPU"
         - "Model parameter size / memory footprint"
@@ -844,7 +848,7 @@ experimental_features:
         - "Amazon Transcribe"
       selected_backend: null
       status: "unresolved"
-      decision_owner: "Person B"
+      decision_owner: "Person C (subtitles & speech owner) and Person B (pipeline integrator)"
       decision_criteria:
         - "Local offline execution requirement vs AWS cloud dependency"
         - "Transcription accuracy on noisy movie dialogue"

@@ -2,7 +2,18 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/test'],
-  testMatch: ['**/*.test.ts'],
-  clearMocks: true
+  testMatch: [
+    '**/*.test.ts',
+    '**/*.spec.ts',
+  ],
+  clearMocks: true,
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+  ],
+  coverageDirectory: 'coverage',
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/coverage/',
+  ],
 };

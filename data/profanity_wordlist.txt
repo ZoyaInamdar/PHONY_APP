@@ -1,0 +1,46 @@
+# ==============================================================================
+# Profanity Word List for Trigger-Aware Player
+# Source: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad Words)
+#         https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
+# License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+#          https://creativecommons.org/licenses/by/4.0/
+#
+# Technical Integration Notes:
+# - Plain text dictionary, one term per line.
+# - Evaluated case-insensitively with regex word boundaries (\b).
+# - Lines starting with '#' and empty lines are ignored as comments.
+# - Keep terms high-specificity to avoid conversational false positives.
+# ==============================================================================
+
+# Core vulgarity and swearing
+ass
+asshole
+bastard
+bitch
+bloody
+bullshit
+crap
+cunt
+damn
+dammit
+dick
+douche
+fag
+faggot
+fuck
+fucker
+fucking
+goddamn
+hell
+jackass
+motherfucker
+nigger
+nigga
+piss
+prick
+pussy
+shit
+shitty
+slut
+twat
+whore

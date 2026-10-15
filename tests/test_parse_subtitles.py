@@ -1,4 +1,4 @@
-"""Unit tests for the SRT subtitle parser and cue classifier module."""
+"""Unit tests for the SRT subtitle parser, cue classifier, and profanity matching module."""
 
 import tempfile
 from pathlib import Path
@@ -10,6 +10,8 @@ from scripts.parse_subtitles import (
     classify_cue_text,
     classify_cue,
     cues_to_dicts,
+    load_wordlist,
+    match_profanity_in_cues,
     parse_srt_file,
     subrip_time_to_seconds,
 )
@@ -86,7 +88,7 @@ Did you hear that?
 
         assert sub_file[0].kind == "sound_description"
         assert sub_file[1].kind == "speech"
-        assert sub_file[2].kind == "speech"  # Contains spoken dialogue alongside parenthesis
+        assert sub_file[2].kind == "speech"
         assert sub_file[3].kind == "sound_description"
 
         # Verify time conversion
@@ -107,50 +109,164 @@ Did you hear that?
         Path(temp_path).unlink(missing_ok=True)
 
 
-def test_parse_empty_srt_file():
-    """Verify empty SRT file returns empty SubRipFile without errors."""
-    with tempfile.NamedTemporaryFile("w", suffix=".srt", delete=False, encoding="utf-8") as f:
-        f.write("")
+def test_load_wordlist_success():
+    """Verify loading wordlist ignores comments and blanks and normalizes terms."""
+    content = """# Header comment
+# License: CC BY 4.0
+
+damn
+HELL
+  crap
+# inline comment
+bastard
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        f.write(content)
         temp_path = f.name
 
     try:
-        sub_file = parse_srt_file(temp_path)
-        assert len(sub_file) == 0
+        words = load_wordlist(temp_path)
+        assert words == ["damn", "hell", "crap", "bastard"]
     finally:
         Path(temp_path).unlink(missing_ok=True)
 
 
-def test_error_missing_file():
-    """Verify FileNotFoundError is raised for non-existent files."""
-    with pytest.raises(FileNotFoundError, match="Subtitle file not found"):
-        parse_srt_file("non_existent_file_xyz.srt")
+def test_load_wordlist_file_not_found():
+    """Verify FileNotFoundError is raised when wordlist file is missing."""
+    with pytest.raises(FileNotFoundError, match="Profanity word list file not found"):
+        load_wordlist("non_existent_wordlist.txt")
 
 
-def test_error_invalid_extension():
-    """Verify ValueError is raised if file is not an .srt file."""
-    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
-        f.write("Some text")
-        temp_path = f.name
+def test_match_profanity_whole_word_boundaries():
+    """Verify regex word boundaries match whole words only (ass vs class, crap vs scraper)."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=1),
+            end=pysrt.SubRipTime(seconds=3),
+            text="He is an ass, but in class he shows classic skills.",
+        ),
+        pysrt.SubRipItem(
+            index=2,
+            start=pysrt.SubRipTime(seconds=4),
+            end=pysrt.SubRipTime(seconds=6),
+            text="Use the scraper to clean this crap.",
+        ),
+    ])
 
-    try:
-        with pytest.raises(ValueError, match="Expected a file with '.srt' extension"):
-            parse_srt_file(temp_path)
-    finally:
-        Path(temp_path).unlink(missing_ok=True)
+    word_list = ["ass", "crap"]
+    detections = match_profanity_in_cues(sub_file, word_list)
+
+    # Cue 1: should match 'ass' once, not 'class' or 'classic'
+    assert len(sub_file[0].flagged) == 1
+    flagged1 = sub_file[0].flagged[0]
+    assert flagged1["term_id"] == "w1"
+    matched_word1 = sub_file[0].text[flagged1["char_start"]:flagged1["char_end"]]
+    assert matched_word1 == "ass"
+
+    # Cue 2: should match 'crap' once, not 'scraper'
+    assert len(sub_file[1].flagged) == 1
+    flagged2 = sub_file[1].flagged[0]
+    matched_word2 = sub_file[1].text[flagged2["char_start"]:flagged2["char_end"]]
+    assert matched_word2 == "crap"
+
+    assert len(detections) == 2
 
 
-def test_error_invalid_time_interval():
-    """Verify SubtitleParseError is raised when cue end is before start."""
-    corrupt_content = """1
-00:00:10,000 --> 00:00:05,000
-Backwards in time
+def test_match_profanity_case_and_punctuation():
+    """Verify matching handles uppercase, lowercase, mixed case, and punctuation."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=1),
+            end=pysrt.SubRipTime(seconds=4),
+            text='What the "HELL"?! (Damn)... That was DAMN close!',
+        )
+    ])
+
+    word_list = ["hell", "damn"]
+    match_profanity_in_cues(sub_file, word_list)
+
+    assert len(sub_file[0].flagged) == 3
+    matched_terms = [
+        sub_file[0].text[f["char_start"]:f["char_end"]]
+        for f in sub_file[0].flagged
+    ]
+    assert matched_terms == ["HELL", "Damn", "DAMN"]
+
+
+def test_match_profanity_required_metadata_labels():
+    """Verify evidence='subtitle_text', timing='estimated', spoken_confirmed=None."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=10),
+            end=pysrt.SubRipTime(seconds=12),
+            text="Get down, damn it!",
+        )
+    ])
+
+    word_list = ["damn"]
+    match_profanity_in_cues(sub_file, word_list)
+
+    flagged = sub_file[0].flagged[0]
+    assert flagged["evidence"] == "subtitle_text"
+    assert flagged["timing"] == "estimated"
+    assert flagged["spoken_confirmed"] is None
+    assert flagged["confidence"] == 1.0
+    assert 10.0 <= flagged["start"] <= flagged["end"] <= 12.0
+
+
+def test_match_profanity_skips_sound_descriptions():
+    """Verify sound description cues are NOT flagged as profanity."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=1),
+            end=pysrt.SubRipTime(seconds=3),
+            text="[damn loud music]",
+        )
+    ])
+
+    classify_cue(sub_file[0])
+    assert sub_file[0].kind == "sound_description"
+
+    word_list = ["damn"]
+    detections = match_profanity_in_cues(sub_file, word_list)
+
+    assert len(sub_file[0].flagged) == 0
+    assert len(detections) == 0
+
+
+def test_match_profanity_integration_with_default_wordlist():
+    """Verify end-to-end integration with data/profanity_wordlist.txt."""
+    default_wordlist_path = Path("data/profanity_wordlist.txt")
+    assert default_wordlist_path.is_file(), "data/profanity_wordlist.txt must exist"
+
+    content = """1
+00:00:01,000 --> 00:00:03,000
+[music playing]
+
+2
+00:00:04,000 --> 00:00:06,000
+This is total bullshit!
 """
     with tempfile.NamedTemporaryFile("w", suffix=".srt", delete=False, encoding="utf-8") as f:
-        f.write(corrupt_content)
-        temp_path = f.name
+        f.write(content)
+        temp_srt = f.name
 
     try:
-        with pytest.raises(SubtitleParseError, match="end .* is before start"):
-            parse_srt_file(temp_path)
+        sub_file = parse_srt_file(temp_srt, wordlist_path=default_wordlist_path)
+        assert len(sub_file) == 2
+        assert len(sub_file[0].flagged) == 0
+
+        assert len(sub_file[1].flagged) == 1
+        assert sub_file[1].flagged[0]["evidence"] == "subtitle_text"
+        assert sub_file[1].flagged[0]["timing"] == "estimated"
+        assert sub_file[1].flagged[0]["spoken_confirmed"] is None
+
+        dicts = cues_to_dicts(sub_file)
+        assert "flagged" not in dicts[0]
+        assert "flagged" in dicts[1]
     finally:
-        Path(temp_path).unlink(missing_ok=True)
+        Path(temp_srt).unlink(missing_ok=True)

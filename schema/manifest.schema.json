@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trigger-aware-player.org/schemas/manifest.schema.json",
+  "title": "TriggerAwarePlayerIngestManifest",
+  "description": "Validation schema for Trigger-Aware Player media ingestion manifest (ingest_manifest.json). Records rich normalized media, audio extraction, low-resolution frame sampling, and snapshot metadata.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "film_id",
+    "pipeline_stage",
+    "status",
+    "created_at",
+    "source_media",
+    "normalized_video",
+    "audio",
+    "low_res_frames",
+    "snapshots",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Ingestion specification schema version."
+    },
+    "film_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier for the media asset."
+    },
+    "pipeline_stage": {
+      "type": "string",
+      "const": "ingestion",
+      "description": "Explicit pipeline stage marker. Ingestion alone does not represent full analysis completion."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "partial", "failed"],
+      "description": "Ingestion execution status."
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp of ingestion completion."
+    },
+    "source_media": {
+      "type": "object",
+      "required": ["path", "filename", "size_bytes"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the original source media file."
+        },
+        "filename": {
+          "type": "string",
+          "description": "Basename of the original source media file."
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Source file size in bytes."
+        },
+        "container_duration_seconds": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "description": "Probed presentation container duration in seconds."
+        },
+        "format_name": {
+          "type": ["string", "null"],
+          "description": "FFprobe container format identifier."
+        },
+        "video_stream_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of detected video streams."
+        },
+        "audio_stream_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of detected audio streams."
+        }
+      },
+      "additionalProperties": true
+    },
+    "normalized_video": {
+      "type": "object",
+      "required": [
+        "path",
+        "codec",
+        "pixel_format",
+        "width",
+        "height",
+        "fps",
+        "duration_seconds",
+        "frame_count",
+        "timeline_start_seconds"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to normalized MP4 video."
+        },
+        "codec": {
+          "type": "string",
+          "const": "h264",
+          "description": "Video codec (must be h264)."
+        },
+        "pixel_format": {
+          "type": "string",
+          "const": "yuv420p",
+          "description": "Pixel format (must be yuv420p)."
+        },
+        "width": {
+          "type": "integer",
+          "maximum": 1920,
+          "exclusiveMinimum": 0,
+          "description": "Output video width in pixels (max 1920, must be even)."
+        },
+        "height": {
+          "type": "integer",
+          "maximum": 1080,
+          "exclusiveMinimum": 0,
+          "description": "Output video height in pixels (max 1080, must be even)."
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Constant frame rate in frames per second."
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Probed duration in seconds."
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total decoded frame count in normalized video."
+        },
+        "timeline_start_seconds": {
+          "type": "number",
+          "const": 0.0,
+          "description": "Normalized timeline origin (must be 0.0)."
+        }
+      },
+      "additionalProperties": true
+    },
+    "audio": {
+      "type": "object",
+      "required": ["present", "extraction_status"],
+      "properties": {
+        "present": {
+          "type": "boolean",
+          "description": "Whether source media contained an audio stream."
+        },
+        "extraction_status": {
+          "type": "string",
+          "enum": ["extracted", "skipped_no_stream", "failed"],
+          "description": "Audio extraction result."
+        },
+        "path": {
+          "type": ["string", "null"],
+          "description": "Relative path to extracted mono WAV audio (null if no audio)."
+        },
+        "codec": {
+          "type": ["string", "null"],
+          "description": "Audio codec identifier (pcm_s16le if extracted)."
+        },
+        "sample_rate": {
+          "type": ["integer", "null"],
+          "description": "Audio sampling rate in Hz (44100 if extracted)."
+        },
+        "channels": {
+          "type": ["integer", "null"],
+          "description": "Audio channel count (1 for mono if extracted)."
+        },
+        "duration_seconds": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "description": "Audio duration in seconds."
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error details if extraction failed."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "present": { "const": true },
+              "extraction_status": { "const": "extracted" }
+            }
+          },
+          "then": {
+            "required": ["path", "codec", "sample_rate", "channels"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "codec": { "type": "string", "const": "pcm_s16le" },
+              "sample_rate": { "type": "integer", "const": 44100 },
+              "channels": { "type": "integer", "const": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "present": { "const": false }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": { "type": "null" },
+              "extraction_status": { "const": "skipped_no_stream" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "extraction_status": { "const": "failed" }
+            }
+          },
+          "then": {
+            "required": ["error"],
+            "properties": {
+              "error": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "low_res_frames": {
+      "type": "object",
+      "required": [
+        "path",
+        "width",
+        "height",
+        "pixel_format",
+        "fps",
+        "frame_count",
+        "storage_format",
+        "bytes_per_frame",
+        "total_bytes",
+        "frame_loss_count",
+        "loss_policy"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to raw low-resolution RGB frames file."
+        },
+        "width": {
+          "type": "integer",
+          "const": 128,
+          "description": "Frame width in pixels (128)."
+        },
+        "height": {
+          "type": "integer",
+          "const": 72,
+          "description": "Frame height in pixels (72)."
+        },
+        "pixel_format": {
+          "type": "string",
+          "const": "rgb24",
+          "description": "Raw pixel format (rgb24)."
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Frame rate matching normalized video."
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total count of extracted 128x72 frames."
+        },
+        "storage_format": {
+          "type": "string",
+          "enum": ["raw_rgb24", "numpy_array", "image_directory"],
+          "description": "Storage representation."
+        },
+        "bytes_per_frame": {
+          "type": "integer",
+          "const": 27648,
+          "description": "Byte length per frame (128 * 72 * 3 = 27648)."
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total size of frame binary file in bytes."
+        },
+        "frame_loss_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of lost or incomplete frames detected."
+        },
+        "loss_policy": {
+          "type": "string",
+          "enum": ["strict_zero_loss", "permissive"],
+          "description": "Frame loss reporting policy."
+        }
+      },
+      "additionalProperties": true
+    },
+    "snapshots": {
+      "type": "object",
+      "required": [
+        "output_dir",
+        "manifest_path",
+        "snapshot_count",
+        "target_fps",
+        "max_dimension",
+        "format"
+      ],
+      "properties": {
+        "output_dir": {
+          "type": "string",
+          "description": "Relative directory containing snapshot image files."
+        },
+        "manifest_path": {
+          "type": "string",
+          "description": "Relative path to snapshot frames_manifest.json."
+        },
+        "snapshot_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of generated snapshots."
+        },
+        "target_fps": {
+          "type": "number",
+          "maximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "description": "Target sampling rate for preview snapshots (<= 1.0 fps)."
+        },
+        "max_dimension": {
+          "type": "integer",
+          "maximum": 512,
+          "exclusiveMinimum": 0,
+          "description": "Maximum dimension of snapshot images in pixels."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["jpeg", "png"],
+          "description": "Snapshot image encoding format."
+        }
+      },
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Non-fatal warnings recorded during media ingestion."
+    },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Errors encountered during media ingestion."
+    }
+  },
+  "additionalProperties": true
+}

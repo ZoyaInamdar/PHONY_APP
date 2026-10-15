@@ -192,7 +192,29 @@ The `score` field is normalized to $[0.0, 1.0]$, but carries detector-specific s
 
 ---
 
-## 4. Packaging Pipeline CLI (`scripts/package_cues.py`)
+## 4. Media Ingestion Pipeline CLI (`scripts/ingest_media.py`)
+
+Run the ingestion pipeline to normalize incoming media, extract audio, generate low-resolution frames, and extract preview snapshots:
+
+```bash
+# Ingest media with default 24 fps and auto film ID
+python scripts/ingest_media.py --input data/media/example.mp4 --output-dir data/processed/example
+
+# Ingest media with explicit film ID and parameters
+python scripts/ingest_media.py --input data/media/example.mp4 --output-dir data/processed/example --film-id example --fps 24.0 --max-width 1920 --max-height 1080
+```
+
+### Ingestion Specifications & Guarantees:
+- **Video Normalization**: H.264 (`libx264`), `yuv420p`, constant 24.0 fps, maximum resolution 1920×1080 (preserving aspect ratio and enforcing even dimensions), timeline origin set to `0.0`.
+- **Audio Extraction**: Signed 16-bit little-endian mono PCM WAV at 44,100 Hz (`pcm_s16le`). If the source contains no audio stream, this is recorded explicitly (`present: false`, `extraction_status: "skipped_no_stream"`) without generating fake audio.
+- **Low-Resolution Video Frames**: Extracted to raw streaming RGB24 frames (`low_res_frames_128x72.rgb`) at 128×72 resolution (27,648 bytes/frame). Memory-efficient and directly accessible via `numpy.memmap`.
+- **Preview Snapshots**: Sampled at $\le 1.0$ fps, maximum dimension 512 pixels, with snapshot catalog recorded in `snapshots/frames_manifest.json`.
+- **Rich Ingestion Manifest**: Emits `ingest_manifest.json` validated against `schema/manifest.schema.json` (JSON Schema Draft 2020-12).
+- **Atomic Staging & Playback Isolation**: Ingestion processes assets in an isolated staging directory and publishes them atomically upon schema validation. Ingestion alone **never marks the engine playback manifest (`data/manifest.json`) as complete**, preserving the boundary between media ingestion and full analysis completion.
+
+---
+
+## 5. Packaging Pipeline CLI (`scripts/package_cues.py`)
 
 Run the packaging pipeline to merge raw detector emissions and generate a validated player index:
 
@@ -209,7 +231,7 @@ python scripts/package_cues.py --input data/cues.json --output data/index.json -
 
 ---
 
-## 5. Running Validators and Automated Tests
+## 6. Running Validators and Automated Tests
 
 ### CLI Validation
 ```bash
@@ -219,28 +241,34 @@ python scripts/validate_config.py
 # Validate packaged index.json
 python scripts/validate_index.py
 
+# Ingest raw media
+python scripts/ingest_media.py --input data/media/sintel.mp4 --output-dir data/processed/sintel
+
 # Package cues
 python scripts/package_cues.py --input data/cues.json --output data/index.json
 ```
 
 ### Automated Pytest Suite
 ```bash
-# Run all tests (71 tests)
+# Run all tests (87 tests: 71 existing + 16 ingest)
 pytest -v
 
-# Run packaging pipeline tests
+# Run media ingestion tests (16 tests)
+pytest tests/test_ingest.py -v
+
+# Run packaging pipeline tests (24 tests)
 pytest tests/test_package.py -v
 
-# Run index contract tests
+# Run index contract tests (31 tests)
 pytest tests/test_index.py -v
 
-# Run config tests
+# Run config tests (16 tests)
 pytest tests/test_config.py -v
 ```
 
 ---
 
-## 6. Validation Responsibilities: JSON Schema vs. Python
+## 7. Validation Responsibilities: JSON Schema vs. Python
 
 | Validation Rule | Enforced by JSON Schema (`schema/index.schema.json`) | Enforced by Python (`scripts/validate_index.py`) |
 | :--- | :---: | :---: |
@@ -258,7 +286,7 @@ pytest tests/test_config.py -v
 
 ---
 
-## 7. Unresolved Model Selections & Stretch Features
+## 8. Unresolved Model Selections & Stretch Features
 
 1. **Audio Event Classifier (`gunshot`, `explosion`, `scream`)**: `AST` vs. `YAMNet` vs. `PANNs` (Owner: Person C & Person B; status: `unresolved`).
 2. **Speech-to-Text Fallback (`profanity`)**: `faster-whisper` vs. `Amazon Transcribe` (Owner: Person B; status: `unresolved`).

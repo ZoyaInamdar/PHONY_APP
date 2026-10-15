@@ -1,58 +1,21 @@
-# Environment files and secrets
-.env
-.env.*
-!.env.example
-
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-env/
-
-# IDE and operating system
-.vscode/
-.idea/
+*.iml
+*.swp
+.idea
 .DS_Store
-Thumbs.db
+.vscode
+.tmp
 
-# Input media and generated media
-data/media/
-media/
-test_media/
-*.mp4
-*.mkv
-*.mov
-*.wav
-*.mp3
-*.raw
+dist
+build
+node_modules
+CMakeUserPresets.json
+npm-debug.log
 
-# Extracted frames and generated detector results
-frames/
-detections/
-output/
-reports/generated/
-frames_manifest.json
-ingest_summary.json
+# Vega build artifacts
+buildinfo.json
 
-# Model weights and caches
-models/
-model_cache/
-.cache/
-huggingface_cache/
-
-# Logs and temporary files
-*.log
-*.tmp
-*.temp
-
-# Secrets and local credentials
-*.pem
-*.key
-credentials.json
-# Node.js dependencies and coverage
-node_modules/
-coverage/
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

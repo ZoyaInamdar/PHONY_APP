@@ -1,10 +1,27 @@
 import {
   Cue,
+  CueAction,
   EffectiveActions,
   ViewerOptions,
 } from './types';
 
 import { applyReviewPolicy } from './reviewPolicy';
+
+/**
+ * Visual action priority order for resolving the single `visualAction` output
+ * when multiple visual cues are active simultaneously.
+ *
+ * hide > blur > dim
+ *
+ * `blur` and `dim` have no Phase 0 rendering implementation.  Their presence
+ * in `visualAction` records what the shared config intends; the rendering layer
+ * (Vega OS overlay API) is required before either can be applied on-device.
+ */
+const VISUAL_ACTION_PRIORITY: ReadonlyMap<CueAction, number> = new Map([
+  ['hide', 3],
+  ['blur', 2],
+  ['dim', 1],
+]);
 
 export function resolveActions(
   time: number,
@@ -31,30 +48,47 @@ export function resolveActions(
     return cue.start <= time && time < cue.end;
   });
 
-  let hide = false;
+  let bestVisualActionPriority = 0;
+  let visualAction: 'hide' | 'blur' | 'dim' | null = null;
   let soundGain = 1;
   let skipTo: number | null = null;
 
   for (const cue of active) {
-    if (
-      cue.action === 'hide' &&
-      cue.source === 'visual' &&
-      options.hideEnabled
-    ) {
-      hide = true;
+    // -------------------------------------------------------------------------
+    // Visual actions
+    // `visual` cues, and `audio_visual` cues when hideEnabled is on, produce a
+    // visual effect.  `dim` and `blur` are recorded faithfully even though Phase 0
+    // has no rendering implementation for them.
+    // -------------------------------------------------------------------------
+    const isVisualSource = cue.source === 'visual' || cue.source === 'audio_visual';
+
+    if (isVisualSource && options.hideEnabled) {
+      const priority = VISUAL_ACTION_PRIORITY.get(cue.action) ?? 0;
+
+      if (priority > 0 && priority > bestVisualActionPriority) {
+        bestVisualActionPriority = priority;
+        visualAction = cue.action as 'hide' | 'blur' | 'dim';
+      }
     }
 
-    if (
-      cue.source === 'audio' &&
-      cue.action === 'mute' &&
-      options.muteEnabled
-    ) {
+    // -------------------------------------------------------------------------
+    // Audio actions
+    // `audio` cues apply directly.  `text` cues (profanity) have audio muting
+    // as their player-side action (muting the audio channel during the cue).
+    // `audio_visual` cues also carry an audio component.
+    //
+    // Caption censorship for `text` cues is handled separately by Person C's
+    // caption renderer — NOT by the audio mute here, though both may fire on
+    // the same interval.
+    // -------------------------------------------------------------------------
+    const hasAudioComponent =
+      cue.source === 'audio' ||
+      cue.source === 'text' ||
+      cue.source === 'audio_visual';
+
+    if (hasAudioComponent && cue.action === 'mute' && options.muteEnabled) {
       soundGain = 0;
-    } else if (
-      cue.source === 'audio' &&
-      cue.action === 'reduce' &&
-      options.reduceEnabled
-    ) {
+    } else if (hasAudioComponent && cue.action === 'reduce' && options.reduceEnabled) {
       const gain = cue.gain ?? options.reduceGain;
 
       if (!Number.isFinite(gain) || gain < 0 || gain > 1) {
@@ -64,6 +98,9 @@ export function resolveActions(
       soundGain = Math.min(soundGain, gain);
     }
 
+    // -------------------------------------------------------------------------
+    // Skip actions
+    // -------------------------------------------------------------------------
     const reviewAllowsSkip =
       cue.status !== 'needs_review' || options.confirmReviewSkip;
 
@@ -77,9 +114,13 @@ export function resolveActions(
     }
   }
 
+  // `hide` true is kept for backward-compat: it is true exactly when visualAction is 'hide'.
+  const hide = visualAction === 'hide';
+
   return {
     time,
     hide,
+    visualAction,
     soundGain,
     skipTo,
     activeCueIds: active.map((cue) => cue.id),

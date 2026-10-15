@@ -5,8 +5,16 @@ import { Cue, ViewerOptions } from './types';
  * Downgrade unconfirmed needs_review skip cues to their
  * source-appropriate fallback action.
  *
- * Visual skip -> hide
- * Audio skip  -> mute
+ * Fallback mapping:
+ *   visual skip         → hide  (if hideEnabled)
+ *   audio skip          → mute  (if muteEnabled)
+ *   text skip           → mute  (text cues mute audio; if muteEnabled)
+ *   audio_visual skip   → mute  (best safe fallback; if muteEnabled)
+ *   any other           → warn  (if preferred action is disabled)
+ *
+ * `dim` and `blur` cues will never have `action === 'skip'` in practice
+ * (the shared config does not allow skip for flashing/spider in Phase 0),
+ * but they are treated as visual sources here for completeness.
  *
  * This function does not mutate the input cues.
  */
@@ -23,11 +31,19 @@ export function applyReviewPolicy(
       return { ...cue };
     }
 
-    if (cue.source === 'visual' && options.hideEnabled) {
+    if (
+      (cue.source === 'visual') &&
+      options.hideEnabled
+    ) {
       return { ...cue, action: 'hide' };
     }
 
-    if (cue.source === 'audio' && options.muteEnabled) {
+    if (
+      (cue.source === 'audio' ||
+        cue.source === 'text' ||
+        cue.source === 'audio_visual') &&
+      options.muteEnabled
+    ) {
       return { ...cue, action: 'mute' };
     }
 

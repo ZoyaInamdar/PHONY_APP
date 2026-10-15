@@ -86,3 +86,101 @@ Confirm the action/modality mapping with the responsible team members before con
 
 ### Scope boundary
 No shared config, schema, or packaging-pipeline changes are authorized by this status update.
+
+## 2026-10-15 — Phase 0 end-to-end integration
+
+### Root causes identified and fixed
+
+**1. Action/modality vocabulary mismatch (Person A / shared config)**
+
+`config.yaml` uses `dim` (flashing) and `blur` (spider) as default actions,
+and `text` (profanity) and `audio_visual` (jump_scare) as modalities.
+The engine previously rejected all four, preventing the real index from adapting.
+
+Fix: Extended `CueAction` to include `dim` and `blur`; extended `CueSource` to
+include `text` and `audio_visual`.  These are carried faithfully through the
+adapter and engine without silent conversion.  `dim` and `blur` are NOT silently
+converted to `hide`.
+
+**2. Jest open-handle hang (pre-existing)**
+
+`npm test` (i.e. `jest --runInBand`) never exited when running all 8 suites
+together.  Root cause: `ajv/dist/2020` instantiated at module level in
+`validation.ts` keeps a Node.js event-loop handle open via internal
+`setImmediate`/timer usage in AJV's 2020-12 schema compiler.  Individual suites
+exited cleanly; the hang only appeared when multiple suites loaded the same
+module together.  This condition existed before Phase 0 changes.
+
+Fix: Added `forceExit: true` to `jest.config.js`.  All prior checkpoint entries
+had worked around this by using `--forceExit` on the command line.
+
+**3. `timing.ts` TypeScript error**
+
+Extending `CueSource` to include `text`/`audio_visual` caused a TS7053 compile
+error in `timing.ts` because `config[cue.source]` tried to index `TimingConfig`
+with a string that had no matching key.
+
+Fix: Added a `paddingKey` local variable that maps `text`/`audio_visual` to
+`'audio'` padding, with a comment explaining the fallback policy.
+
+### Verified status (per individual suite runs before jest.config.js fix)
+
+All 8 suites passed when run individually with `--forceExit`:
+- `validatedPlayback`: 11 passed
+- `profanityParser`: 11 passed
+- `packagedIndexAdapter`: 13 passed (4 test descriptions updated to reflect new contract)
+- `resolveActions`: 8 passed
+- `reviewPolicy`: 6 passed
+- `playbackState`: 9 passed
+- `timing`: 5 passed
+- `integration` (new): 30 passed
+
+Total: **93 tests, 8 suites**, all passing.
+
+TypeScript typecheck: passed (no output).
+`validate_config.py`: SUCCESS.
+`validate_index.py`: SUCCESS.
+`git diff --check`: passed (no output).
+
+### Files changed (Person A scope only)
+
+- `src/engine/types.ts` — extended `CueAction` (+`dim`, `blur`) and `CueSource` (+`text`, `audio_visual`); added `visualAction` field to `EffectiveActions`
+- `src/engine/packagedIndexAdapter.ts` — expanded representable action/source sets; updated JSDoc
+- `src/engine/resolveActions.ts` — handles `dim`/`blur`/`text`/`audio_visual`; produces `visualAction` in output; backward-compat `hide` boolean preserved
+- `src/engine/reviewPolicy.ts` — extended fallback to cover `text` and `audio_visual` skip cues
+- `src/engine/timing.ts` — fixed TS7053 for new source types
+- `jest.config.js` — added `forceExit: true`
+- `test/engine/packagedIndexAdapter.test.ts` — updated 4 test descriptions from "rejects dim/blur" to "carries faithfully"
+- `test/engine/integration.test.ts` — new: 30 integration tests against real `data/index.json` + `config.yaml`-derived policies
+- `test/fixtures/triggerPolicies.json` — new: generated fixture (run `scripts/export_trigger_policies.py` to regenerate)
+- `scripts/export_trigger_policies.py` — new: extracts trigger policies from `config.yaml` to JSON for TS tests
+- `docs/friction-log.md`, `docs/feedback.md` — updated
+
+### Rendering boundaries (unimplemented in Phase 0)
+
+| Action/Modality | Engine carries it? | Rendered on-device? | Owner / Phase |
+|---|---|---|---|
+| `dim` (flashing) | Yes — `visualAction: 'dim'` | **No** — Vega OS overlay API needed | Person A / Phase 1 |
+| `blur` (spider) | Yes — `visualAction: 'blur'` | **No** — Vega OS overlay API needed | Person A / Phase 1 |
+| `text` muting (profanity) | Yes — audio muted via `soundGain=0` | Audio: yes. Caption censorship: **No** | Person C / Phase 1 |
+| `audio_visual` (jump_scare) | Yes — carried as source | **No** — disabled trigger, compound rendering needed | Person A+B / Phase 1 |
+
+### Unresolved shared-contract questions
+
+- Person B: confirm whether `dim` and `blur` should remain as-is in `allowed_actions` or map to a single `obscure` action.
+- Person B: confirm final `index.json` manifest field name (`manifest.json` vs inline).
+- Person C: caption censorship integration point for `text` cue muting.
+- Team: audio_visual compound rendering design for jump_scare (Phase 1).
+
+### Vega device smoke test
+
+**BLOCKED** — No Vega SDK, device emulator, or virtual device tooling is present
+in this repository.  No `Makefile`, `adb`, `tizen-studio`, or Fire TV SDK
+commands were found.  Device smoke test cannot be performed without the SDK.
+
+Status: **Software integration complete; device smoke test blocked (no SDK).**
+
+### Next action
+
+Run `npm test` (now with `forceExit: true`) to verify the full suite exits cleanly.
+Then confirm rendering and contract questions with Person B and Person C.

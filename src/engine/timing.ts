@@ -23,7 +23,13 @@ export function applySourcePadding(
   config: TimingConfig = DEFAULT_TIMING_CONFIG,
 ): Cue[] {
   return cues.map((cue) => {
-    const padding = config[cue.source];
+    // `text` and `audio_visual` sources share audio padding in the absence of
+    // a dedicated timing config entry.  If a future config version adds
+    // explicit entries for them, those will take precedence.
+    const paddingKey: 'visual' | 'audio' =
+      cue.source === 'visual' ? 'visual' : 'audio';
+
+    const padding = config[paddingKey];
 
     if (
       !Number.isFinite(padding.start) ||

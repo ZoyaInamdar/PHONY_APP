@@ -1,0 +1,97 @@
+{
+  "_note": "Auto-generated from config.yaml by scripts/export_trigger_policies.py. Do not edit manually. Re-run this script when config.yaml changes.",
+  "_source": "config.yaml triggers section",
+  "policies": {
+    "flashing": {
+      "enabled": true,
+      "modality": "visual",
+      "default_action": "dim",
+      "allowed_actions": [
+        "dim",
+        "blur",
+        "skip",
+        "warn"
+      ]
+    },
+    "loud_spike": {
+      "enabled": true,
+      "modality": "audio",
+      "default_action": "mute",
+      "allowed_actions": [
+        "mute",
+        "skip",
+        "warn"
+      ]
+    },
+    "gunshot": {
+      "enabled": true,
+      "modality": "audio",
+      "default_action": "mute",
+      "allowed_actions": [
+        "mute",
+        "skip",
+        "warn"
+      ]
+    },
+    "explosion": {
+      "enabled": true,
+      "modality": "audio",
+      "default_action": "mute",
+      "allowed_actions": [
+        "mute",
+        "skip",
+        "warn"
+      ]
+    },
+    "scream": {
+      "enabled": true,
+      "modality": "audio",
+      "default_action": "mute",
+      "allowed_actions": [
+        "mute",
+        "skip",
+        "warn"
+      ]
+    },
+    "profanity": {
+      "enabled": true,
+      "modality": "text",
+      "default_action": "mute",
+      "allowed_actions": [
+        "mute",
+        "skip",
+        "warn"
+      ]
+    },
+    "spider": {
+      "enabled": true,
+      "modality": "visual",
+      "default_action": "blur",
+      "allowed_actions": [
+        "blur",
+        "skip",
+        "warn"
+      ]
+    },
+    "fast_motion": {
+      "enabled": false,
+      "modality": "visual",
+      "default_action": "warn",
+      "allowed_actions": [
+        "warn",
+        "dim",
+        "skip"
+      ]
+    },
+    "jump_scare": {
+      "enabled": false,
+      "modality": "audio_visual",
+      "default_action": "warn",
+      "allowed_actions": [
+        "warn",
+        "mute",
+        "skip"
+      ]
+    }
+  }
+}

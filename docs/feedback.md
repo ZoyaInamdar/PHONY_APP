@@ -57,3 +57,49 @@ The adapter's fixture tests establish behavior for explicit policies only. They 
 
 ### Scope
 This decision does not authorize changes to shared config, schemas, or the packaging pipeline.
+
+## 2026-10-15 — Phase 0 end-to-end integration complete (software)
+
+### Implemented and tested
+
+- `dim` and `blur` actions are now representable in `CueAction` and carried
+  faithfully through the adapter and engine.  They are NOT converted to `hide`.
+- `text` (profanity) and `audio_visual` (jump_scare) source modalities are now
+  representable in `CueSource`.  `text` cues mute audio.  `audio_visual` cues
+  are carried but their compound rendering is not implemented.
+- `EffectiveActions` now includes `visualAction: 'hide' | 'blur' | 'dim' | null`
+  in addition to the backward-compatible `hide: boolean`.
+- `reviewPolicy.ts` extended to cover `text` and `audio_visual` skip fallbacks.
+- `timing.ts` fixed to handle `text`/`audio_visual` sources without TS error.
+- Integration tests (30) exercise the actual `data/index.json` and policies
+  derived from the actual `config.yaml`.  They confirm all 9 cues are processed,
+  2 disabled triggers produce no output cues, and all modalities/actions are
+  handled without silent conversion.
+- `jest.config.js` now has `forceExit: true` to fix a pre-existing hang caused
+  by AJV's open handle.
+
+### Implemented in the engine but NOT rendered
+
+- `dim`: engine sets `visualAction: 'dim'`; no Vega OS overlay rendering.
+- `blur`: engine sets `visualAction: 'blur'`; no Vega OS overlay rendering.
+- Caption censorship for `text`/profanity cues: audio is muted, but captions
+  are not censored (Person C's responsibility).
+- `audio_visual` compound rendering: not implemented (Phase 1).
+
+### Blocked
+
+- Vega device smoke test: blocked, no SDK present in repository.
+
+### Awaiting team confirmation
+
+- Person B: `dim`/`blur` action vocabulary — keep separate or merge to `obscure`?
+- Person B: final manifest/index contract fields.
+- Person C: caption censorship integration point.
+- Team: `audio_visual` compound rendering design.
+
+### Working rule
+
+The integration test fixture `test/fixtures/triggerPolicies.json` is generated
+from `config.yaml` by `scripts/export_trigger_policies.py`.  Re-run that script
+whenever `config.yaml` trigger policies change.  The integration tests will fail
+if the fixture drifts from the live config.

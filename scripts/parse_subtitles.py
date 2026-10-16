@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-"""Module for parsing and classifying SRT subtitle files for Trigger-Aware Player pipeline.
+"""Module for parsing, classifying, and exporting SRT subtitle cues for Trigger-Aware Player pipeline.
 
-Uses `pysrt` to read and validate .srt files, classifying each subtitle cue as
-either 'sound_description' or 'speech', and matches profanity words against
-speech cues using an external word list.
+Uses `pysrt` to read and validate .srt files, classifies each subtitle cue as
+either 'sound_description' or 'speech', matches profanity words against speech
+cues, and exports results to JSON according to shared pipeline contracts:
+- cues.json: Array of every cue with id, start, end, kind, text, and flagged_words.
+- detections/subtitles.json: Flagged intervals matching shared detector contract with provenance.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import os
+import platform
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -22,6 +27,14 @@ import pysrt
 class SubtitleParseError(Exception):
     """Raised when an SRT file cannot be parsed or contains invalid cue structures."""
     pass
+
+
+def get_pysrt_version() -> str:
+    """Return the installed pysrt version string."""
+    try:
+        return importlib.metadata.version("pysrt")
+    except Exception:
+        return getattr(pysrt, "__version__", "unknown")
 
 
 def strip_formatting_tags(text: str) -> str:
@@ -119,10 +132,14 @@ def match_profanity_in_cues(
     - Case-insensitive matching, handling punctuation and uppercase/lowercase.
     - Matches only against cues classified as 'speech' (skips sound_description).
     - For every match, appends a flagged metadata object with:
+        * word: matched string
+        * char_start: start offset in text
+        * char_end: end offset in text
         * evidence: 'subtitle_text'
         * timing: 'estimated'
         * spoken_confirmed: null
-    - Produces shared detection records for downstream merging.
+    - Produces shared detection records for downstream merging. If a cue contains
+      a flagged word, start and end match the entire cue interval (estimated timing).
 
     Args:
         sub_file: Parsed SubRipFile whose cues already have .kind set.
@@ -166,6 +183,7 @@ def match_profanity_in_cues(
             for match in pattern.finditer(raw_text):
                 char_start = match.start()
                 char_end = match.end()
+                matched_word = raw_text[char_start:char_end]
 
                 # Linear interpolation for estimated word timestamp
                 word_start = round(start_s + (char_start / text_length) * cue_duration, 3)
@@ -173,6 +191,7 @@ def match_profanity_in_cues(
 
                 flagged_terms.append({
                     "term_id": term_id,
+                    "word": matched_word,
                     "char_start": char_start,
                     "char_end": char_end,
                     "evidence": "subtitle_text",
@@ -188,7 +207,8 @@ def match_profanity_in_cues(
             flagged_terms.sort(key=lambda t: t["char_start"])
             cue.flagged = flagged_terms
 
-            # Add raw detection record on shared timeline
+            # Per pipeline spec: with estimated timing, the detection bounds
+            # cover the entire cue interval.
             raw_detections.append({
                 "start": round(start_s, 3),
                 "end": round(end_s, 3),
@@ -287,31 +307,157 @@ def parse_srt_file(
 def cues_to_dicts(sub_file: pysrt.SubRipFile) -> List[Dict[str, Any]]:
     """Convert a classified pysrt.SubRipFile into a list of cue dictionaries.
 
-    Suitable for export to JSON (e.g. cues.json). Includes `flagged` list if present.
+    Suitable for export to JSON (e.g. cues.json). Each item contains:
+    - id: string cue identifier
+    - start: float start time in seconds
+    - end: float end time in seconds
+    - kind: 'speech' or 'sound_description'
+    - text: full subtitle text
+    - flagged_words: array of flagged word metadata
     """
     results: List[Dict[str, Any]] = []
     for i, cue in enumerate(sub_file):
         cue_id = f"c{getattr(cue, 'index', i + 1)}"
+        flagged_list = getattr(cue, "flagged", []) or []
+
+        flagged_words: List[Dict[str, Any]] = []
+        for f in flagged_list:
+            flagged_words.append({
+                "word": f.get("word", ""),
+                "char_start": f["char_start"],
+                "char_end": f["char_end"],
+                "evidence": f.get("evidence", "subtitle_text"),
+                "timing": f.get("timing", "estimated"),
+                "spoken_confirmed": f.get("spoken_confirmed", None),
+            })
+
         item_dict: Dict[str, Any] = {
             "id": cue_id,
             "start": round(subrip_time_to_seconds(cue.start), 3),
             "end": round(subrip_time_to_seconds(cue.end), 3),
             "kind": getattr(cue, "kind", "speech"),
             "text": cue.text,
+            "flagged_words": flagged_words,
         }
 
-        flagged = getattr(cue, "flagged", None)
-        if flagged:
-            item_dict["flagged"] = flagged
+        # Keep legacy alias 'flagged' if flagged_words is populated
+        if flagged_words:
+            item_dict["flagged"] = flagged_list
 
         results.append(item_dict)
     return results
 
 
+def export_cues_json(
+    sub_file: pysrt.SubRipFile,
+    output_path: Union[str, Path],
+    indent: int = 2,
+) -> List[Dict[str, Any]]:
+    """Export every subtitle cue in the film to cues.json.
+
+    Args:
+        sub_file: Classified SubRipFile with attached kind and flagged terms.
+        output_path: Destination path for cues.json.
+        indent: JSON indentation level (default: 2).
+
+    Returns:
+        List of cue dictionaries written to disk.
+    """
+    cues_data = cues_to_dicts(sub_file)
+    out_p = Path(output_path)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+
+    with out_p.open("w", encoding="utf-8") as f:
+        json.dump(cues_data, f, indent=indent)
+
+    return cues_data
+
+
+def generate_subtitles_provenance(
+    source_file: Optional[str] = None,
+    wordlist_path: Optional[Union[str, Path]] = None,
+) -> Dict[str, Any]:
+    """Generate provenance metadata block for the subtitles detection stage."""
+    pysrt_version = get_pysrt_version()
+    provenance: Dict[str, Any] = {
+        "stage": "subtitles",
+        "status": "ok",
+        "source_file": str(source_file) if source_file else None,
+        "wordlist_path": str(wordlist_path) if wordlist_path else None,
+        "evidence_type": "subtitle_text",
+        "timing_type": "estimated",
+        "libs": {
+            "pysrt": pysrt_version,
+            "python": platform.python_version(),
+        },
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    return provenance
+
+
+def export_detections_json(
+    sub_file: pysrt.SubRipFile,
+    output_path: Union[str, Path],
+    source: str = "subtitles",
+    source_file: Optional[str] = None,
+    wordlist_path: Optional[Union[str, Path]] = None,
+    indent: int = 2,
+) -> Dict[str, Any]:
+    """Export flagged intervals to detections/subtitles.json with a provenance block.
+
+    Each detection adheres to the shared detector contract:
+    { "start": float, "end": float, "trigger": "profanity", "score": 1.0, "source": "subtitles" }
+    Because timing is estimated, start/end cover the entire cue duration.
+
+    Args:
+        sub_file: Parsed SubRipFile with flagged speech cues.
+        output_path: Destination path for detections/subtitles.json.
+        source: Stable component identifier (default: 'subtitles').
+        source_file: Optional original SRT filename for provenance.
+        wordlist_path: Optional wordlist path for provenance.
+        indent: JSON indentation level (default: 2).
+
+    Returns:
+        Dictionary containing the provenance block and detections list.
+    """
+    detections: List[Dict[str, Any]] = []
+
+    for cue in sub_file:
+        flagged = getattr(cue, "flagged", [])
+        if flagged:
+            start_s = subrip_time_to_seconds(cue.start)
+            end_s = subrip_time_to_seconds(cue.end)
+            detections.append({
+                "start": round(start_s, 3),
+                "end": round(end_s, 3),
+                "trigger": "profanity",
+                "score": 1.0,
+                "source": source,
+            })
+
+    provenance = generate_subtitles_provenance(
+        source_file=source_file,
+        wordlist_path=wordlist_path,
+    )
+
+    payload: Dict[str, Any] = {
+        "provenance": provenance,
+        "detections": detections,
+    }
+
+    out_p = Path(output_path)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+
+    with out_p.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=indent)
+
+    return payload
+
+
 def main() -> None:
-    """CLI interface for parsing subtitles and detecting profanity."""
+    """CLI interface for parsing subtitles, detecting profanity, and exporting JSON."""
     parser = argparse.ArgumentParser(
-        description="Parse and classify subtitle cues in an .srt file and match profanity."
+        description="Parse subtitles, detect profanity, and export cues.json and detections/subtitles.json."
     )
     parser.add_argument("srt_file", type=str, help="Path to the .srt file to process.")
     parser.add_argument(
@@ -327,21 +473,21 @@ def main() -> None:
         help="Optional text encoding (default: auto-detect utf-8 / latin-1).",
     )
     parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output parsed cues as formatted JSON.",
-    )
-    parser.add_argument(
         "--out-cues",
         type=str,
         default=None,
-        help="Path to write cues.json output.",
+        help="Path to export cues.json (default: None).",
     )
     parser.add_argument(
         "--out-detections",
         type=str,
         default=None,
-        help="Path to write detections/subtitles.json output.",
+        help="Path to export detections/subtitles.json (default: None).",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output parsed cues as formatted JSON to stdout.",
     )
 
     args = parser.parse_args()
@@ -349,29 +495,25 @@ def main() -> None:
     try:
         sub_file = parse_srt_file(args.srt_file, encoding=args.encoding)
 
-        raw_detections: List[Dict[str, Any]] = []
         if args.wordlist:
             words = load_wordlist(args.wordlist)
-            raw_detections = match_profanity_in_cues(sub_file, words)
-
-        cues_data = cues_to_dicts(sub_file)
+            match_profanity_in_cues(sub_file, words)
 
         if args.out_cues:
-            out_p = Path(args.out_cues)
-            out_p.parent.mkdir(parents=True, exist_ok=True)
-            with out_p.open("w", encoding="utf-8") as f:
-                json.dump(cues_data, f, indent=2)
-            print(f"Wrote cues to: {out_p}")
+            export_cues_json(sub_file, args.out_cues)
+            print(f"Exported cues.json to: {args.out_cues}")
 
         if args.out_detections:
-            det_p = Path(args.out_detections)
-            det_p.parent.mkdir(parents=True, exist_ok=True)
-            with det_p.open("w", encoding="utf-8") as f:
-                json.dump(raw_detections, f, indent=2)
-            print(f"Wrote detections to: {det_p}")
+            export_detections_json(
+                sub_file,
+                args.out_detections,
+                source_file=args.srt_file,
+                wordlist_path=args.wordlist,
+            )
+            print(f"Exported detections to: {args.out_detections}")
 
         if args.json:
-            print(json.dumps(cues_data, indent=2))
+            print(json.dumps(cues_to_dicts(sub_file), indent=2))
         elif not args.out_cues and not args.out_detections:
             sound_count = sum(1 for c in sub_file if getattr(c, "kind", None) == "sound_description")
             speech_count = len(sub_file) - sound_count
@@ -380,9 +522,6 @@ def main() -> None:
             print(f"Total Cues: {len(sub_file)} (Speech: {speech_count}, Sound Descriptions: {sound_count})")
             if args.wordlist:
                 print(f"Cues Flagged with Profanity: {flagged_count}")
-            for cue in sub_file[:5]:
-                flag_info = f" [FLAGGED: {len(cue.flagged)}]" if getattr(cue, "flagged", None) else ""
-                print(f"  [{cue.kind.upper()}]{flag_info} {cue.start} --> {cue.end}: {cue.text.replace(os.linesep, ' ')}")
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)

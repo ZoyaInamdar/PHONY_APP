@@ -10,6 +10,10 @@ from scripts.parse_subtitles import (
     classify_cue_text,
     classify_cue,
     cues_to_dicts,
+    export_cues_json,
+    export_detections_json,
+    generate_subtitles_provenance,
+    get_pysrt_version,
     load_wordlist,
     match_profanity_in_cues,
     parse_srt_file,
@@ -104,6 +108,7 @@ Did you hear that?
             "end": 3.5,
             "kind": "sound_description",
             "text": "[Dramatic music starts]",
+            "flagged_words": [],
         }
     finally:
         Path(temp_path).unlink(missing_ok=True)
@@ -270,3 +275,111 @@ This is total bullshit!
         assert "flagged" in dicts[1]
     finally:
         Path(temp_srt).unlink(missing_ok=True)
+
+
+def test_export_cues_json():
+    """Verify export_cues_json creates formatted JSON with required cue fields and flagged_words."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=5),
+            end=pysrt.SubRipTime(seconds=8),
+            text="Get down, damn it!",
+        ),
+        pysrt.SubRipItem(
+            index=2,
+            start=pysrt.SubRipTime(seconds=9),
+            end=pysrt.SubRipTime(seconds=11),
+            text="[gunfire in distance]",
+        ),
+    ])
+
+    word_list = ["damn"]
+    match_profanity_in_cues(sub_file, word_list)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        out_json = f.name
+
+    try:
+        exported = export_cues_json(sub_file, out_json)
+        assert len(exported) == 2
+
+        # Cue 1 (speech with profanity)
+        c1 = exported[0]
+        assert c1["id"] == "c1"
+        assert c1["start"] == 5.0
+        assert c1["end"] == 8.0
+        assert c1["kind"] == "speech"
+        assert c1["text"] == "Get down, damn it!"
+        assert len(c1["flagged_words"]) == 1
+
+        fw = c1["flagged_words"][0]
+        assert fw["word"] == "damn"
+        assert fw["char_start"] == 10
+        assert fw["char_end"] == 14
+        assert fw["evidence"] == "subtitle_text"
+        assert fw["timing"] == "estimated"
+        assert fw["spoken_confirmed"] is None
+
+        # Cue 2 (sound description, clean)
+        c2 = exported[1]
+        assert c2["id"] == "c2"
+        assert c2["kind"] == "sound_description"
+        assert c2["flagged_words"] == []
+    finally:
+        Path(out_json).unlink(missing_ok=True)
+
+
+def test_export_detections_json():
+    """Verify export_detections_json produces shared detector contract with provenance."""
+    sub_file = pysrt.SubRipFile([
+        pysrt.SubRipItem(
+            index=1,
+            start=pysrt.SubRipTime(seconds=12),
+            end=pysrt.SubRipTime(seconds=15),
+            text="This is complete bullshit.",
+        ),
+        pysrt.SubRipItem(
+            index=2,
+            start=pysrt.SubRipTime(seconds=16),
+            end=pysrt.SubRipTime(seconds=18),
+            text="Everything is fine.",
+        ),
+    ])
+
+    word_list = ["bullshit"]
+    match_profanity_in_cues(sub_file, word_list)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        out_json = f.name
+
+    try:
+        payload = export_detections_json(
+            sub_file,
+            out_json,
+            source="subtitles",
+            source_file="sample.srt",
+            wordlist_path="data/profanity_wordlist.txt",
+        )
+
+        assert "provenance" in payload
+        assert "detections" in payload
+
+        # Provenance check
+        prov = payload["provenance"]
+        assert prov["stage"] == "subtitles"
+        assert prov["status"] == "ok"
+        assert "libs" in prov
+        assert prov["libs"]["pysrt"] == get_pysrt_version()
+
+        # Detections check: only flagged cues, timing covers full cue duration
+        dets = payload["detections"]
+        assert len(dets) == 1
+        d = dets[0]
+        assert d["start"] == 12.0
+        assert d["end"] == 15.0
+        assert d["trigger"] == "profanity"
+        assert d["score"] == 1.0
+        assert d["source"] == "subtitles"
+    finally:
+        Path(out_json).unlink(missing_ok=True)

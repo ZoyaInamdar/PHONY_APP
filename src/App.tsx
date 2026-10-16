@@ -1,13 +1,20 @@
+
 import React, {useState} from 'react';
 import {StyleSheet, Text, ImageBackground, View, Image} from 'react-native';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Tile} from './components/Tile';
 import {tiles} from './data/tiles';
+import {PlayerScreen} from './components/PlayerScreen';
 
 export const App = () => {
   const [focusedTileId, setFocusedTileId] = useState<string>('home');
+  const [showPlayer, setShowPlayer] = useState(false);
 
   const focusedTile = tiles.find((t) => t.id === focusedTileId);
+
+  if (showPlayer) {
+    return <PlayerScreen onBack={() => setShowPlayer(false)} />;
+  }
 
   return (
     <ImageBackground
@@ -52,6 +59,11 @@ export const App = () => {
             isFocused={focusedTileId === tile.id}
             onFocus={() => setFocusedTileId(tile.id)}
             onBlur={() => {}}
+            onPress={() => {
+              if (tile.id === 'get-started') {
+                setShowPlayer(true);
+              }
+            }}
             testID={`tile-${tile.id}`}
             accessibilityLabel={tile.accessibilityLabel}
             hasTVPreferredFocus={tile.id === 'home'}

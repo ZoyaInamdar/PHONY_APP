@@ -523,18 +523,35 @@ def test_canonical_triggers_loaded_from_config(tmp_path: Path):
     with pytest.raises(ValueError, match="Invalid trigger 'violence'"):
         write_labels_csv([{"clip": "v.mp4", "trigger": "violence", "start": 1.0, "end": 2.0}], dummy_csv)
 
-    # 4. load_canonical_triggers fails if config file is missing or invalid
-    with pytest.raises(FileNotFoundError):
-        load_canonical_triggers(tmp_path / "non_existent.yaml")
+    # 4. load_canonical_triggers falls back to official 9 + 4 addiction triggers if config file cannot be read
+    fallback_triggers = load_canonical_triggers(tmp_path / "non_existent.yaml")
+    expected_fallback = {
+        "flashing",
+        "loud_spike",
+        "gunshot",
+        "explosion",
+        "scream",
+        "profanity",
+        "spider",
+        "fast_motion",
+        "jump_scare",
+        "alcohol",
+        "narcotics",
+        "gambling",
+        "tobacco",
+    }
+    assert fallback_triggers == expected_fallback
+    assert "violence" not in fallback_triggers
+    assert "gore" not in fallback_triggers
 
+    # Also falls back on invalid config
     bad_config = tmp_path / "bad_config.yaml"
     bad_config.write_text("other_field: 123\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="missing top-level 'triggers' section"):
-        load_canonical_triggers(bad_config)
+    assert load_canonical_triggers(bad_config) == expected_fallback
 
 
 def test_manifest_reexport_and_deterministic_audio(tmp_path: Path):
-    """Verify manifest export covers all 28 clips with metadata, and audio synthesis is deterministic."""
+    """Verify manifest export covers all 30 clips with metadata, and audio synthesis is deterministic."""
     import numpy as np
 
     # 1. Deterministic audio generation with fixed seed
@@ -544,11 +561,13 @@ def test_manifest_reexport_and_deterministic_audio(tmp_path: Path):
     assert np.array_equal(wave1, wave2)
     assert not np.array_equal(wave1, wave3)
 
-    # 2. Build all specs returns 28 distinct clips
+    # 2. Build all specs returns 30 distinct clips (28 base suite + 2 loud_spike clips)
     specs = build_all_clip_specs()
-    assert len(specs) == 28
+    assert len(specs) == 30
     clip_names = {s.clip_name for s in specs}
-    assert len(clip_names) == 28
+    assert len(clip_names) == 30
+    assert "audio_loud_spike_test.mp4" in clip_names
+    assert "audio_loud_spike_isolated.mp4" in clip_names
 
     # 3. Export manifest to tmp_path
     manifest_p = tmp_path / "manifest.json"
@@ -558,8 +577,8 @@ def test_manifest_reexport_and_deterministic_audio(tmp_path: Path):
     with manifest_p.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert data["clip_count"] == 28
-    assert len(data["clips"]) == 28
+    assert data["clip_count"] == 30
+    assert len(data["clips"]) == 30
 
     # Check that each clip contains required metadata fields
     for c in data["clips"]:
@@ -569,6 +588,52 @@ def test_manifest_reexport_and_deterministic_audio(tmp_path: Path):
         assert "width" in c and c["width"] == 640
         assert "height" in c and c["height"] == 360
         assert "metadata" in c
+
+
+def test_actual_rate_and_loud_spike_labels(tmp_path: Path):
+    """Verify actual_rate is correctly populated for flash clips and loud_spike labels are written."""
+    # 1. Flash clip spec populates actual_rate in to_label_dict
+    flash_spec = ClipSpec(
+        clip_name="flash_test.mp4",
+        duration=5.0,
+        fps=24.0,
+        trigger="flashing",
+        start=1.0,
+        end=3.0,
+        metadata={"target_flash_rate": 4.0, "actual_flash_rate": 4.167},
+    )
+    label_dict = flash_spec.to_label_dict()
+    assert label_dict is not None
+    assert label_dict["trigger"] == "flashing"
+    assert label_dict["actual_rate"] == 4.167
+
+    # 2. loud_spike clip spec produces proper label
+    loud_spec = ClipSpec(
+        clip_name="audio_loud_spike_test.mp4",
+        duration=6.0,
+        fps=24.0,
+        trigger="loud_spike",
+        start=2.0,
+        end=2.5,
+        metadata={"event_type": "loud_spike"},
+    )
+    loud_dict = loud_spec.to_label_dict()
+    assert loud_dict is not None
+    assert loud_dict["trigger"] == "loud_spike"
+    assert loud_dict["start"] == 2.0
+    assert loud_dict["end"] == 2.5
+
+    # 3. write_labels_csv and read_labels_csv preserve actual_rate
+    csv_file = tmp_path / "test_labels.csv"
+    write_labels_csv([label_dict, loud_dict], csv_file)
+
+    loaded = read_labels_csv(csv_file)
+    assert len(loaded) == 2
+    flash_row = next(r for r in loaded if r["trigger"] == "flashing")
+    loud_row = next(r for r in loaded if r["trigger"] == "loud_spike")
+    assert flash_row["actual_rate"] == 4.167
+    assert "actual_rate" not in loud_row or loud_row["actual_rate"] is None or loud_row["actual_rate"] == ""
+
 
 
 

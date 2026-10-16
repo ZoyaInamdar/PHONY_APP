@@ -1,6 +1,6 @@
 {
   "generator_version": 1,
-  "clip_count": 28,
+  "clip_count": 30,
   "clips": [
     {
       "clip_name": "audio_explosion_test.mp4",
@@ -35,6 +35,44 @@
         "modality": "audio",
         "triggers": [
           "gunshot"
+        ]
+      }
+    },
+    {
+      "clip_name": "audio_loud_spike_isolated.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "loud_spike",
+      "start": 1.5,
+      "end": 1.8,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "loud_spike",
+        "modality": "audio",
+        "description": "Sharp isolated volume spike (+15 dB) against quiet baseline",
+        "triggers": [
+          "loud_spike"
+        ]
+      }
+    },
+    {
+      "clip_name": "audio_loud_spike_test.mp4",
+      "duration": 6.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "loud_spike",
+      "start": 2.0,
+      "end": 2.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "loud_spike",
+        "modality": "audio",
+        "description": "Quiet background drone with sudden localized +15 dB volume burst",
+        "triggers": [
+          "loud_spike"
         ]
       }
     },

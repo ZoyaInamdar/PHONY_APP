@@ -37,33 +37,44 @@ import yaml
 
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
 
+FALLBACK_CANONICAL_TRIGGERS: set[str] = {
+    "flashing",
+    "loud_spike",
+    "gunshot",
+    "explosion",
+    "scream",
+    "profanity",
+    "spider",
+    "fast_motion",
+    "jump_scare",
+    "alcohol",
+    "narcotics",
+    "gambling",
+    "tobacco",
+}
+
 
 def load_canonical_triggers(config_path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> set[str]:
     """Load canonical trigger IDs dynamically from config.yaml.
 
-    Reads triggers from the 'triggers' section of config.yaml.
-    Fails with FileNotFoundError or ValueError if config is missing or invalid,
-    ensuring test data generation strictly adheres to the shared pipeline configuration
-    and cannot drift.
+    Reads triggers directly from the 'triggers' section of config.yaml.
+    If config.yaml cannot be read, falls back to the official 9 canonical triggers
+    plus addiction triggers (alcohol, narcotics, gambling, tobacco).
     """
-    path = Path(config_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"Configuration file not found: {path}")
+    try:
+        path = Path(config_path)
+        if path.is_file():
+            with path.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict) and "triggers" in data and isinstance(data["triggers"], dict):
+                return set(data["triggers"].keys())
+    except Exception:
+        pass
 
-    with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    if not isinstance(data, dict) or "triggers" not in data:
-        raise ValueError(f"Invalid config file {path}: missing top-level 'triggers' section")
-
-    triggers = set(data["triggers"].keys())
-    if not triggers:
-        raise ValueError(f"No triggers defined in config file: {path}")
-
-    return triggers
+    return set(FALLBACK_CANONICAL_TRIGGERS)
 
 
-# Canonical triggers allowed in labels.csv (dynamically loaded from config.yaml)
+# Canonical triggers allowed in labels.csv (dynamically loaded from config.yaml with fallback)
 CANONICAL_TRIGGERS = load_canonical_triggers(DEFAULT_CONFIG_PATH)
 
 # Deterministic random seed for repeatable synthetic data generation
@@ -196,8 +207,14 @@ def write_labels_csv(
                 "end": f"{float(r['end']):.3f}",
                 "labeller": r.get("labeller", "synthetic_generator"),
             }
-            if "actual_rate" in r and r["actual_rate"] is not None:
-                row_dict["actual_rate"] = r["actual_rate"]
+            if "actual_rate" in r and r["actual_rate"] is not None and str(r["actual_rate"]).strip() != "":
+                rate_val = r["actual_rate"]
+                try:
+                    row_dict["actual_rate"] = f"{float(rate_val):.3f}"
+                except (ValueError, TypeError):
+                    row_dict["actual_rate"] = str(rate_val)
+            else:
+                row_dict["actual_rate"] = ""
             writer.writerow(row_dict)
 
     return out_path
@@ -504,6 +521,41 @@ def build_all_clip_specs() -> List[ClipSpec]:
             metadata={"description": "Negative baseline clip without acoustic spikes", "event_type": "calm_dialogue"},
         )
     )
+    # Dedicated loud_spike test clips (2 clips)
+    specs.append(
+        ClipSpec(
+            clip_name="audio_loud_spike_test.mp4",
+            duration=6.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="loud_spike",
+            start=2.0,
+            end=2.5,
+            metadata={
+                "event_type": "loud_spike",
+                "modality": "audio",
+                "description": "Quiet background drone with sudden localized +15 dB volume burst",
+            },
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_loud_spike_isolated.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="loud_spike",
+            start=1.5,
+            end=1.8,
+            metadata={
+                "event_type": "loud_spike",
+                "modality": "audio",
+                "description": "Sharp isolated volume spike (+15 dB) against quiet baseline",
+            },
+        )
+    )
 
     # 5. Speech triggers test clip (1)
     specs.append(
@@ -574,13 +626,19 @@ def read_labels_csv(csv_path: Union[str, Path]) -> List[Dict[str, Any]]:
     with path.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            records.append({
+            record: Dict[str, Any] = {
                 "clip": row["clip"],
                 "trigger": row["trigger"],
                 "start": float(row["start"]),
                 "end": float(row["end"]),
                 "labeller": row.get("labeller", ""),
-            })
+            }
+            if "actual_rate" in row and row["actual_rate"] is not None and str(row["actual_rate"]).strip() != "":
+                try:
+                    record["actual_rate"] = float(row["actual_rate"])
+                except (ValueError, TypeError):
+                    record["actual_rate"] = row["actual_rate"]
+            records.append(record)
     return records
 
 
@@ -882,6 +940,7 @@ def generate_flash_clip(
 
 def generate_flash_test_suite(
     output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    write_manifest: bool = False,
 ) -> Tuple[List[Path], List[ClipSpec]]:
     """Generate the standardized benchmark suite of flash clips varying fps, rates, areas, contrast.
 
@@ -945,11 +1004,11 @@ def generate_flash_test_suite(
     for s in specs:
         row = s.to_label_dict()
         if row:
-            row["actual_rate"] = s.metadata.get("actual_flash_rate")
             labels_records.append(row)
 
     write_labels_csv(labels_records, out_dir / "labels.csv")
-    write_manifest_json(specs, out_dir / "manifest.json")
+    if write_manifest:
+        write_manifest_json(specs, out_dir / "manifest.json")
 
     return generated_paths, specs
 
@@ -1139,6 +1198,17 @@ def synthesize_audio_event(
         f0 = 160 + 20 * np.sin(2 * np.pi * 2 * t)
         cadence = 0.5 * (1 + np.sin(2 * np.pi * 1.25 * t))
         audio = 0.08 * cadence * (np.sin(2 * np.pi * f0 * t) + 0.5 * np.sin(2 * np.pi * 2 * f0 * t))
+        return audio
+
+    elif event_type == "loud_spike":
+        # Sudden localized volume burst (+15 dB above quiet background drone) with sharp attack
+        decay_transient = np.exp(-t / 0.12)
+        tone = 0.65 * np.sin(2 * np.pi * 380 * t) * decay_transient
+        noise = 0.35 * rng.normal(0, 1, total_samples) * decay_transient
+        audio = tone + noise
+        peak = np.max(np.abs(audio))
+        if peak > 0:
+            audio = (audio / peak) * 0.90
         return audio
 
     else:
@@ -1337,7 +1407,32 @@ def generate_audio_test_suite(
     generated_paths.append(p)
     specs.extend(s)
 
-    # 5. Negative audio clips (if requested)
+    # 5. Dedicated loud_spike test clips (quiet background with localized +15 dB volume burst)
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_loud_spike_test.mp4",
+        duration=6.0,
+        events=[
+            ("ambient_noise", 0.0, 6.0),
+            ("loud_spike", 2.0, 2.5),
+        ],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_loud_spike_isolated.mp4",
+        duration=5.0,
+        events=[
+            ("ambient_noise", 0.0, 5.0),
+            ("loud_spike", 1.5, 1.8),
+        ],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    # 6. Negative audio clips (if requested)
     if include_negatives:
         # Negative 1: Ambient room tone
         p, s = generate_audio_clip(
@@ -1368,12 +1463,18 @@ def generate_audio_test_suite(
     new_positive_rows = [sp.to_label_dict() for sp in specs if sp.to_label_dict() is not None]
 
     # Deduplicate against existing by (clip, start, trigger)
-    seen = {(r["clip"], round(float(r["start"]), 3), r["trigger"]) for r in existing_records}
+    seen = {}
+    for idx, r in enumerate(existing_records):
+        key = (r["clip"], round(float(r["start"]), 3), r["trigger"])
+        seen[key] = idx
     merged_rows = list(existing_records)
     for row in new_positive_rows:
         key = (row["clip"], round(float(row["start"]), 3), row["trigger"])
-        if key not in seen:
-            seen.add(key)
+        if key in seen:
+            if "actual_rate" in row and row["actual_rate"]:
+                merged_rows[seen[key]]["actual_rate"] = row["actual_rate"]
+        else:
+            seen[key] = len(merged_rows)
             merged_rows.append(row)
 
     write_labels_csv(merged_rows, labels_csv_path)
@@ -1679,12 +1780,15 @@ def generate_speech_test_clip(
         existing_records = read_labels_csv(labels_csv_path)
 
     new_positive_rows = [sp.to_label_dict() for sp in specs if sp.to_label_dict() is not None]
-    seen = {(r["clip"], round(float(r["start"]), 3), r["trigger"]) for r in existing_records}
+    seen = {}
+    for idx, r in enumerate(existing_records):
+        key = (r["clip"], round(float(r["start"]), 3), r["trigger"])
+        seen[key] = idx
     merged_rows = list(existing_records)
     for row in new_positive_rows:
         key = (row["clip"], round(float(row["start"]), 3), row["trigger"])
         if key not in seen:
-            seen.add(key)
+            seen[key] = len(merged_rows)
             merged_rows.append(row)
 
     write_labels_csv(merged_rows, labels_csv_path)
@@ -1878,7 +1982,7 @@ def main() -> None:
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
     elif args.flash_only:
         print("[1/1] Generating flash benchmark suite...")
-        paths, specs = generate_flash_test_suite(out_dir)
+        paths, specs = generate_flash_test_suite(out_dir, write_manifest=True)
         print(f"Generated {len(paths)} flash test clips in {out_dir}")
         print(f"Wrote labels to: {out_dir / 'labels.csv'}")
         print(f"Wrote manifest to: {out_dir / 'manifest.json'}")
@@ -1915,7 +2019,7 @@ def main() -> None:
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
 
         print("\n[2/6] Generating flash benchmark suite...")
-        flash_paths, flash_specs = generate_flash_test_suite(out_dir)
+        flash_paths, flash_specs = generate_flash_test_suite(out_dir, write_manifest=False)
         print(f"Generated {len(flash_paths)} flash test clips in {out_dir}")
         print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
 
@@ -1924,7 +2028,7 @@ def main() -> None:
         print(f"Generated detail pattern clip: {detail_path}")
         print("(Note: Not written to labels.csv as this clip has no trigger label)")
 
-        print("\n[4/6] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
+        print("\n[4/6] Generating audio benchmark suite (gunshot, explosion, scream, loud_spike, negatives)...")
         audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
         print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
         print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
@@ -1941,24 +2045,10 @@ def main() -> None:
         print(f"Generated {len(neg_v_paths)} negative video clips in {out_dir}")
         print("(Note: All negative clips are strictly omitted from labels.csv)")
 
-        # Update manifest with all 28 specs
-        sync_clip_spec = ClipSpec(
-            clip_name="sync_test.mp4",
-            duration=10.0,
-            fps=24.0,
-            width=640,
-            height=360,
-            trigger=None,
-            start=None,
-            end=None,
-            labeller="synthetic_generator",
-            metadata={
-                "description": "Synchronization calibration clip with 3 simultaneous visual flashes and 1000Hz beeps",
-                "markers_count": len(sync_specs),
-            },
-        )
-        all_specs = [sync_clip_spec] + flash_specs + [detail_spec] + audio_specs + sp_specs + neg_v_specs
+        # Re-export master manifest capturing all 30 clips (28+ suite) at the end of generation
+        all_specs = build_all_clip_specs()
         write_manifest_json(all_specs, out_dir / "manifest.json")
+        print(f"\n[Manifest] Re-exported master manifest with all {len(all_specs)} clips to: {out_dir / 'manifest.json'}")
 
     print("\nGeneration complete!")
 

@@ -744,6 +744,305 @@ def generate_detail_pattern_clip(
     return mp4_path, spec
 
 
+def synthesize_audio_event(
+    event_type: str,
+    duration: float,
+    sample_rate: int = 44100,
+) -> Any:
+    """Synthesize an acoustic waveform for positive or negative audio triggers.
+
+    Returns a 1D numpy array of float values in [-1.0, 1.0].
+    """
+    import numpy as np
+
+    total_samples = int(duration * sample_rate)
+    t = np.linspace(0, duration, total_samples, endpoint=False)
+
+    if event_type == "gunshot":
+        # Sharp impulse crack with fast exponential decay
+        decay_transient = np.exp(-t / 0.04)
+        noise = np.random.normal(0, 1, total_samples) * decay_transient
+        sub_resonance = 0.5 * np.sin(2 * np.pi * 80 * t) * np.exp(-t / 0.1)
+        audio = noise + sub_resonance
+        peak = np.max(np.abs(audio))
+        if peak > 0:
+            audio = (audio / peak) * 0.95
+        return audio
+
+    elif event_type == "explosion":
+        # Low-frequency detonation rumble with downward pitch sweep and turbulent decay
+        decay_rumble = np.exp(-t / 0.45)
+        sweep_freq = np.linspace(55, 25, total_samples)
+        sub_detonation = 0.8 * np.sin(2 * np.pi * sweep_freq * t) * np.exp(-t / 0.6)
+        noise = np.random.normal(0, 1, total_samples) * decay_rumble
+        audio = noise + sub_detonation
+        peak = np.max(np.abs(audio))
+        if peak > 0:
+            audio = (audio / peak) * 0.95
+        return audio
+
+    elif event_type == "scream":
+        # High-pitched vocal distress vocalization with pitch vibrato and formants
+        f_vibrato = 750 + 200 * np.sin(2 * np.pi * 5 * t)
+        formant1 = np.sin(2 * np.pi * f_vibrato * t)
+        formant2 = 0.6 * np.sin(2 * np.pi * 2 * f_vibrato * t)
+        breath_noise = 0.25 * np.random.normal(0, 1, total_samples)
+        envelope = np.minimum(1.0, t / 0.1) * np.exp(-np.maximum(0, t - 0.8) / 0.5)
+        audio = (formant1 + formant2 + breath_noise) * envelope
+        peak = np.max(np.abs(audio))
+        if peak > 0:
+            audio = (audio / peak) * 0.90
+        return audio
+
+    elif event_type == "ambient_noise":
+        # Gentle continuous pink/brownian noise at -30 dBFS
+        noise = np.random.normal(0, 0.03, total_samples)
+        return noise
+
+    elif event_type == "calm_dialogue":
+        # Modulated conversational speech cadence with pauses, lacking spikes
+        f0 = 160 + 20 * np.sin(2 * np.pi * 2 * t)
+        cadence = 0.5 * (1 + np.sin(2 * np.pi * 1.25 * t))
+        audio = 0.08 * cadence * (np.sin(2 * np.pi * f0 * t) + 0.5 * np.sin(2 * np.pi * 2 * f0 * t))
+        return audio
+
+    else:
+        raise ValueError(f"Unknown event_type '{event_type}'")
+
+
+def generate_audio_clip(
+    output_dir: Union[str, Path],
+    filename: str,
+    duration: float,
+    events: List[Tuple[str, float, float]],
+    fps: float = 24.0,
+    width: int = 640,
+    height: int = 360,
+    sample_rate: int = 44100,
+) -> Tuple[Path, List[ClipSpec]]:
+    """Generate an MP4 clip with a black video track and placed audio events.
+
+    Args:
+        output_dir: Destination directory.
+        filename: Target MP4 filename.
+        duration: Total clip duration in seconds.
+        events: List of (event_type, start_sec, end_sec).
+        fps: Video framerate (default: 24.0).
+        width: Video width (default: 640).
+        height: Video height (default: 360).
+        sample_rate: Audio sampling rate (default: 44100).
+
+    Returns:
+        Tuple of (path to created MP4, list of ClipSpecs for positive triggers).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / filename
+
+    import numpy as np
+    import tempfile
+    import wave
+
+    total_samples = int(duration * sample_rate)
+    master_audio = np.zeros(total_samples, dtype=np.float32)
+
+    specs: List[ClipSpec] = []
+
+    for event_type, start_s, end_s in events:
+        event_dur = end_s - start_s
+        event_wave = synthesize_audio_event(event_type, event_dur, sample_rate)
+
+        start_samp = int(round(start_s * sample_rate))
+        end_samp = start_samp + len(event_wave)
+
+        if end_samp > total_samples:
+            event_wave = event_wave[: total_samples - start_samp]
+            end_samp = total_samples
+
+        master_audio[start_samp:end_samp] += event_wave
+
+        # Only create label spec for canonical triggers (positive cases)
+        if event_type in CANONICAL_TRIGGERS:
+            specs.append(
+                ClipSpec(
+                    clip_name=filename,
+                    duration=duration,
+                    fps=fps,
+                    width=width,
+                    height=height,
+                    trigger=event_type,
+                    start=round(start_s, 3),
+                    end=round(end_s, 3),
+                    labeller="synthetic_generator",
+                    metadata={
+                        "event_type": event_type,
+                        "modality": "audio",
+                        "acoustic_model": "synthetic_physical_transient",
+                    },
+                )
+            )
+
+    # If no positive events were present, create a negative spec
+    if not specs:
+        specs.append(
+            ClipSpec(
+                clip_name=filename,
+                duration=duration,
+                fps=fps,
+                width=width,
+                height=height,
+                trigger=None,
+                start=None,
+                end=None,
+                labeller="synthetic_generator",
+                metadata={"description": "Negative baseline clip without acoustic spikes"},
+            )
+        )
+
+    # Prevent clipping and convert to 16-bit PCM
+    peak = np.max(np.abs(master_audio))
+    if peak > 0.99:
+        master_audio = (master_audio / peak) * 0.95
+
+    int_samples = (master_audio * 32767).astype(np.int16)
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+        temp_wav_path = Path(tf.name)
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    try:
+        with wave.open(str(temp_wav_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(int_samples.tobytes())
+
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-f", "lavfi",
+            "-i", f"color=c=black:s={width}x{height}:r={fps}:d={duration}",
+            "-i", str(temp_wav_path),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-t", f"{duration:.3f}",
+            str(mp4_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed to generate audio clip '{filename}':\n{proc.stderr}")
+    finally:
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+
+    return mp4_path, specs
+
+
+def generate_audio_test_suite(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    include_negatives: bool = True,
+) -> Tuple[List[Path], List[ClipSpec]]:
+    """Generate audio benchmark clips (gunshot, explosion, scream, and negatives).
+
+    Appends positive trigger labels to labels.csv and updates manifest.json.
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    generated_paths: List[Path] = []
+    specs: List[ClipSpec] = []
+
+    # 1. Gunshot test clip
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_gunshot_test.mp4",
+        duration=4.0,
+        events=[("gunshot", 1.5, 2.0)],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    # 2. Explosion test clip
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_explosion_test.mp4",
+        duration=5.0,
+        events=[("explosion", 1.0, 3.2)],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    # 3. Scream test clip
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_scream_test.mp4",
+        duration=4.0,
+        events=[("scream", 1.2, 2.7)],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    # 4. Multi-event composite mix
+    p, s = generate_audio_clip(
+        out_dir,
+        "audio_multi_event_mix.mp4",
+        duration=9.0,
+        events=[
+            ("gunshot", 1.0, 1.5),
+            ("scream", 3.0, 4.5),
+            ("explosion", 6.0, 8.2),
+        ],
+    )
+    generated_paths.append(p)
+    specs.extend(s)
+
+    # 5. Negative audio clips (if requested)
+    if include_negatives:
+        # Negative 1: Ambient room tone
+        p, s = generate_audio_clip(
+            out_dir,
+            "audio_negative_ambient.mp4",
+            duration=5.0,
+            events=[("ambient_noise", 0.0, 5.0)],
+        )
+        generated_paths.append(p)
+        specs.extend(s)
+
+        # Negative 2: Calm conversational speech
+        p, s = generate_audio_clip(
+            out_dir,
+            "audio_negative_dialogue.mp4",
+            duration=5.0,
+            events=[("calm_dialogue", 0.0, 5.0)],
+        )
+        generated_paths.append(p)
+        specs.extend(s)
+
+    # Update labels.csv (load existing labels if any, append new positive triggers)
+    labels_csv_path = out_dir / "labels.csv"
+    existing_records: List[Dict[str, Any]] = []
+    if labels_csv_path.is_file():
+        existing_records = read_labels_csv(labels_csv_path)
+
+    new_positive_rows = [sp.to_label_dict() for sp in specs if sp.to_label_dict() is not None]
+
+    # Deduplicate against existing by (clip, start, trigger)
+    seen = {(r["clip"], round(float(r["start"]), 3), r["trigger"]) for r in existing_records}
+    merged_rows = list(existing_records)
+    for row in new_positive_rows:
+        key = (row["clip"], round(float(row["start"]), 3), row["trigger"])
+        if key not in seen:
+            seen.add(key)
+            merged_rows.append(row)
+
+    write_labels_csv(merged_rows, labels_csv_path)
+
+    return generated_paths, specs
+
+
+
 def main() -> None:
     """CLI entrypoint for generating synthetic test clips."""
     parser = argparse.ArgumentParser(
@@ -769,6 +1068,11 @@ def main() -> None:
         "--detail-only",
         action="store_true",
         help="Generate only the fine-detail pattern clip for blur checks.",
+    )
+    parser.add_argument(
+        "--audio-only",
+        action="store_true",
+        help="Generate only the audio benchmark suite (gunshots, explosions, screams, negatives).",
     )
 
     args = parser.parse_args()
@@ -796,24 +1100,34 @@ def main() -> None:
         detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
         print(f"Generated detail pattern clip: {detail_path}")
         print("(Note: Not written to labels.csv as this clip has no trigger label)")
+    elif args.audio_only:
+        print("[1/1] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
+        audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
+        print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
+        print(f"Updated labels in: {out_dir / 'labels.csv'}")
     else:
-        print("[1/3] Generating sync test clip...")
+        print("[1/4] Generating sync test clip...")
         sync_path, sync_specs = generate_sync_clip(out_dir)
         print(f"Generated sync clip: {sync_path}")
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
 
-        print("\n[2/3] Generating flash benchmark suite...")
-        paths, specs = generate_flash_test_suite(out_dir)
-        print(f"Generated {len(paths)} flash test clips in {out_dir}")
+        print("\n[2/4] Generating flash benchmark suite...")
+        flash_paths, flash_specs = generate_flash_test_suite(out_dir)
+        print(f"Generated {len(flash_paths)} flash test clips in {out_dir}")
         print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
 
-        print("\n[3/3] Generating fine-detail pattern clip for blur checks...")
+        print("\n[3/4] Generating fine-detail pattern clip for blur checks...")
         detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
         print(f"Generated detail pattern clip: {detail_path}")
         print("(Note: Not written to labels.csv as this clip has no trigger label)")
 
+        print("\n[4/4] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
+        audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
+        print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
+        print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
+
         # Update manifest with all specs
-        all_specs = specs + [detail_spec]
+        all_specs = flash_specs + [detail_spec] + audio_specs
         write_manifest_json(all_specs, out_dir / "manifest.json")
 
     print("\nGeneration complete!")
@@ -821,6 +1135,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

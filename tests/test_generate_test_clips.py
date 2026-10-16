@@ -31,14 +31,18 @@ from scripts.generate_test_clips import (
     ClipSpec,
     compute_flash_timing,
     find_tool,
+    generate_audio_clip,
+    generate_audio_test_suite,
     generate_detail_pattern_clip,
     generate_flash_clip,
     generate_sync_clip,
     get_area_geometry,
     read_labels_csv,
+    synthesize_audio_event,
     write_labels_csv,
     write_sync_labels_csv,
 )
+
 
 
 
@@ -287,4 +291,91 @@ def test_generate_detail_pattern_clip_no_label(tmp_path: Path):
 
     loaded = read_labels_csv(labels_csv)
     assert len(loaded) == 0
+
+
+def test_synthesize_audio_event():
+    """Verify waveform synthesis for all positive and negative audio categories."""
+    for event_type in ["gunshot", "explosion", "scream", "ambient_noise", "calm_dialogue"]:
+        wave = synthesize_audio_event(event_type, duration=0.5, sample_rate=44100)
+        assert len(wave) == int(0.5 * 44100)
+        assert abs(float(wave.max())) <= 1.0
+        assert abs(float(wave.min())) <= 1.0
+
+    with pytest.raises(ValueError):
+        synthesize_audio_event("invalid_sound", duration=0.5)
+
+
+def test_generate_audio_clip_positive(tmp_path: Path):
+    """Verify gunshot, explosion, and scream clips are wrapped in MP4 and logged to labels.csv."""
+    test_events = [
+        ("audio_gunshot.mp4", [("gunshot", 1.0, 1.5)], 3.0),
+        ("audio_explosion.mp4", [("explosion", 0.5, 2.5)], 4.0),
+        ("audio_scream.mp4", [("scream", 1.0, 2.2)], 3.0),
+    ]
+
+    all_specs: list[ClipSpec] = []
+    for fname, evts, dur in test_events:
+        mp4_path, specs = generate_audio_clip(
+            output_dir=tmp_path,
+            filename=fname,
+            duration=dur,
+            events=evts,
+        )
+        assert mp4_path.is_file()
+        all_specs.extend(specs)
+
+        # Verify video and audio tracks
+        probe_data = probe_clip(mp4_path)
+        streams = probe_data.get("streams", [])
+        codec_types = {s["codec_type"] for s in streams}
+        assert "video" in codec_types
+        assert "audio" in codec_types
+        media_dur = float(probe_data["format"]["duration"])
+        assert media_dur == pytest.approx(dur, abs=0.1)
+
+    labels_csv = tmp_path / "labels.csv"
+    write_labels_csv([s.to_label_dict() for s in all_specs if s.to_label_dict()], labels_csv)
+
+    loaded_labels = read_labels_csv(labels_csv)
+    assert len(loaded_labels) == 3
+
+    triggers = {r["trigger"] for r in loaded_labels}
+    assert triggers == {"gunshot", "explosion", "scream"}
+
+    for row in loaded_labels:
+        assert 0.0 <= row["start"] < row["end"]
+        assert row["trigger"] in CANONICAL_TRIGGERS
+
+
+def test_generate_negative_audio_clips(tmp_path: Path):
+    """Verify negative audio clips (ambient noise, calm dialogue) are NOT written to labels.csv."""
+    negative_events = [
+        ("audio_ambient.mp4", [("ambient_noise", 0.0, 3.0)], 3.0),
+        ("audio_dialogue.mp4", [("calm_dialogue", 0.0, 3.0)], 3.0),
+    ]
+
+    all_specs: list[ClipSpec] = []
+    for fname, evts, dur in negative_events:
+        mp4_path, specs = generate_audio_clip(
+            output_dir=tmp_path,
+            filename=fname,
+            duration=dur,
+            events=evts,
+        )
+        assert mp4_path.is_file()
+        all_specs.extend(specs)
+
+    # All negative specs must have trigger=None and to_label_dict()=None
+    for s in all_specs:
+        assert s.trigger is None
+        assert s.to_label_dict() is None
+
+    labels_csv = tmp_path / "labels.csv"
+    valid_rows = [s.to_label_dict() for s in all_specs if s.to_label_dict() is not None]
+    assert len(valid_rows) == 0
+    write_labels_csv(valid_rows, labels_csv)
+
+    loaded = read_labels_csv(labels_csv)
+    assert len(loaded) == 0
+
 

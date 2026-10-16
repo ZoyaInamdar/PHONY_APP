@@ -1,0 +1,4 @@
+clip,marker,start,end,frequency_hz,labeller,notes
+sync_test.mp4,sync_marker_1,2.000,2.200,1000.0,synthetic_generator,Simultaneous visual flash and 1000Hz beep
+sync_test.mp4,sync_marker_2,5.000,5.200,1000.0,synthetic_generator,Simultaneous visual flash and 1000Hz beep
+sync_test.mp4,sync_marker_3,8.000,8.200,1000.0,synthetic_generator,Simultaneous visual flash and 1000Hz beep

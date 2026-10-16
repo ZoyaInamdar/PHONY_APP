@@ -1,0 +1,17 @@
+clip,trigger,start,end,labeller,actual_rate
+flash_area_half_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_area_quarter_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_area_small_patch_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_contrast_005_24fps_4hz_full.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_contrast_010_24fps_4hz_full.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_contrast_020_24fps_4hz_full.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_edge_25fps_3hz_full_c050.mp4,flashing,1.000,3.560,synthetic_generator,3.125
+flash_edge_30fps_2hz_full_c050.mp4,flashing,1.000,5.267,synthetic_generator,1.875
+flash_edge_60fps_6hz_full_c050.mp4,flashing,1.000,2.333,synthetic_generator,6.0
+flash_fps_25fps_4hz_full_c050.mp4,flashing,1.000,2.920,synthetic_generator,4.167
+flash_fps_30fps_4hz_full_c050.mp4,flashing,1.000,3.133,synthetic_generator,3.75
+flash_fps_60fps_4hz_full_c050.mp4,flashing,1.000,3.133,synthetic_generator,3.75
+flash_rate_2hz_24fps_full_c050.mp4,flashing,1.000,5.000,synthetic_generator,2.0
+flash_rate_3hz_24fps_full_c050.mp4,flashing,1.000,3.667,synthetic_generator,3.0
+flash_rate_4hz_24fps_full_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.0
+flash_rate_6hz_24fps_full_c050.mp4,flashing,1.000,2.333,synthetic_generator,6.0

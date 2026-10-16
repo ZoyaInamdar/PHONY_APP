@@ -67,6 +67,7 @@ To maintain clean separation between offline detector components and the on-devi
    - Contains top-level metadata: `schema_version`, `film_id`, `timeline` (`duration_seconds`, optional `fps`), and an array of `cues`.
    - Each packaged cue contains: deterministic `id`, `start`, `end`, `trigger`, `score`, `source`.
    - Does **not** hardcode viewer actions; runtime actions (`blur`, `mute`, `skip`, `dim`, `warn`) and action precedence are applied on-device by Person A based on viewer settings.
+   - For engine integration API, types, and adapter details, see [`docs/PLAYER_ENGINE_INTEGRATION.md`](docs/PLAYER_ENGINE_INTEGRATION.md).
 
 > [!NOTE]
 > All files in `data/cues.json` and `data/index.json` are **synthetic fixtures** for contract verification, automated tests, and player integration. They do not represent real media detection results.

@@ -124,7 +124,7 @@ def write_labels_csv(
 ) -> Path:
     """Write primary ground-truth labels to CSV.
 
-    Header format: clip,trigger,start,end,labeller
+    Header format: clip,trigger,start,end,labeller,actual_rate
     Validates that every trigger matches canonical trigger IDs.
 
     Args:
@@ -139,7 +139,7 @@ def write_labels_csv(
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fieldnames = ["clip", "trigger", "start", "end", "labeller"]
+    fieldnames = ["clip", "trigger", "start", "end", "labeller", "actual_rate"]
 
     for row in records:
         trig = row.get("trigger")
@@ -158,15 +158,19 @@ def write_labels_csv(
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in sorted_records:
-            writer.writerow({
+            row_dict = {
                 "clip": r["clip"],
                 "trigger": r["trigger"],
                 "start": f"{float(r['start']):.3f}",
                 "end": f"{float(r['end']):.3f}",
                 "labeller": r.get("labeller", "synthetic_generator"),
-            })
+            }
+            if "actual_rate" in r and r["actual_rate"] is not None:
+                row_dict["actual_rate"] = r["actual_rate"]
+            writer.writerow(row_dict)
 
     return out_path
+
 
 
 def write_sync_labels_csv(
@@ -361,4 +365,321 @@ def generate_sync_clip(
     write_sync_labels_csv([s.to_dict() for s in sync_specs], sync_csv_path)
 
     return mp4_path, sync_specs
+
+
+def compute_flash_timing(fps: float, target_flash_rate: float) -> Tuple[int, int, float]:
+    """Calculate whole-number bright and dark frames per flash cycle and actual generated rate.
+
+    Design constraint:
+        Each phase is a whole number of frames (e.g. at 24 fps, 4 flashes per second
+        is 3 frames bright and 3 dark).
+        If a rate won't divide evenly, the actual generated rate is recorded in the labels.
+
+    Args:
+        fps: Video framerate.
+        target_flash_rate: Desired flashes per second (Hz).
+
+    Returns:
+        (bright_frames, dark_frames, actual_flash_rate)
+    """
+    half_cycle = max(1, int(round(fps / (2.0 * target_flash_rate))))
+    bright_frames = half_cycle
+    dark_frames = half_cycle
+    total_cycle_frames = bright_frames + dark_frames
+    actual_flash_rate = round(fps / total_cycle_frames, 3)
+    return bright_frames, dark_frames, actual_flash_rate
+
+
+def get_area_geometry(area_name: str, width: int = 640, height: int = 360) -> Tuple[int, int, int, int, float]:
+    """Calculate (x, y, w, h, fraction) for a given area type.
+
+    Types:
+        - full: 100% of screen.
+        - half: 50% of screen (centered horizontal band).
+        - quarter: 25% of screen (centered rectangle, WCAG cutoff threshold).
+        - small_patch: 6.25% of screen (160x90 centered, sub-threshold case).
+
+    Returns:
+        (x, y, w, h, area_fraction)
+    """
+    total_pixels = width * height
+    if area_name == "full":
+        return 0, 0, width, height, 1.0
+    elif area_name == "half":
+        h = height // 2
+        y = (height - h) // 2
+        return 0, y, width, h, (width * h) / total_pixels
+    elif area_name == "quarter":
+        w = width // 2
+        h = height // 2
+        x = (width - w) // 2
+        y = (height - h) // 2
+        return x, y, w, h, (w * h) / total_pixels
+    elif area_name == "small_patch":
+        w = width // 4
+        h = height // 4
+        x = (width - w) // 2
+        y = (height - h) // 2
+        return x, y, w, h, (w * h) / total_pixels
+    else:
+        raise ValueError(f"Unknown area type '{area_name}'. Choose from full, half, quarter, small_patch.")
+
+
+def generate_flash_clip(
+    output_dir: Union[str, Path],
+    filename: str,
+    fps: float,
+    target_flash_rate: float,
+    area: str = "full",
+    contrast_step: float = 0.50,
+    width: int = 640,
+    height: int = 360,
+    lead_in_seconds: float = 1.0,
+    num_cycles: int = 8,
+    lead_out_seconds: float = 1.0,
+) -> Tuple[Path, ClipSpec]:
+    """Generate a single flash test clip with precise frame-accurate ground truth.
+
+    Label constraint:
+        The truth label spans strictly from the first flash frame to the last flash frame:
+        start = first_flash_frame / fps
+        end = last_flash_end_frame / fps
+        trigger = 'flashing'
+
+    Args:
+        output_dir: Destination directory for MP4.
+        filename: Destination MP4 filename.
+        fps: Target framerate (e.g. 24, 25, 30, 60).
+        target_flash_rate: Desired flash frequency (e.g. 2, 3, 4, 6 Hz).
+        area: Screen area ('full', 'half', 'quarter', 'small_patch').
+        contrast_step: Luminance delta step (0.05, 0.10, 0.20, 0.50).
+        width: Video width (default: 640).
+        height: Video height (default: 360).
+        lead_in_seconds: Baseline static time before first flash (default: 1.0s).
+        num_cycles: Number of full flash cycles (default: 8).
+        lead_out_seconds: Static baseline time after last flash (default: 1.0s).
+
+    Returns:
+        Tuple of (path to generated MP4, ClipSpec with metadata and truth label).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / filename
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    bright_frames, dark_frames, actual_flash_rate = compute_flash_timing(fps, target_flash_rate)
+    cycle_frames = bright_frames + dark_frames
+    total_flash_frames = num_cycles * cycle_frames
+
+    first_flash_frame = int(round(lead_in_seconds * fps))
+    last_flash_end_frame = first_flash_frame + total_flash_frames
+    lead_out_frames = int(round(lead_out_seconds * fps))
+    total_frames = last_flash_end_frame + lead_out_frames
+    duration = round(total_frames / fps, 3)
+
+    start_truth = round(first_flash_frame / fps, 3)
+    end_truth = round(last_flash_end_frame / fps, 3)
+
+    # Base neutral gray is 128 (0x808080)
+    dark_val = max(0, min(255, int(round(128 - (contrast_step * 128)))))
+    bright_val = max(0, min(255, int(round(128 + (contrast_step * 128)))))
+    dark_hex = f"0x{dark_val:02x}{dark_val:02x}{dark_val:02x}"
+    bright_hex = f"0x{bright_val:02x}{bright_val:02x}{bright_val:02x}"
+
+    x, y, w, h, area_fraction = get_area_geometry(area, width, height)
+
+    # Video filter: base neutral gray background, box region flashes between dark and bright during flash window
+    vf = (
+        f"drawbox=x={x}:y={y}:w={w}:h={h}:c={dark_hex}:t=fill:"
+        f"enable='between(n,{first_flash_frame},{last_flash_end_frame - 1})',"
+        f"drawbox=x={x}:y={y}:w={w}:h={h}:c={bright_hex}:t=fill:"
+        f"enable='between(n,{first_flash_frame},{last_flash_end_frame - 1})*"
+        f"lt(mod(n-{first_flash_frame},{cycle_frames}),{bright_frames})'"
+    )
+
+    cmd = [
+        ffmpeg_bin,
+        "-y",
+        "-f", "lavfi",
+        "-i", f"color=c=0x808080:s={width}x{height}:r={fps}:d={duration}",
+        "-f", "lavfi",
+        "-i", f"anullsrc=r=44100:cl=mono:d={duration}",
+        "-vf", vf,
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "64k",
+        "-t", f"{duration:.3f}",
+        str(mp4_path),
+    ]
+
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"FFmpeg failed to generate flash clip '{filename}':\n{proc.stderr}")
+
+    spec = ClipSpec(
+        clip_name=filename,
+        duration=duration,
+        fps=fps,
+        width=width,
+        height=height,
+        trigger="flashing",
+        start=start_truth,
+        end=end_truth,
+        labeller="synthetic_generator",
+        metadata={
+            "target_flash_rate": target_flash_rate,
+            "actual_flash_rate": actual_flash_rate,
+            "bright_frames": bright_frames,
+            "dark_frames": dark_frames,
+            "cycle_frames": cycle_frames,
+            "area": area,
+            "area_fraction": area_fraction,
+            "contrast_step": contrast_step,
+            "dark_val": dark_val,
+            "bright_val": bright_val,
+            "lead_in_seconds": lead_in_seconds,
+            "lead_out_seconds": lead_out_seconds,
+            "first_flash_frame": first_flash_frame,
+            "last_flash_end_frame": last_flash_end_frame,
+        },
+    )
+
+    return mp4_path, spec
+
+
+def generate_flash_test_suite(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+) -> Tuple[List[Path], List[ClipSpec]]:
+    """Generate the standardized benchmark suite of flash clips varying fps, rates, areas, contrast.
+
+    Variations covered:
+        - Frame rates: 24, 25, 30, 60 fps
+        - Flash rates: 2, 3, 4, 6 flashes/sec
+        - Areas: full, half, quarter, small_patch
+        - Contrast steps: 0.05, 0.10, 0.20, 0.50
+
+    Returns:
+        Tuple of (list of generated MP4 paths, list of ClipSpecs).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    generated_paths: List[Path] = []
+    specs: List[ClipSpec] = []
+
+    # 1. Rate suite (varying flash rates at 24 fps, full area, 0.50 contrast)
+    for rate in [2, 3, 4, 6]:
+        fname = f"flash_rate_{rate}hz_24fps_full_c050.mp4"
+        p, s = generate_flash_clip(out_dir, fname, fps=24.0, target_flash_rate=rate, area="full", contrast_step=0.50)
+        generated_paths.append(p)
+        specs.append(s)
+
+    # 2. Frame-rate suite (varying fps at 4 flashes/sec, full area, 0.50 contrast)
+    for fps in [25.0, 30.0, 60.0]:
+        fname = f"flash_fps_{int(fps)}fps_4hz_full_c050.mp4"
+        p, s = generate_flash_clip(out_dir, fname, fps=fps, target_flash_rate=4.0, area="full", contrast_step=0.50)
+        generated_paths.append(p)
+        specs.append(s)
+
+    # 3. Area suite (varying areas at 24 fps, 4 flashes/sec, 0.50 contrast)
+    for area in ["half", "quarter", "small_patch"]:
+        fname = f"flash_area_{area}_24fps_4hz_c050.mp4"
+        p, s = generate_flash_clip(out_dir, fname, fps=24.0, target_flash_rate=4.0, area=area, contrast_step=0.50)
+        generated_paths.append(p)
+        specs.append(s)
+
+    # 4. Contrast step suite (varying contrast at 24 fps, 4 flashes/sec, full area)
+    for contrast in [0.05, 0.10, 0.20]:
+        c_str = f"{int(contrast * 100):03d}"
+        fname = f"flash_contrast_{c_str}_24fps_4hz_full.mp4"
+        p, s = generate_flash_clip(out_dir, fname, fps=24.0, target_flash_rate=4.0, area="full", contrast_step=contrast)
+        generated_paths.append(p)
+        specs.append(s)
+
+    # 5. Additional representative edge cases for harness validation
+    edge_cases = [
+        ("flash_edge_25fps_3hz_full_c050.mp4", 25.0, 3.0, "full", 0.50),
+        ("flash_edge_30fps_2hz_full_c050.mp4", 30.0, 2.0, "full", 0.50),
+        ("flash_edge_60fps_6hz_full_c050.mp4", 60.0, 6.0, "full", 0.50),
+    ]
+    for fname, fps, rate, area, contrast in edge_cases:
+        p, s = generate_flash_clip(out_dir, fname, fps=fps, target_flash_rate=rate, area=area, contrast_step=contrast)
+        generated_paths.append(p)
+        specs.append(s)
+
+    # Write labels.csv
+    labels_records = []
+    for s in specs:
+        row = s.to_label_dict()
+        if row:
+            row["actual_rate"] = s.metadata.get("actual_flash_rate")
+            labels_records.append(row)
+
+    write_labels_csv(labels_records, out_dir / "labels.csv")
+    write_manifest_json(specs, out_dir / "manifest.json")
+
+    return generated_paths, specs
+
+
+def main() -> None:
+    """CLI entrypoint for generating synthetic test clips."""
+    parser = argparse.ArgumentParser(
+        description="Automated Synthetic Test-Clip and Ground-Truth Generator (Person C)."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=str(DEFAULT_OUTPUT_DIR),
+        help=f"Directory to output generated test clips (default: {DEFAULT_OUTPUT_DIR})",
+    )
+    parser.add_argument(
+        "--sync-only",
+        action="store_true",
+        help="Generate only the sync test clip (flash + beep).",
+    )
+    parser.add_argument(
+        "--flash-only",
+        action="store_true",
+        help="Generate only the flash test cases suite.",
+    )
+
+    args = parser.parse_args()
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 70)
+    print("Trigger-Aware Player — Synthetic Test-Clip Generator (Delivery 1)")
+    print(f"Target Output Directory: {out_dir}")
+    print("=" * 70)
+
+    if args.sync_only:
+        print("[1/1] Generating sync test clip...")
+        sync_path, sync_specs = generate_sync_clip(out_dir)
+        print(f"Generated sync clip: {sync_path}")
+        print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
+    elif args.flash_only:
+        print("[1/1] Generating flash benchmark suite...")
+        paths, specs = generate_flash_test_suite(out_dir)
+        print(f"Generated {len(paths)} flash test clips in {out_dir}")
+        print(f"Wrote labels to: {out_dir / 'labels.csv'}")
+        print(f"Wrote manifest to: {out_dir / 'manifest.json'}")
+    else:
+        print("[1/2] Generating sync test clip...")
+        sync_path, sync_specs = generate_sync_clip(out_dir)
+        print(f"Generated sync clip: {sync_path}")
+        print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
+
+        print("\n[2/2] Generating flash benchmark suite...")
+        paths, specs = generate_flash_test_suite(out_dir)
+        print(f"Generated {len(paths)} flash test clips in {out_dir}")
+        print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
+        print(f"Wrote manifest to: {out_dir / 'manifest.json'}")
+
+    print("\nGeneration complete!")
+
+
+if __name__ == "__main__":
+    main()
+
 

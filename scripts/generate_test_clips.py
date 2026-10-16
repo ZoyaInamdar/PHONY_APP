@@ -1042,6 +1042,318 @@ def generate_audio_test_suite(
     return generated_paths, specs
 
 
+DEFAULT_SPEECH_CUES: List[Dict[str, Any]] = [
+    {
+        "index": 1,
+        "start": 1.0,
+        "end": 3.5,
+        "text": "What the hell is going on here?",
+        "kind": "speech",
+        "expected_flagged": ["hell"],
+        "trigger": "profanity",
+    },
+    {
+        "index": 2,
+        "start": 4.5,
+        "end": 6.0,
+        "text": "[sighs heavily]",
+        "kind": "sound_description",
+        "expected_flagged": [],
+        "trigger": None,
+    },
+    {
+        "index": 3,
+        "start": 7.0,
+        "end": 9.5,
+        "text": "Don't give me that crap again.",
+        "kind": "speech",
+        "expected_flagged": ["crap"],
+        "trigger": "profanity",
+    },
+    {
+        "index": 4,
+        "start": 10.5,
+        "end": 12.5,
+        "text": "Damn right, we are finishing this project.",
+        "kind": "speech",
+        "expected_flagged": ["damn"],
+        "trigger": "profanity",
+    },
+    {
+        "index": 5,
+        "start": 13.5,
+        "end": 16.0,
+        "text": "This is a completely clean sentence without triggers.",
+        "kind": "speech",
+        "expected_flagged": [],
+        "trigger": None,
+    },
+]
+
+
+def format_srt_timestamp(seconds: float) -> str:
+    """Format floating seconds into standard SRT timestamp 00:00:00,000."""
+    millis = int(round(seconds * 1000))
+    hours = millis // 3600000
+    millis %= 3600000
+    minutes = millis // 60000
+    millis %= 60000
+    secs = millis // 1000
+    millis %= 1000
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def write_srt_file(cues: List[Dict[str, Any]], output_path: Union[str, Path]) -> Path:
+    """Write subtitle cues to standard SubRip (.srt) file."""
+    out_p = Path(output_path)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    lines: List[str] = []
+    for idx, cue in enumerate(cues, 1):
+        st_str = format_srt_timestamp(float(cue["start"]))
+        en_str = format_srt_timestamp(float(cue["end"]))
+        lines.append(str(idx))
+        lines.append(f"{st_str} --> {en_str}")
+        lines.append(cue["text"])
+        lines.append("")
+    out_p.write_text("\n".join(lines), encoding="utf-8")
+    return out_p
+
+
+def synthesize_speech_line(text: str, target_wav: Path) -> Path:
+    """Synthesize speech audio for a text line using system TTS or acoustic formant fallback."""
+    import platform
+
+    if platform.system() == "Windows" and shutil.which("powershell"):
+        escaped_text = text.replace("'", "''")
+        cmd = [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            f"Add-Type -AssemblyName System.Speech; "
+            f"$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            f"$synth.SetOutputToWaveFile('{target_wav.resolve()}'); "
+            f"$synth.Speak('{escaped_text}'); "
+            f"$synth.Dispose();",
+        ]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if res.returncode == 0 and target_wav.is_file() and target_wav.stat().st_size > 44:
+                return target_wav
+        except Exception:
+            pass
+
+    # Acoustic speech-formant cadence fallback
+    import numpy as np
+    import wave
+
+    sr = 44100
+    words = len(text.split())
+    dur = max(1.5, words * 0.4)
+    total_samples = int(dur * sr)
+    t = np.linspace(0, dur, total_samples, endpoint=False)
+    f0 = 150 + 30 * np.sin(2 * np.pi * 3 * t)
+    cadence = 0.5 * (1 + np.sin(2 * np.pi * 1.5 * t))
+    audio = 0.4 * cadence * (np.sin(2 * np.pi * f0 * t) + 0.6 * np.sin(2 * np.pi * 2 * f0 * t))
+    int_samples = (audio * 32767).astype(np.int16)
+    with wave.open(str(target_wav), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sr)
+        wf.writeframes(int_samples.tobytes())
+    return target_wav
+
+
+def verify_subtitle_parser_on_speech_clip(
+    srt_path: Union[str, Path],
+    wordlist_path: Optional[Union[str, Path]] = None,
+) -> Dict[str, Any]:
+    """Hook the existing subtitle parser into this script to verify it catches the trigger words."""
+    from scripts.parse_subtitles import load_wordlist, match_profanity_in_cues, parse_srt_file
+
+    w_path = Path(wordlist_path) if wordlist_path else REPO_ROOT / "data" / "profanity_wordlist.txt"
+    words = load_wordlist(w_path)
+    sub_file = parse_srt_file(str(srt_path))
+
+    raw_detections = match_profanity_in_cues(sub_file, words)
+
+    total_cues = len(sub_file)
+    sound_desc_count = sum(1 for c in sub_file if getattr(c, "kind", "") == "sound_description")
+    speech_count = sum(1 for c in sub_file if getattr(c, "kind", "") == "speech")
+    flagged_cues = [c for c in sub_file if getattr(c, "flagged", [])]
+
+    if total_cues < 5:
+        raise AssertionError(f"Expected at least 5 cues, got {total_cues}")
+    if sound_desc_count < 1:
+        raise AssertionError("Expected at least 1 sound_description cue")
+    if len(flagged_cues) < 3:
+        raise AssertionError(f"Expected at least 3 flagged profanity cues, got {len(flagged_cues)}")
+
+    return {
+        "total_cues": total_cues,
+        "speech_cues": speech_count,
+        "sound_descriptions": sound_desc_count,
+        "flagged_cues": len(flagged_cues),
+        "raw_detections": raw_detections,
+    }
+
+
+def generate_speech_test_clip(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    mp4_filename: str = "speech_triggers_test.mp4",
+    srt_filename: str = "speech_triggers_truth.srt",
+    cues: Optional[List[Dict[str, Any]]] = None,
+    fps: float = 24.0,
+    width: int = 640,
+    height: int = 360,
+    sample_rate: int = 44100,
+) -> Tuple[Path, Path, List[ClipSpec]]:
+    """Generate synthesized speech audio MP4 with matching truth SRT and parser validation.
+
+    Args:
+        output_dir: Destination directory.
+        mp4_filename: Target MP4 filename.
+        srt_filename: Target SRT filename.
+        cues: List of cue dictionaries (defaults to DEFAULT_SPEECH_CUES).
+        fps: Video framerate.
+        width: Video width.
+        height: Video height.
+        sample_rate: Audio sampling rate.
+
+    Returns:
+        Tuple of (mp4_path, srt_path, positive ClipSpecs).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / mp4_filename
+    srt_path = out_dir / srt_filename
+
+    used_cues = cues or DEFAULT_SPEECH_CUES
+
+    # 1. Write the matching truth .srt file
+    write_srt_file(used_cues, srt_path)
+
+    # 2. Hook and execute subtitle parser against this truth file
+    parser_audit = verify_subtitle_parser_on_speech_clip(srt_path)
+
+    # 3. Synthesize speech lines and assemble audio track
+    import numpy as np
+    import tempfile
+    import wave
+
+    max_end = max(float(c["end"]) for c in used_cues)
+    total_duration = math.ceil(max_end + 1.0)
+    total_samples = int(total_duration * sample_rate)
+    master_audio = np.zeros(total_samples, dtype=np.float32)
+
+    specs: List[ClipSpec] = []
+
+    for cue in used_cues:
+        st_s = float(cue["start"])
+        en_s = float(cue["end"])
+        text = cue["text"]
+        kind = cue.get("kind", "speech")
+
+        # Synthesize audio if speech
+        if kind == "speech":
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                line_wav = Path(tf.name)
+            try:
+                synthesize_speech_line(text, line_wav)
+                with wave.open(str(line_wav), "rb") as wf:
+                    n = wf.getnframes()
+                    raw = wf.readframes(n)
+                    sig = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
+                start_idx = int(st_s * sample_rate)
+                end_idx = min(total_samples, start_idx + len(sig))
+                available_dur = int((en_s - st_s) * sample_rate)
+                copy_len = min(len(sig), available_dur, total_samples - start_idx)
+
+                master_audio[start_idx : start_idx + copy_len] += sig[:copy_len]
+            finally:
+                if line_wav.exists():
+                    line_wav.unlink()
+
+        # If trigger is profanity, record ClipSpec
+        if cue.get("trigger") == "profanity":
+            specs.append(
+                ClipSpec(
+                    clip_name=mp4_filename,
+                    duration=float(total_duration),
+                    fps=fps,
+                    width=width,
+                    height=height,
+                    trigger="profanity",
+                    start=round(st_s, 3),
+                    end=round(en_s, 3),
+                    labeller="synthetic_generator",
+                    metadata={
+                        "text": text,
+                        "kind": kind,
+                        "flagged_words": cue.get("expected_flagged", []),
+                        "modality": "speech_subtitles",
+                    },
+                )
+            )
+
+    # Normalize audio
+    peak = np.max(np.abs(master_audio))
+    if peak > 0.99:
+        master_audio = (master_audio / peak) * 0.95
+    int_samples = (master_audio * 32767).astype(np.int16)
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+        temp_wav_path = Path(tf.name)
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    try:
+        with wave.open(str(temp_wav_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(int_samples.tobytes())
+
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-f", "lavfi",
+            "-i", f"color=c=black:s={width}x{height}:r={fps}:d={total_duration}",
+            "-i", str(temp_wav_path),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-t", f"{total_duration:.3f}",
+            str(mp4_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed to generate speech clip:\n{proc.stderr}")
+    finally:
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+
+    # Append profanity triggers to labels.csv
+    labels_csv_path = out_dir / "labels.csv"
+    existing_records: List[Dict[str, Any]] = []
+    if labels_csv_path.is_file():
+        existing_records = read_labels_csv(labels_csv_path)
+
+    new_positive_rows = [sp.to_label_dict() for sp in specs if sp.to_label_dict() is not None]
+    seen = {(r["clip"], round(float(r["start"]), 3), r["trigger"]) for r in existing_records}
+    merged_rows = list(existing_records)
+    for row in new_positive_rows:
+        key = (row["clip"], round(float(row["start"]), 3), row["trigger"])
+        if key not in seen:
+            seen.add(key)
+            merged_rows.append(row)
+
+    write_labels_csv(merged_rows, labels_csv_path)
+
+    return mp4_path, srt_path, specs
+
+
+
 
 def main() -> None:
     """CLI entrypoint for generating synthetic test clips."""
@@ -1074,6 +1386,11 @@ def main() -> None:
         action="store_true",
         help="Generate only the audio benchmark suite (gunshots, explosions, screams, negatives).",
     )
+    parser.add_argument(
+        "--speech-only",
+        action="store_true",
+        help="Generate only the speech triggers test clip, matching .srt, and parser verification.",
+    )
 
     args = parser.parse_args()
     out_dir = Path(args.output_dir)
@@ -1105,29 +1422,43 @@ def main() -> None:
         audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
         print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
         print(f"Updated labels in: {out_dir / 'labels.csv'}")
+    elif args.speech_only:
+        print("[1/1] Generating speech trigger test clip and matching .srt...")
+        sp_mp4, sp_srt, sp_specs = generate_speech_test_clip(out_dir)
+        print(f"Generated speech MP4: {sp_mp4}")
+        print(f"Generated matching SRT: {sp_srt}")
+        print(f"Verified subtitle parser caught {len(sp_specs)} profanity triggers.")
+        print(f"Updated labels in: {out_dir / 'labels.csv'}")
     else:
-        print("[1/4] Generating sync test clip...")
+        print("[1/5] Generating sync test clip...")
         sync_path, sync_specs = generate_sync_clip(out_dir)
         print(f"Generated sync clip: {sync_path}")
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
 
-        print("\n[2/4] Generating flash benchmark suite...")
+        print("\n[2/5] Generating flash benchmark suite...")
         flash_paths, flash_specs = generate_flash_test_suite(out_dir)
         print(f"Generated {len(flash_paths)} flash test clips in {out_dir}")
         print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
 
-        print("\n[3/4] Generating fine-detail pattern clip for blur checks...")
+        print("\n[3/5] Generating fine-detail pattern clip for blur checks...")
         detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
         print(f"Generated detail pattern clip: {detail_path}")
         print("(Note: Not written to labels.csv as this clip has no trigger label)")
 
-        print("\n[4/4] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
+        print("\n[4/5] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
         audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
         print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
         print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
 
+        print("\n[5/5] Generating speech trigger test clip and matching .srt...")
+        sp_mp4, sp_srt, sp_specs = generate_speech_test_clip(out_dir)
+        print(f"Generated speech MP4: {sp_mp4}")
+        print(f"Generated matching SRT: {sp_srt}")
+        print(f"Verified subtitle parser caught {len(sp_specs)} profanity triggers.")
+        print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
+
         # Update manifest with all specs
-        all_specs = flash_specs + [detail_spec] + audio_specs
+        all_specs = flash_specs + [detail_spec] + audio_specs + sp_specs
         write_manifest_json(all_specs, out_dir / "manifest.json")
 
     print("\nGeneration complete!")
@@ -1135,6 +1466,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

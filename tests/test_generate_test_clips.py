@@ -35,13 +35,17 @@ from scripts.generate_test_clips import (
     generate_audio_test_suite,
     generate_detail_pattern_clip,
     generate_flash_clip,
+    generate_speech_test_clip,
     generate_sync_clip,
     get_area_geometry,
     read_labels_csv,
     synthesize_audio_event,
+    verify_subtitle_parser_on_speech_clip,
     write_labels_csv,
+    write_srt_file,
     write_sync_labels_csv,
 )
+
 
 
 
@@ -377,5 +381,62 @@ def test_generate_negative_audio_clips(tmp_path: Path):
 
     loaded = read_labels_csv(labels_csv)
     assert len(loaded) == 0
+
+
+def test_write_srt_file(tmp_path: Path):
+    """Verify that write_srt_file produces valid SubRip formatting."""
+    cues = [
+        {"start": 1.0, "end": 2.5, "text": "First line"},
+        {"start": 3.0, "end": 5.25, "text": "Second line"},
+    ]
+    srt_file = tmp_path / "test.srt"
+    write_srt_file(cues, srt_file)
+
+    assert srt_file.is_file()
+    content = srt_file.read_text(encoding="utf-8")
+    assert "1\n00:00:01,000 --> 00:00:02,500\nFirst line" in content
+    assert "2\n00:00:03,000 --> 00:00:05,250\nSecond line" in content
+
+
+def test_generate_speech_test_clip_and_parser_integration(tmp_path: Path):
+    """Verify speech clip generation, matching .srt, and subtitle parser integration."""
+    mp4_path, srt_path, specs = generate_speech_test_clip(
+        output_dir=tmp_path,
+        mp4_filename="test_speech.mp4",
+        srt_filename="test_speech.srt",
+    )
+
+    assert mp4_path.is_file()
+    assert srt_path.is_file()
+
+    # 1. Verify subtitle parser caught the expected profanities
+    audit = verify_subtitle_parser_on_speech_clip(srt_path)
+    assert audit["total_cues"] >= 5
+    assert audit["speech_cues"] >= 4
+    assert audit["sound_descriptions"] >= 1
+    assert audit["flagged_cues"] >= 3
+
+    # 2. Verify media streams
+    probe_data = probe_clip(mp4_path)
+    streams = probe_data.get("streams", [])
+    codec_types = {s["codec_type"] for s in streams}
+    assert "video" in codec_types
+    assert "audio" in codec_types
+
+    duration_s = float(probe_data["format"]["duration"])
+    assert duration_s >= 16.0
+
+    # 3. Verify labels.csv contains the profanity entries
+    labels_csv = tmp_path / "labels.csv"
+    assert labels_csv.is_file()
+    records = read_labels_csv(labels_csv)
+    assert len(records) == 3
+
+    for row in records:
+        assert row["clip"] == "test_speech.mp4"
+        assert row["trigger"] == "profanity"
+        assert row["trigger"] in CANONICAL_TRIGGERS
+        assert 0.0 <= float(row["start"]) < float(row["end"]) <= duration_s
+
 
 

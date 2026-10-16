@@ -4,7 +4,7 @@ exports[`App matches snapshot 1`] = `
 <View
   accessibilityIgnoresInvertColors={true}
   style={
-    Object {
+    {
       "flex": 1,
       "padding": 160,
     }
@@ -12,20 +12,20 @@ exports[`App matches snapshot 1`] = `
 >
   <Image
     source={
-      Object {
+      {
         "testUri": "../../../src/assets/background.png",
       }
     }
     style={
-      Array [
-        Object {
+      [
+        {
           "bottom": 0,
           "left": 0,
           "position": "absolute",
           "right": 0,
           "top": 0,
         },
-        Object {
+        {
           "height": undefined,
           "width": undefined,
         },
@@ -35,7 +35,7 @@ exports[`App matches snapshot 1`] = `
   />
   <View
     style={
-      Object {
+      {
         "alignItems": "flex-start",
         "flex": 3,
         "flexDirection": "row",
@@ -44,14 +44,14 @@ exports[`App matches snapshot 1`] = `
   >
     <View
       style={
-        Object {
+        {
           "flex": 1,
         }
       }
     >
       <Text
         style={
-          Object {
+          {
             "color": "#FFFFFF",
             "fontSize": 160,
             "fontWeight": "600",
@@ -63,7 +63,7 @@ exports[`App matches snapshot 1`] = `
       </Text>
       <Text
         style={
-          Object {
+          {
             "color": "#FFFFFF",
             "fontSize": 50,
           }
@@ -75,12 +75,12 @@ exports[`App matches snapshot 1`] = `
     <Image
       resizeMode="contain"
       source={
-        Object {
+        {
           "testUri": "../../../src/assets/vega.png",
         }
       }
       style={
-        Object {
+        {
           "height": 350,
           "marginLeft": 120,
           "width": 500,
@@ -91,20 +91,20 @@ exports[`App matches snapshot 1`] = `
   </View>
   <View
     collapsable={false}
-    destinations={Array []}
+    destinations={[]}
     style={
-      Array [
-        Object {
+      [
+        {
           "minHeight": 1,
           "minWidth": 1,
         },
-        Object {
+        {
           "alignItems": "flex-end",
           "flex": 1,
           "flexDirection": "row",
           "justifyContent": "space-between",
         },
-        Object {
+        {
           "display": "flex",
         },
       ]
@@ -114,7 +114,7 @@ exports[`App matches snapshot 1`] = `
       accessibilityLabel="Home"
       accessibilityRole="button"
       accessibilityState={
-        Object {
+        {
           "busy": undefined,
           "checked": undefined,
           "disabled": undefined,
@@ -123,7 +123,7 @@ exports[`App matches snapshot 1`] = `
         }
       }
       accessibilityValue={
-        Object {
+        {
           "max": undefined,
           "min": undefined,
           "now": undefined,
@@ -132,7 +132,7 @@ exports[`App matches snapshot 1`] = `
       }
       accessible={true}
       collapsable={false}
-      focusable={false}
+      focusable={true}
       hasTVPreferredFocus={true}
       onClick={[Function]}
       onResponderGrant={[Function]}
@@ -142,15 +142,15 @@ exports[`App matches snapshot 1`] = `
       onResponderTerminationRequest={[Function]}
       onStartShouldSetResponder={[Function]}
       style={
-        Object {
+        {
           "backgroundColor": "#FF6200",
           "borderRadius": 44,
           "height": 320,
           "opacity": 1,
           "overflow": "hidden",
           "padding": 20,
-          "transform": Array [
-            Object {
+          "transform": [
+            {
               "scale": 1.1,
             },
           ],
@@ -161,7 +161,7 @@ exports[`App matches snapshot 1`] = `
     >
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -172,12 +172,12 @@ exports[`App matches snapshot 1`] = `
           accessible={false}
           resizeMode="contain"
           source={
-            Object {
+            {
               "testUri": "../../../src/assets/home.png",
             }
           }
           style={
-            Object {
+            {
               "height": 80,
               "tintColor": "#FFFFFF",
               "width": 80,
@@ -187,7 +187,7 @@ exports[`App matches snapshot 1`] = `
       </View>
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -196,7 +196,7 @@ exports[`App matches snapshot 1`] = `
       >
         <Text
           style={
-            Object {
+            {
               "color": "#FFFFFF",
               "fontSize": 52,
               "fontWeight": "bold",
@@ -214,7 +214,7 @@ exports[`App matches snapshot 1`] = `
       accessibilityLabel="Get started"
       accessibilityRole="button"
       accessibilityState={
-        Object {
+        {
           "busy": undefined,
           "checked": undefined,
           "disabled": undefined,
@@ -223,7 +223,7 @@ exports[`App matches snapshot 1`] = `
         }
       }
       accessibilityValue={
-        Object {
+        {
           "max": undefined,
           "min": undefined,
           "now": undefined,
@@ -232,7 +232,7 @@ exports[`App matches snapshot 1`] = `
       }
       accessible={true}
       collapsable={false}
-      focusable={false}
+      focusable={true}
       hasTVPreferredFocus={false}
       onClick={[Function]}
       onResponderGrant={[Function]}
@@ -242,7 +242,7 @@ exports[`App matches snapshot 1`] = `
       onResponderTerminationRequest={[Function]}
       onStartShouldSetResponder={[Function]}
       style={
-        Object {
+        {
           "backgroundColor": "#0074B8",
           "borderRadius": 44,
           "height": 320,
@@ -256,7 +256,7 @@ exports[`App matches snapshot 1`] = `
     >
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -267,12 +267,12 @@ exports[`App matches snapshot 1`] = `
           accessible={false}
           resizeMode="contain"
           source={
-            Object {
+            {
               "testUri": "../../../src/assets/get-started.png",
             }
           }
           style={
-            Object {
+            {
               "height": 80,
               "tintColor": "#FFFFFF",
               "width": 80,
@@ -282,7 +282,7 @@ exports[`App matches snapshot 1`] = `
       </View>
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -291,7 +291,7 @@ exports[`App matches snapshot 1`] = `
       >
         <Text
           style={
-            Object {
+            {
               "color": "#FFFFFF",
               "fontSize": 52,
               "fontWeight": "bold",
@@ -310,7 +310,7 @@ started
       accessibilityLabel="Test and Debug"
       accessibilityRole="button"
       accessibilityState={
-        Object {
+        {
           "busy": undefined,
           "checked": undefined,
           "disabled": undefined,
@@ -319,7 +319,7 @@ started
         }
       }
       accessibilityValue={
-        Object {
+        {
           "max": undefined,
           "min": undefined,
           "now": undefined,
@@ -328,7 +328,7 @@ started
       }
       accessible={true}
       collapsable={false}
-      focusable={false}
+      focusable={true}
       hasTVPreferredFocus={false}
       onClick={[Function]}
       onResponderGrant={[Function]}
@@ -338,7 +338,7 @@ started
       onResponderTerminationRequest={[Function]}
       onStartShouldSetResponder={[Function]}
       style={
-        Object {
+        {
           "backgroundColor": "#0074B8",
           "borderRadius": 44,
           "height": 320,
@@ -352,7 +352,7 @@ started
     >
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -363,12 +363,12 @@ started
           accessible={false}
           resizeMode="contain"
           source={
-            Object {
+            {
               "testUri": "../../../src/assets/debug.png",
             }
           }
           style={
-            Object {
+            {
               "height": 80,
               "tintColor": "#FFFFFF",
               "width": 80,
@@ -378,7 +378,7 @@ started
       </View>
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -387,7 +387,7 @@ started
       >
         <Text
           style={
-            Object {
+            {
               "color": "#FFFFFF",
               "fontSize": 52,
               "fontWeight": "bold",
@@ -406,7 +406,7 @@ Debug
       accessibilityLabel="Learn more"
       accessibilityRole="button"
       accessibilityState={
-        Object {
+        {
           "busy": undefined,
           "checked": undefined,
           "disabled": undefined,
@@ -415,7 +415,7 @@ Debug
         }
       }
       accessibilityValue={
-        Object {
+        {
           "max": undefined,
           "min": undefined,
           "now": undefined,
@@ -424,7 +424,7 @@ Debug
       }
       accessible={true}
       collapsable={false}
-      focusable={false}
+      focusable={true}
       hasTVPreferredFocus={false}
       onClick={[Function]}
       onResponderGrant={[Function]}
@@ -434,7 +434,7 @@ Debug
       onResponderTerminationRequest={[Function]}
       onStartShouldSetResponder={[Function]}
       style={
-        Object {
+        {
           "backgroundColor": "#0074B8",
           "borderRadius": 44,
           "height": 320,
@@ -448,7 +448,7 @@ Debug
     >
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -459,12 +459,12 @@ Debug
           accessible={false}
           resizeMode="contain"
           source={
-            Object {
+            {
               "testUri": "../../../src/assets/learn-more.png",
             }
           }
           style={
-            Object {
+            {
               "height": 80,
               "tintColor": "#FFFFFF",
               "width": 80,
@@ -474,7 +474,7 @@ Debug
       </View>
       <View
         style={
-          Object {
+          {
             "alignItems": "center",
             "flex": 1,
             "justifyContent": "center",
@@ -483,7 +483,7 @@ Debug
       >
         <Text
           style={
-            Object {
+            {
               "color": "#FFFFFF",
               "fontSize": 52,
               "fontWeight": "bold",

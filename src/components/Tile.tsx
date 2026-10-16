@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   Image,
@@ -14,6 +15,7 @@ export interface TileProps {
   isFocused: boolean;
   onFocus: () => void;
   onBlur?: () => void;
+  onPress?: () => void;
   testID?: string;
   accessibilityLabel?: string;
   hasTVPreferredFocus?: boolean;
@@ -25,6 +27,7 @@ export const Tile = ({
   isFocused,
   onFocus,
   onBlur,
+  onPress,
   testID,
   accessibilityLabel,
   hasTVPreferredFocus,
@@ -34,6 +37,7 @@ export const Tile = ({
       style={[styles.tile, isFocused ? styles.focused : styles.default]}
       onFocus={onFocus}
       onBlur={onBlur}
+      onPress={onPress}
       testID={testID}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"

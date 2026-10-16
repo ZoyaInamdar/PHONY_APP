@@ -2,7 +2,9 @@
   "name": "@amazon-devices/triggerawareplayer",
   "version": "0.0.1",
   "private": true,
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "react-native start",
     "build:release": "react-native build-vega --build-type Release",
@@ -21,15 +23,16 @@
   },
   "dependencies": {
     "@amazon-devices/react-native-kepler": "^2.0.0",
+    "@amazon-devices/react-native-w3cmedia": "~2.3.2",
     "ajv": "^8.20.0",
     "react": "18.2.0",
     "react-native": "0.72.0"
   },
   "devDependencies": {
     "@amazon-devices/kepler-cli-platform": "^0",
+    "@react-native-community/cli": "11.3.2",
     "@react-native/eslint-config": "0.72.2",
     "@react-native/metro-config": "^0.72.6",
-    "@react-native-community/cli": "11.3.2",
     "@testing-library/react-native": "^7.2.0",
     "@tsconfig/react-native": "^3.0.2",
     "@types/jest": "^29.5.14",
@@ -51,6 +54,8 @@
   "kepler": {
     "projectType": "application",
     "appName": "TriggerAwarePlayer",
-    "targets": ["tv"]
+    "targets": [
+      "tv"
+    ]
   }
 }

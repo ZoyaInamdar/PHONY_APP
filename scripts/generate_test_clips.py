@@ -246,3 +246,119 @@ def read_labels_csv(csv_path: Union[str, Path]) -> List[Dict[str, Any]]:
                 "labeller": row.get("labeller", ""),
             })
     return records
+
+
+def generate_sync_clip(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    filename: str = "sync_test.mp4",
+    duration: float = 10.0,
+    fps: float = 24.0,
+    width: int = 640,
+    height: int = 360,
+    marker_intervals: Optional[List[Tuple[float, float]]] = None,
+    frequency_hz: float = 1000.0,
+    beep_amplitude: float = 0.5,
+) -> Tuple[Path, List[SyncMarkerSpec]]:
+    """Generate an MP4 sync clip with aligned visual flash and audio beep at known times.
+
+    Ground-truth sync markers are written to sync_labels.csv (not labels.csv),
+    preserving config.yaml canonical trigger integrity.
+
+    Args:
+        output_dir: Directory where the clip and sync_labels.csv are stored.
+        filename: Name of the generated MP4 file (default: sync_test.mp4).
+        duration: Total clip duration in seconds (default: 10.0s).
+        fps: Video framerate (default: 24.0).
+        width: Video width (default: 640).
+        height: Video height (default: 360).
+        marker_intervals: List of (start_seconds, end_seconds) for the markers.
+        frequency_hz: Audio tone frequency in Hz (default: 1000.0 Hz).
+        beep_amplitude: Normalized amplitude for beep [0.0, 1.0].
+
+    Returns:
+        Tuple of (path to created MP4, list of SyncMarkerSpecs).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / filename
+
+    if marker_intervals is None:
+        marker_intervals = [(2.0, 2.2), (5.0, 5.2), (8.0, 8.2)]
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    import numpy as np
+    import tempfile
+    import wave
+
+    sample_rate = 44100
+    total_audio_samples = int(duration * sample_rate)
+    audio_data = np.zeros(total_audio_samples, dtype=np.int16)
+
+    sync_specs: List[SyncMarkerSpec] = []
+    enable_clauses: List[str] = []
+
+    for idx, (st, en) in enumerate(marker_intervals, 1):
+        st_round = round(st, 3)
+        en_round = round(en, 3)
+        marker_name = f"sync_marker_{idx}"
+        sync_specs.append(
+            SyncMarkerSpec(
+                clip_name=filename,
+                marker=marker_name,
+                start=st_round,
+                end=en_round,
+                frequency_hz=frequency_hz,
+                labeller="synthetic_generator",
+                notes=f"Simultaneous visual flash and {frequency_hz:.0f}Hz beep",
+            )
+        )
+        enable_clauses.append(f"between(t,{st_round:.3f},{en_round:.3f})")
+
+        # Synthesize audio beep
+        start_samp = int(st_round * sample_rate)
+        end_samp = min(total_audio_samples, int(en_round * sample_rate))
+        if end_samp > start_samp:
+            t = np.arange(end_samp - start_samp) / sample_rate
+            beep = (beep_amplitude * 32767 * np.sin(2 * np.pi * frequency_hz * t)).astype(np.int16)
+            audio_data[start_samp:end_samp] = beep
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+        temp_wav_path = Path(tf.name)
+
+    try:
+        with wave.open(str(temp_wav_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(audio_data.tobytes())
+
+        filter_expr = "+".join(enable_clauses)
+        vf_filter = f"drawbox=t=fill:c=white:enable='{filter_expr}'"
+
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-f", "lavfi",
+            "-i", f"color=c=black:s={width}x{height}:r={fps}:d={duration}",
+            "-i", str(temp_wav_path),
+            "-vf", vf_filter,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            str(mp4_path),
+        ]
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed to generate sync clip:\n{proc.stderr}")
+    finally:
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+
+    # Save sync labels
+    sync_csv_path = out_dir / "sync_labels.csv"
+    write_sync_labels_csv([s.to_dict() for s in sync_specs], sync_csv_path)
+
+    return mp4_path, sync_specs
+

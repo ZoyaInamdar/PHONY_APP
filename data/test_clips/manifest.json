@@ -1,6 +1,6 @@
 {
   "generator_version": 1,
-  "clip_count": 16,
+  "clip_count": 31,
   "clips": [
     {
       "clip_name": "flash_rate_2hz_24fps_full_c050.mp4",
@@ -432,6 +432,246 @@
         "lead_out_seconds": 1.0,
         "first_flash_frame": 60,
         "last_flash_end_frame": 140
+      }
+    },
+    {
+      "clip_name": "detail_test_pattern.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Fine-detail text and contrast pattern for blur/blackout verification",
+        "has_fine_text": true,
+        "has_1px_grid": true,
+        "has_contrast_swatches": true
+      }
+    },
+    {
+      "clip_name": "audio_gunshot_test.mp4",
+      "duration": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "gunshot",
+      "start": 1.5,
+      "end": 2.0,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "gunshot",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_explosion_test.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "explosion",
+      "start": 1.0,
+      "end": 3.2,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "explosion",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_scream_test.mp4",
+      "duration": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "scream",
+      "start": 1.2,
+      "end": 2.7,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "scream",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_multi_event_mix.mp4",
+      "duration": 9.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "gunshot",
+      "start": 1.0,
+      "end": 1.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "gunshot",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_multi_event_mix.mp4",
+      "duration": 9.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "scream",
+      "start": 3.0,
+      "end": 4.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "scream",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_multi_event_mix.mp4",
+      "duration": 9.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "explosion",
+      "start": 6.0,
+      "end": 8.2,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "event_type": "explosion",
+        "modality": "audio",
+        "acoustic_model": "synthetic_physical_transient"
+      }
+    },
+    {
+      "clip_name": "audio_negative_ambient.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "audio_negative_dialogue.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "speech_triggers_test.mp4",
+      "duration": 17.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "profanity",
+      "start": 1.0,
+      "end": 3.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "text": "What the hell is going on here?",
+        "kind": "speech",
+        "flagged_words": [
+          "hell"
+        ],
+        "modality": "speech_subtitles"
+      }
+    },
+    {
+      "clip_name": "speech_triggers_test.mp4",
+      "duration": 17.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "profanity",
+      "start": 7.0,
+      "end": 9.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "text": "Don't give me that crap again.",
+        "kind": "speech",
+        "flagged_words": [
+          "crap"
+        ],
+        "modality": "speech_subtitles"
+      }
+    },
+    {
+      "clip_name": "speech_triggers_test.mp4",
+      "duration": 17.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": "profanity",
+      "start": 10.5,
+      "end": 12.5,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "text": "Damn right, we are finishing this project.",
+        "kind": "speech",
+        "flagged_words": [
+          "damn"
+        ],
+        "modality": "speech_subtitles"
+      }
+    },
+    {
+      "clip_name": "video_negative_smooth_gradient.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Smooth spatial sinusoidal luminance gradient, delta Y < 0.05"
+      }
+    },
+    {
+      "clip_name": "video_negative_slow_fade.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Slow continuous fade (0.2 Hz) below WCAG 3 Hz flash cutoff"
+      }
+    },
+    {
+      "clip_name": "video_negative_static.mp4",
+      "duration": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "trigger": null,
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "description": "Completely static 50% neutral gray video"
       }
     }
   ]

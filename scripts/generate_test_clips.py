@@ -33,20 +33,38 @@ if str(REPO_ROOT) not in sys.path:
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "test_clips"
 DEFAULT_LABELS_PATH = DEFAULT_OUTPUT_DIR / "labels.csv"
 DEFAULT_SYNC_LABELS_PATH = DEFAULT_OUTPUT_DIR / "sync_labels.csv"
+import yaml
+
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
 
-# Canonical triggers allowed in labels.csv (from config.yaml)
-CANONICAL_TRIGGERS = {
-    "flashing",
-    "loud_spike",
-    "gunshot",
-    "explosion",
-    "scream",
-    "profanity",
-    "violence",
-    "gore",
-    "spider",
-}
+
+def load_canonical_triggers(config_path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> set[str]:
+    """Load canonical trigger IDs dynamically from config.yaml.
+
+    Reads triggers from the 'triggers' section of config.yaml.
+    Fails with FileNotFoundError or ValueError if config is missing or invalid,
+    ensuring test data generation strictly adheres to the shared pipeline configuration
+    and cannot drift.
+    """
+    path = Path(config_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Configuration file not found: {path}")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if not isinstance(data, dict) or "triggers" not in data:
+        raise ValueError(f"Invalid config file {path}: missing top-level 'triggers' section")
+
+    triggers = set(data["triggers"].keys())
+    if not triggers:
+        raise ValueError(f"No triggers defined in config file: {path}")
+
+    return triggers
+
+
+# Canonical triggers allowed in labels.csv (dynamically loaded from config.yaml)
+CANONICAL_TRIGGERS = load_canonical_triggers(DEFAULT_CONFIG_PATH)
 
 
 @dataclasses.dataclass
@@ -67,13 +85,23 @@ class ClipSpec:
         """Return label row dictionary if this clip contains a canonical trigger."""
         if self.trigger is None or self.start is None or self.end is None:
             return None
-        return {
+        if self.trigger not in CANONICAL_TRIGGERS:
+            raise ValueError(
+                f"Invalid trigger '{self.trigger}' for clip '{self.clip_name}'. "
+                f"Must be one of canonical triggers from config.yaml: {sorted(CANONICAL_TRIGGERS)}"
+            )
+        row: Dict[str, Any] = {
             "clip": self.clip_name,
             "trigger": self.trigger,
             "start": round(float(self.start), 3),
             "end": round(float(self.end), 3),
             "labeller": self.labeller,
         }
+        if "actual_flash_rate" in self.metadata and self.metadata["actual_flash_rate"] is not None:
+            row["actual_rate"] = self.metadata["actual_flash_rate"]
+        elif "actual_rate" in self.metadata and self.metadata["actual_rate"] is not None:
+            row["actual_rate"] = self.metadata["actual_rate"]
+        return row
 
 
 @dataclasses.dataclass

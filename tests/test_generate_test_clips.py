@@ -39,6 +39,7 @@ from scripts.generate_test_clips import (
     generate_speech_test_clip,
     generate_sync_clip,
     get_area_geometry,
+    load_canonical_triggers,
     read_labels_csv,
     synthesize_audio_event,
     verify_subtitle_parser_on_speech_clip,
@@ -469,6 +470,65 @@ def test_generate_negative_video_clips(tmp_path: Path):
 
     loaded = read_labels_csv(labels_csv)
     assert len(loaded) == 0
+
+
+def test_canonical_triggers_loaded_from_config(tmp_path: Path):
+    """Verify triggers are loaded dynamically from config.yaml and invalid triggers fail."""
+    # 1. Triggers loaded from config.yaml match the 9 canonical triggers
+    expected_triggers = {
+        "flashing",
+        "loud_spike",
+        "gunshot",
+        "explosion",
+        "scream",
+        "profanity",
+        "spider",
+        "fast_motion",
+        "jump_scare",
+    }
+    assert CANONICAL_TRIGGERS == expected_triggers
+
+    # Explicitly verify legacy/obsolete triggers are NOT present
+    assert "violence" not in CANONICAL_TRIGGERS
+    assert "gore" not in CANONICAL_TRIGGERS
+
+    # 2. ClipSpec.to_label_dict fails if trigger is not in CANONICAL_TRIGGERS
+    spec_violence = ClipSpec(
+        clip_name="test_violence.mp4",
+        duration=5.0,
+        fps=24.0,
+        trigger="violence",
+        start=1.0,
+        end=3.0,
+    )
+    with pytest.raises(ValueError, match="Invalid trigger 'violence'"):
+        spec_violence.to_label_dict()
+
+    spec_gore = ClipSpec(
+        clip_name="test_gore.mp4",
+        duration=5.0,
+        fps=24.0,
+        trigger="gore",
+        start=1.0,
+        end=3.0,
+    )
+    with pytest.raises(ValueError, match="Invalid trigger 'gore'"):
+        spec_gore.to_label_dict()
+
+    # 3. write_labels_csv fails if an invalid trigger is passed
+    dummy_csv = tmp_path / "test_labels.csv"
+    with pytest.raises(ValueError, match="Invalid trigger 'violence'"):
+        write_labels_csv([{"clip": "v.mp4", "trigger": "violence", "start": 1.0, "end": 2.0}], dummy_csv)
+
+    # 4. load_canonical_triggers fails if config file is missing or invalid
+    with pytest.raises(FileNotFoundError):
+        load_canonical_triggers(tmp_path / "non_existent.yaml")
+
+    bad_config = tmp_path / "bad_config.yaml"
+    bad_config.write_text("other_field: 123\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="missing top-level 'triggers' section"):
+        load_canonical_triggers(bad_config)
+
 
 
 

@@ -88,8 +88,9 @@ def test_detector_audit_reporting() -> None:
     assert audit["audio_event_classifier"]["owner"] == "Person A"
 
     assert "profanity_detector" in audit
-    assert audit["profanity_detector"]["status"] == "partial"
+    assert audit["profanity_detector"]["status"] == "available"
     assert audit["profanity_detector"]["owner"] == "Person C"
+    assert audit["profanity_detector"]["script_path"] == "scripts/parse_subtitles.py"
 
 
 def test_e2e_smoke_pipeline_with_real_audio(tmp_path: Path) -> None:
@@ -289,3 +290,107 @@ def test_cli_execution_success() -> None:
     assert data["success"] is True
     assert data["packaged_cues_count"] > 0
     assert data["passed_boundary_checks"] == data["total_boundary_checks"]
+
+
+def test_e2e_smoke_pipeline_with_audio_and_subtitles(tmp_path: Path) -> None:
+    """Run full pipeline combining loudness detection and subtitle profanity detection."""
+    srt_path = REPO_ROOT / "data" / "test_clips" / "speech_triggers_truth.srt"
+    if not DEFAULT_AUDIO_PATH.exists() or not srt_path.exists():
+        pytest.skip("Required audio or SRT test fixture not found.")
+
+    report = run_e2e_smoke_pipeline(
+        audio_path=DEFAULT_AUDIO_PATH,
+        srt_path=srt_path,
+        film_id="multimodal_smoke_test",
+        output_dir=tmp_path / "multimodal",
+        keep_artifacts=True,
+        verbose=False,
+    )
+
+    assert report["success"] is True
+    assert report["raw_spikes_detected"] > 0
+    assert report["profanity_cues_detected"] == 3
+    assert report["packaged_cues_count"] >= 4
+    assert report["total_boundary_checks"] > 0
+    assert report["passed_boundary_checks"] == report["total_boundary_checks"]
+
+    # Verify packaged index on disk contains both triggers
+    index_file = tmp_path / "multimodal" / "index.json"
+    assert index_file.is_file()
+    with index_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    triggers_present = {c["trigger"] for c in data["cues"]}
+    assert "loud_spike" in triggers_present
+    assert "profanity" in triggers_present
+
+
+def test_e2e_smoke_cli_with_srt(tmp_path: Path) -> None:
+    """Verify that scripts/run_e2e_smoke_test.py CLI accepts --srt and outputs combined index."""
+    srt_path = REPO_ROOT / "data" / "test_clips" / "speech_triggers_truth.srt"
+    if not DEFAULT_AUDIO_PATH.exists() or not srt_path.exists():
+        pytest.skip("Required audio or SRT test fixture not found.")
+
+    out_dir = tmp_path / "cli_srt"
+    cmd = [
+        sys.executable,
+        "scripts/run_e2e_smoke_test.py",
+        "--audio",
+        str(DEFAULT_AUDIO_PATH),
+        "--srt",
+        str(srt_path),
+        "--output-dir",
+        str(out_dir),
+        "--keep-artifacts",
+        "--json",
+    ]
+    res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
+
+    assert res.returncode == 0, f"CLI error:\n{res.stderr}\n{res.stdout}"
+    data = json.loads(res.stdout)
+    assert data["success"] is True
+    assert data["profanity_cues_detected"] == 3
+    assert data["raw_spikes_detected"] > 0
+    assert data["passed_boundary_checks"] == data["total_boundary_checks"]
+
+
+def test_e2e_smoke_fixture_isolated_loud_spike(tmp_path: Path) -> None:
+    """Verify full e2e pipeline against synthetic fixture: audio_loud_spike_isolated.mp4."""
+    clip_path = REPO_ROOT / "data" / "test_clips" / "audio_loud_spike_isolated.mp4"
+    if not clip_path.exists():
+        pytest.skip(f"Test clip {clip_path} not found.")
+
+    report = run_e2e_smoke_pipeline(
+        media_path=clip_path,
+        film_id="isolated_spike",
+        output_dir=tmp_path / "isolated",
+        keep_artifacts=True,
+        verbose=False,
+    )
+
+    assert report["success"] is True
+    assert report["raw_spikes_detected"] >= 1
+    assert report["packaged_cues_count"] >= 1
+    assert report["passed_boundary_checks"] == report["total_boundary_checks"]
+
+
+def test_e2e_smoke_fixtures_negative_controls(tmp_path: Path) -> None:
+    """Verify full e2e pipeline against negative control fixtures (no false positives)."""
+    ambient_clip = REPO_ROOT / "data" / "test_clips" / "audio_negative_ambient.mp4"
+    dialogue_clip = REPO_ROOT / "data" / "test_clips" / "audio_negative_dialogue.mp4"
+
+    for clip in [ambient_clip, dialogue_clip]:
+        if not clip.exists():
+            continue
+        report = run_e2e_smoke_pipeline(
+            media_path=clip,
+            film_id=clip.stem,
+            output_dir=tmp_path / clip.stem,
+            keep_artifacts=True,
+            verbose=False,
+        )
+        assert report["success"] is True
+        # Negative audio should not have loud spikes
+        assert report["raw_spikes_detected"] == 0
+        assert report["packaged_cues_count"] == 0
+        assert report["passed_boundary_checks"] == report["total_boundary_checks"]

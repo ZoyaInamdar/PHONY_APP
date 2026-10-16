@@ -24,7 +24,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 # Ensure repository root is on sys.path for direct CLI script execution
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -284,6 +284,110 @@ def merge_detections(
     return all_merged
 
 
+def adapt_subtitle_cues_to_raw_detections(
+    subtitle_data: Union[Dict[str, Any], List[Dict[str, Any]]],
+    default_source: str = "subtitles",
+) -> List[Dict[str, Any]]:
+    """Adapt Person C subtitle cues or detection records into raw detection dictionaries.
+
+    Accepts:
+    1. A list of cue dictionaries (e.g. from cues.json or cues_to_dicts):
+       [{"id": "c1", "start": 1.0, "end": 3.5, "kind": "speech", "flagged_words": [...]}]
+    2. A dictionary containing a "cues" list: {"cues": [...]}
+    3. A dictionary containing a "detections" list: {"provenance": ..., "detections": [...]}
+    4. A raw list of detection dictionaries already matching the detector contract:
+       [{"start": 1.0, "end": 3.5, "trigger": "profanity", "score": 1.0, "source": "subtitles"}]
+
+    Rules:
+    - Filters out ordinary speech or sound descriptions without flagged words.
+    - If a cue dictionary contains non-empty "flagged_words" or "flagged", it is converted
+      to a canonical profanity raw detection:
+      {"start": round(start, 3), "end": round(end, 3), "trigger": "profanity", "score": 1.0, "source": default_source}.
+    - Existing raw detections (having "trigger") are validated and preserved without alteration.
+    - Does not mutate input objects.
+    - Returns a list of standardized raw detection dictionaries.
+    """
+    if subtitle_data is None:
+        return []
+
+    raw_items: List[Any]
+    if isinstance(subtitle_data, dict):
+        if "detections" in subtitle_data and isinstance(subtitle_data["detections"], list):
+            raw_items = subtitle_data["detections"]
+        elif "cues" in subtitle_data and isinstance(subtitle_data["cues"], list):
+            raw_items = subtitle_data["cues"]
+        else:
+            raw_items = []
+    elif isinstance(subtitle_data, list):
+        raw_items = subtitle_data
+    else:
+        raise ValueError(
+            f"subtitle_data must be a dictionary or list, got {type(subtitle_data).__name__}"
+        )
+
+    adapted_detections: List[Dict[str, Any]] = []
+
+    for idx, item in enumerate(raw_items):
+        if not isinstance(item, dict):
+            continue
+
+        # Case A: Already a detection record with explicit 'trigger'
+        if "trigger" in item:
+            start_val = item.get("start")
+            end_val = item.get("end")
+            if not isinstance(start_val, (int, float)) or not isinstance(end_val, (int, float)):
+                raise ValueError(
+                    f"Detection at index {idx} has non-numeric start/end: {item}"
+                )
+            start_f = float(start_val)
+            end_f = float(end_val)
+            if start_f < 0.0 or end_f <= start_f:
+                raise ValueError(
+                    f"Detection at index {idx} has invalid interval [{start_f}, {end_f}]"
+                )
+            score_f = float(item.get("score", 1.0))
+            source_str = str(item.get("source", default_source))
+            trigger_str = str(item["trigger"])
+
+            adapted_detections.append({
+                "start": round(start_f, 3),
+                "end": round(end_f, 3),
+                "trigger": trigger_str,
+                "score": score_f,
+                "source": source_str,
+            })
+            continue
+
+        # Case B: Subtitle cue dictionary with flagged words / flagged terms
+        flagged_list = item.get("flagged_words") or item.get("flagged") or []
+        if flagged_list:
+            start_val = item.get("start")
+            end_val = item.get("end")
+            if not isinstance(start_val, (int, float)) or not isinstance(end_val, (int, float)):
+                raise ValueError(
+                    f"Subtitle cue at index {idx} has non-numeric start/end: {item}"
+                )
+            start_f = float(start_val)
+            end_f = float(end_val)
+            if start_f < 0.0 or end_f <= start_f:
+                raise ValueError(
+                    f"Subtitle cue at index {idx} has invalid interval [{start_f}, {end_f}]"
+                )
+
+            adapted_detections.append({
+                "start": round(start_f, 3),
+                "end": round(end_f, 3),
+                "trigger": "profanity",
+                "score": 1.0,
+                "source": default_source,
+            })
+            continue
+
+        # Case C: Ordinary dialogue or sound description without flagged words -> skip
+
+    return adapted_detections
+
+
 def package_cues(
     raw_data: Dict[str, Any] | List[Dict[str, Any]],
     film_id: Optional[str] = None,
@@ -293,17 +397,19 @@ def package_cues(
     synthetic: Optional[bool] = None,
     description: Optional[str] = None,
     schema: Optional[Dict[str, Any]] = None,
+    subtitles: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """Package raw detections into a fully-validated player index dictionary.
 
     - Resolves metadata defaults
+    - Integrates subtitle profanity cues via adapter if provided
     - Applies merge policy
     - Generates deterministic, collision-safe cue IDs
     - Validates packaged output against index schema and business rules
     """
     # 1. Extract raw detections list and metadata
     if isinstance(raw_data, dict):
-        detections = raw_data.get("detections", [])
+        detections = list(raw_data.get("detections", []))
         if film_id is None:
             film_id = raw_data.get("film_id")
         if synthetic is None:
@@ -312,10 +418,17 @@ def package_cues(
             description = raw_data.get("description")
         if duration_seconds is None and "timeline" in raw_data and isinstance(raw_data["timeline"], dict):
             duration_seconds = raw_data["timeline"].get("duration_seconds")
+        if subtitles is None and "subtitles" in raw_data:
+            subtitles = raw_data.get("subtitles")
     elif isinstance(raw_data, list):
-        detections = raw_data
+        detections = list(raw_data)
     else:
         raise ValueError(f"raw_data must be a dictionary or list, got {type(raw_data)}")
+
+    # Integrate subtitle profanity cues if provided
+    if subtitles is not None:
+        sub_dets = adapt_subtitle_cues_to_raw_detections(subtitles)
+        detections.extend(sub_dets)
 
     # Resolve film_id default
     if not film_id:
@@ -466,6 +579,7 @@ def package_and_save_index(
     film_id: Optional[str] = None,
     duration_seconds: Optional[float] = None,
     fps: Optional[float] = None,
+    subtitles_path: Optional[Path | str] = None,
 ) -> Dict[str, Any]:
     """Load raw cues, apply merge and packaging, validate, and write atomically to output_path."""
     in_path = Path(input_path)
@@ -474,6 +588,14 @@ def package_and_save_index(
 
     with in_path.open("r", encoding="utf-8") as f:
         raw_data = json.load(f)
+
+    subtitles_data = None
+    if subtitles_path is not None:
+        sub_p = Path(subtitles_path)
+        if not sub_p.is_file():
+            raise FileNotFoundError(f"Subtitles file not found: {sub_p.resolve()}")
+        with sub_p.open("r", encoding="utf-8") as f:
+            subtitles_data = json.load(f)
 
     config_data = load_config_data(config_path)
     schema_data = load_schema(schema_path)
@@ -485,6 +607,7 @@ def package_and_save_index(
         fps=fps,
         config=config_data,
         schema=schema_data,
+        subtitles=subtitles_data,
     )
 
     atomic_write_json(index_data, output_path)
@@ -538,9 +661,17 @@ def main() -> int:
         default=None,
         help="Optional video frame rate in frames per second.",
     )
+    parser.add_argument(
+        "--subtitles",
+        type=Path,
+        default=None,
+        help="Optional path to subtitle cues or detections JSON (e.g. data/cues.json or detections/subtitles.json).",
+    )
     args = parser.parse_args()
 
     print(f"Packaging cues from: {args.input.resolve()}")
+    if args.subtitles:
+        print(f"Integrating subtitles from: {args.subtitles.resolve()}")
     print(f"Target output index: {args.output.resolve()}")
 
     try:
@@ -552,6 +683,7 @@ def main() -> int:
             film_id=args.film_id,
             duration_seconds=args.duration,
             fps=args.fps,
+            subtitles_path=args.subtitles,
         )
         cues_count = len(index_data.get("cues", []))
         print(f"\nSUCCESS: Packaged {cues_count} cue(s) into {args.output.resolve()} cleanly.")

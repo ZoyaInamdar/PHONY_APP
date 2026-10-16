@@ -545,3 +545,92 @@ def test_cli_execution(tmp_path: Path):
     ]
     proc_alias = subprocess.run(cmd_alias, capture_output=True, text=True)
     assert proc_alias.returncode == 0
+
+
+# ==============================================================================
+# 15. Ground Truth Benchmark & Exponential Decay Onset Regression
+# ==============================================================================
+
+def test_exponential_decay_spike_exact_onset_and_duration_regression():
+    """Verify that transient spikes with exponential decay yield exact onset timing and zero false positives.
+
+    Acoustic model matches synthesize_audio_event('loud_spike'):
+    - +15 dB peak with exponential decay transient exp(-t / 0.12).
+    - Ground-truth onset at t=1.500s.
+    - Detector detects onset with zero onset error (<= 0.05s tolerance).
+    """
+    sr = 44100
+    total_dur = 4.0
+    total_samples = int(total_dur * sr)
+
+    # Ambient baseline at -30 dBFS
+    rng = np.random.default_rng(42)
+    ambient = rng.normal(0, 0.03, total_samples).astype(np.float32)
+
+    # Place exponential decay spike at 1.50s - 2.00s
+    spike_start = 1.5
+    spike_dur = 0.5
+    spike_samples = int(spike_dur * sr)
+    t = np.linspace(0.0, spike_dur, spike_samples, endpoint=False, dtype=np.float32)
+    decay = np.exp(-t / 0.12).astype(np.float32)
+    tone = 0.65 * np.sin(2 * np.pi * 380 * t) * decay
+    noise = 0.35 * rng.normal(0, 1, spike_samples).astype(np.float32) * decay
+    spike_audio = tone + noise
+    spike_audio = (spike_audio / np.max(np.abs(spike_audio))) * 0.90
+
+    start_idx = int(spike_start * sr)
+    ambient[start_idx : start_idx + spike_samples] += spike_audio
+
+    detections = detect_loudness_from_samples(ambient, sample_rate=sr, modes=("spike",))
+    assert len(detections) == 1
+    det = detections[0]
+
+    # Onset must match 1.50s within one analysis window (0.1s)
+    assert pytest.approx(det["start"], abs=0.05) == spike_start
+    assert det["trigger"] == "loud_spike"
+    assert det["score"] > 0.5
+    # The detected interval must stay within the spike window
+    assert det["end"] <= (spike_start + spike_dur + 0.1)
+
+
+def test_ground_truth_test_clips_evaluation():
+    """Evaluate detector on positive test clips and negative controls if present in data/test_clips."""
+    clips_dir = Path("data/test_clips")
+    pos_isolated = clips_dir / "audio_loud_spike_isolated.mp4"
+    pos_test = clips_dir / "audio_loud_spike_test.mp4"
+    neg_ambient = clips_dir / "audio_negative_ambient.mp4"
+    neg_dialogue = clips_dir / "audio_negative_dialogue.mp4"
+
+    if not (pos_isolated.is_file() and pos_test.is_file() and neg_ambient.is_file() and neg_dialogue.is_file()):
+        pytest.skip("Synthetic test clips not present; skipping dataset benchmark test")
+
+    import tempfile
+    from scripts.ingest_media import extract_audio
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp_p = Path(td)
+
+        # 1. Positive isolated: GT [1.500, 1.800)
+        wav_iso = tmp_p / "iso.wav"
+        extract_audio(pos_isolated, wav_iso)
+        dets_iso = detect_loudness_from_wav(wav_iso, modes=("spike",))
+        assert len(dets_iso) == 1
+        assert pytest.approx(dets_iso[0]["start"], abs=0.05) == 1.500
+        assert dets_iso[0]["end"] <= 1.850
+
+        # 2. Positive test: GT [2.000, 2.500)
+        wav_test = tmp_p / "test.wav"
+        extract_audio(pos_test, wav_test)
+        dets_test = detect_loudness_from_wav(wav_test, modes=("spike",))
+        assert len(dets_test) == 1
+        assert pytest.approx(dets_test[0]["start"], abs=0.05) == 2.000
+        assert dets_test[0]["end"] <= 2.550
+
+        # 3. Negative controls: 0 detections
+        wav_amb = tmp_p / "amb.wav"
+        extract_audio(neg_ambient, wav_amb)
+        assert detect_loudness_from_wav(wav_amb, modes=("spike",)) == []
+
+        wav_dia = tmp_p / "dia.wav"
+        extract_audio(neg_dialogue, wav_dia)
+        assert detect_loudness_from_wav(wav_dia, modes=("spike",)) == []

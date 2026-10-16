@@ -29,6 +29,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -51,6 +52,11 @@ DEFAULT_LOW_RES_WIDTH = 128
 DEFAULT_LOW_RES_HEIGHT = 72
 DEFAULT_SNAPSHOT_FPS = 1.0
 DEFAULT_SNAPSHOT_MAX_DIM = 512
+DEFAULT_PROBE_TIMEOUT = 60.0
+DEFAULT_NORMALIZE_TIMEOUT = 1800.0  # 30 minutes for large videos
+DEFAULT_AUDIO_TIMEOUT = 300.0       # 5 minutes
+DEFAULT_FRAMES_TIMEOUT = 600.0      # 10 minutes
+DEFAULT_SNAPSHOTS_TIMEOUT = 600.0   # 10 minutes
 
 
 class IngestionError(RuntimeError):
@@ -85,7 +91,10 @@ def check_tool_availability() -> None:
         )
 
 
-def probe_media(media_path: Path | str) -> Dict[str, Any]:
+def probe_media(
+    media_path: Path | str,
+    timeout: float = DEFAULT_PROBE_TIMEOUT,
+) -> Dict[str, Any]:
     """Inspect source media container and stream properties using ffprobe.
 
     Returns structured dictionary with container format and detected streams.
@@ -109,7 +118,18 @@ def probe_media(media_path: Path | str) -> Dict[str, Any]:
     ]
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        proc = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"ffprobe timed out after {timeout} seconds while probing media file '{path}'."
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise InvalidMediaError(
             f"ffprobe failed to read media file '{path}': {exc.stderr.strip()}"
@@ -155,6 +175,7 @@ def normalize_video(
     max_height: int = DEFAULT_MAX_HEIGHT,
     target_fps: float = DEFAULT_TARGET_FPS,
     has_audio: bool = False,
+    timeout: float = DEFAULT_NORMALIZE_TIMEOUT,
 ) -> Dict[str, Any]:
     """Normalize video stream to H.264 / yuv420p at constant frame rate.
 
@@ -179,6 +200,7 @@ def normalize_video(
 
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-y",
         "-ss",
         "0",
@@ -204,22 +226,27 @@ def normalize_video(
     cmd.append(str(output_path))
 
     try:
-        # Keep FFmpeg progress/errors visible in the terminal instead of
-        # capturing stderr until the full encode finishes.
         subprocess.run(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=None,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
             check=True,
+            timeout=timeout,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"Video normalization timed out after {timeout} seconds for '{input_path}'."
+        ) from exc
     except subprocess.CalledProcessError as exc:
+        err_msg = (exc.stderr or "").strip()
         raise IngestionError(
             f"Video normalization failed for '{input_path}' "
-            f"(FFmpeg exit code {exc.returncode})."
+            f"(FFmpeg exit code {exc.returncode}): {err_msg}"
         ) from exc
 
     # Probe normalized video output to capture exact verified properties
-    norm_probe = probe_media(output_path)
+    norm_probe = probe_media(output_path, timeout=60.0)
     video_stream = norm_probe["video_streams"][0]
 
     # Measure exact frame count via ffprobe packet count
@@ -237,15 +264,19 @@ def normalize_video(
         str(output_path),
     ]
     try:
-        # Use the ffprobe command defined above, not the FFmpeg normalization
-        # command. ffprobe prints the packet count to stdout.
         count_proc = subprocess.run(
             count_cmd,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             check=True,
+            timeout=60.0,
         )
         frame_count = int(count_proc.stdout.strip())
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"ffprobe packet counting timed out after 60 seconds for '{output_path}'."
+        ) from exc
     except (subprocess.CalledProcessError, ValueError) as exc:
         error_detail = (
             getattr(exc, "stderr", None)
@@ -275,6 +306,7 @@ def normalize_video(
 def extract_audio(
     input_path: Path,
     output_path: Path,
+    timeout: float = DEFAULT_AUDIO_TIMEOUT,
 ) -> Dict[str, Any]:
     """Extract mono PCM WAV audio at 44,100 Hz (pcm_s16le)."""
     check_tool_availability()
@@ -282,6 +314,7 @@ def extract_audio(
 
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-y",
         "-i",
         str(input_path),
@@ -296,7 +329,18 @@ def extract_audio(
     ]
 
     try:
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"Audio extraction timed out after {timeout} seconds for '{input_path}'."
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise IngestionError(
             f"Audio extraction failed for '{input_path}': {exc.stderr.strip()}"
@@ -314,11 +358,22 @@ def extract_audio(
         str(output_path),
     ]
     try:
-        probe_proc = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
+        probe_proc = subprocess.run(
+            probe_cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60.0,
+        )
         probe_data = json.loads(probe_proc.stdout)
         astream = probe_data["streams"][0]
         duration_str = astream.get("duration")
         duration = float(duration_str) if duration_str is not None else None
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"ffprobe timed out after 60 seconds probing audio WAV '{output_path}'."
+        ) from exc
     except Exception as exc:
         raise IngestionError(
             f"Failed to probe extracted audio WAV '{output_path}': {exc}"
@@ -343,6 +398,7 @@ def extract_low_res_frames(
     height: int = DEFAULT_LOW_RES_HEIGHT,
     fps: float = DEFAULT_TARGET_FPS,
     expected_frame_count: Optional[int] = None,
+    timeout: float = DEFAULT_FRAMES_TIMEOUT,
 ) -> Dict[str, Any]:
     """Extract raw RGB24 video frames at 128x72 pixels.
 
@@ -356,6 +412,7 @@ def extract_low_res_frames(
 
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-y",
         "-i",
         str(normalized_video_path),
@@ -369,7 +426,18 @@ def extract_low_res_frames(
     ]
 
     try:
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"Low-resolution frame extraction timed out after {timeout} seconds."
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise IngestionError(
             f"Low-resolution frame extraction failed: {exc.stderr.strip()}"
@@ -408,6 +476,7 @@ def extract_snapshots(
     manifest_filename: str = "frames_manifest.json",
     target_fps: float = DEFAULT_SNAPSHOT_FPS,
     max_dimension: int = DEFAULT_SNAPSHOT_MAX_DIM,
+    timeout: float = DEFAULT_SNAPSHOTS_TIMEOUT,
 ) -> Dict[str, Any]:
     """Extract preview snapshots at <= 1.0 fps with maximum dimension <= 512px.
 
@@ -427,6 +496,7 @@ def extract_snapshots(
 
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-y",
         "-i",
         str(normalized_video_path),
@@ -438,7 +508,18 @@ def extract_snapshots(
     ]
 
     try:
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise IngestionError(
+            f"Snapshot extraction timed out after {timeout} seconds."
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise IngestionError(
             f"Snapshot extraction failed: {exc.stderr.strip()}"
@@ -519,6 +600,7 @@ def ingest_media(
     snapshot_max_dim: int = DEFAULT_SNAPSHOT_MAX_DIM,
     schema_path: Path | str = DEFAULT_SCHEMA_PATH,
     skip_validation: bool = False,
+    verbose: bool = True,
 ) -> Dict[str, Any]:
     """Execute media ingestion pipeline with atomic staging and schema validation.
 
@@ -532,12 +614,25 @@ def ingest_media(
     src = Path(input_path).resolve()
     dst = Path(output_dir).resolve()
 
+    def log(msg: str) -> None:
+        if verbose:
+            print(msg, flush=True)
+
+    start_time = time.perf_counter()
+
     if film_id is None:
         film_id = src.stem
 
     # 1. Inspect source media
+    log(f"[Stage 1/5] Probing source media container & streams: {src.name} ...")
     probe_info = probe_media(src)
     has_audio = len(probe_info["audio_streams"]) > 0
+    dur_val = probe_info.get("container_duration_seconds")
+    dur_str = f"{dur_val:.2f}s" if dur_val is not None else "unknown duration"
+    log(
+        f"            Probed: format={probe_info.get('format_name')}, duration={dur_str}, "
+        f"video_streams={len(probe_info['video_streams'])}, audio_streams={len(probe_info['audio_streams'])}"
+    )
 
     warnings: List[str] = []
     errors: List[str] = []
@@ -551,6 +646,8 @@ def ingest_media(
 
     try:
         # A. Normalize video
+        log(f"[Stage 2/5] Normalizing video stream (H.264 @ {target_fps} fps, max {max_width}x{max_height}) ...")
+        t_stage = time.perf_counter()
         norm_video_path = staging_dir / "normalized.mp4"
         norm_video_info = normalize_video(
             input_path=src,
@@ -560,12 +657,24 @@ def ingest_media(
             target_fps=target_fps,
             has_audio=has_audio,
         )
+        log(
+            f"            Video normalized: {norm_video_info['frame_count']} frames, "
+            f"{norm_video_info['duration_seconds']:.2f}s in {time.perf_counter() - t_stage:.1f}s"
+        )
 
         # B. Extract audio if present
+        log(f"[Stage 3/5] Extracting audio stream ...")
+        t_stage = time.perf_counter()
         if has_audio:
             audio_path = staging_dir / "audio_mono_44100.wav"
             try:
                 audio_info = extract_audio(src, audio_path)
+                dur_audio = audio_info.get("duration_seconds")
+                dur_audio_str = f"{dur_audio:.2f}s" if dur_audio is not None else "completed"
+                log(
+                    f"            Audio extracted: mono PCM 16-bit @ 44.1 kHz, "
+                    f"{dur_audio_str} in {time.perf_counter() - t_stage:.1f}s"
+                )
             except Exception as exc:
                 audio_info = {
                     "present": True,
@@ -578,6 +687,7 @@ def ingest_media(
                     "error": str(exc),
                 }
                 errors.append(f"Audio extraction failed on existing stream: {exc}")
+                log(f"            Audio extraction failed: {exc}")
         else:
             audio_info = {
                 "present": False,
@@ -589,8 +699,11 @@ def ingest_media(
                 "duration_seconds": None,
                 "error": None,
             }
+            log("            Audio extraction skipped: source media contains no audio stream.")
 
         # C. Extract low-resolution frames
+        log(f"[Stage 4/5] Extracting low-resolution frames ({low_res_width}x{low_res_height} raw RGB24) ...")
+        t_stage = time.perf_counter()
         low_res_path = staging_dir / "low_res_frames_128x72.rgb"
         low_res_info = extract_low_res_frames(
             normalized_video_path=norm_video_path,
@@ -600,6 +713,10 @@ def ingest_media(
             fps=target_fps,
             expected_frame_count=norm_video_info["frame_count"],
         )
+        log(
+            f"            Extracted {low_res_info['frame_count']} frames "
+            f"({low_res_info['total_bytes']:,} bytes) in {time.perf_counter() - t_stage:.1f}s"
+        )
 
         if low_res_info["frame_loss_count"] > 0:
             warnings.append(
@@ -607,6 +724,8 @@ def ingest_media(
             )
 
         # D. Extract preview snapshots
+        log(f"[Stage 5/5] Extracting preview snapshots (<= {snapshot_fps} fps, max dimension {snapshot_max_dim}px) ...")
+        t_stage = time.perf_counter()
         snapshots_dir = staging_dir / "snapshots"
         snapshots_info = extract_snapshots(
             normalized_video_path=norm_video_path,
@@ -614,6 +733,10 @@ def ingest_media(
             manifest_filename="frames_manifest.json",
             target_fps=snapshot_fps,
             max_dimension=snapshot_max_dim,
+        )
+        log(
+            f"            Extracted {snapshots_info['snapshot_count']} snapshots in "
+            f"{time.perf_counter() - t_stage:.1f}s"
         )
 
         # Also write frames_manifest.json to staging root for config.yaml compatibility
@@ -657,6 +780,7 @@ def ingest_media(
 
         # G. Validate manifest against JSON Schema
         if not skip_validation:
+            log("[Validation] Validating ingestion manifest against schema ...")
             is_valid, validation_errors = validate_ingest_manifest(
                 manifest_data, schema_path=schema_path
             )
@@ -664,6 +788,7 @@ def ingest_media(
                 raise SchemaValidationError(
                     f"Generated ingestion manifest failed schema validation: {validation_errors}"
                 )
+            log("             Schema validation passed.")
 
         # Write manifest file inside staging directory
         manifest_output_path = staging_dir / "ingest_manifest.json"
@@ -671,6 +796,7 @@ def ingest_media(
             json.dump(manifest_data, f, indent=2)
 
         # H. Atomic publish to final output directory
+        log(f"[Publish] Publishing assets atomically to: {dst} ...")
         if dst.exists():
             backup_dir = dst.parent / f".backup_{dst.name}_{uuid.uuid4().hex[:8]}"
             dst.rename(backup_dir)
@@ -684,6 +810,8 @@ def ingest_media(
         else:
             staging_dir.rename(dst)
 
+        total_elapsed = time.perf_counter() - start_time
+        log(f"Ingestion finished successfully in {total_elapsed:.1f}s (status='{status}').")
         return manifest_data
 
     except Exception:
@@ -746,13 +874,19 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Skip JSON schema validation of ingest_manifest.json.",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress stage progress logging to stdout.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     try:
-        print(f"Starting media ingestion for: {args.input}")
+        if not args.quiet:
+            print(f"Starting media ingestion for: {args.input}")
         manifest = ingest_media(
             input_path=args.input,
             output_dir=args.output_dir,
@@ -762,6 +896,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             max_height=args.max_height,
             schema_path=args.schema,
             skip_validation=args.skip_validation,
+            verbose=not args.quiet,
         )
         print(f"Ingestion successful! Assets published to: {args.output_dir}")
         print(f"Ingestion Manifest: {Path(args.output_dir) / 'ingest_manifest.json'}")

@@ -517,3 +517,60 @@ def test_cli_execution_missing_media_failure(tmp_path: Path):
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     assert proc.returncode != 0
+
+
+# ------------------------------------------------------------------------------
+# 12. Stage Progress Logging, Quiet Mode & Timeout Regression
+# ------------------------------------------------------------------------------
+
+def test_ingest_stage_logging_and_quiet_mode(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """Verify stage-level progress logging is output when verbose=True and silenced when verbose=False."""
+    src = create_synthetic_video(tmp_path / "log_clip.mp4", duration=1.0, with_audio=True)
+    out_dir_verbose = tmp_path / "out_verbose"
+    out_dir_quiet = tmp_path / "out_quiet"
+
+    # Verbose run
+    ingest_media(src, out_dir_verbose, verbose=True)
+    captured = capsys.readouterr().out
+    assert "[Stage 1/5]" in captured
+    assert "[Stage 2/5]" in captured
+    assert "[Stage 3/5]" in captured
+    assert "[Stage 4/5]" in captured
+    assert "[Stage 5/5]" in captured
+    assert "[Validation]" in captured
+    assert "[Publish]" in captured
+
+    # Quiet run
+    ingest_media(src, out_dir_quiet, verbose=False)
+    captured_quiet = capsys.readouterr().out
+    assert captured_quiet == ""
+
+
+def test_ingest_timeout_handling(tmp_path: Path):
+    """Verify subprocess timeout raises IngestionError with informative message."""
+    src = create_synthetic_video(tmp_path / "timeout_clip.mp4", duration=1.0, with_audio=True)
+
+    # Extremely low timeout forces TimeoutExpired in probe_media
+    with pytest.raises(IngestionError) as exc_info:
+        probe_media(src, timeout=0.000001)
+    assert "timed out after" in str(exc_info.value)
+
+
+def test_cli_quiet_flag(tmp_path: Path):
+    """Verify --quiet flag suppresses stage logging in CLI execution."""
+    src = create_synthetic_video(tmp_path / "cli_quiet.mp4", duration=1.0, with_audio=True)
+    out_dir = tmp_path / "cli_quiet_out"
+
+    cmd = [
+        sys.executable,
+        "scripts/ingest_media.py",
+        "--input",
+        str(src),
+        "--output-dir",
+        str(out_dir),
+        "--quiet",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    assert proc.returncode == 0
+    assert "[Stage 1/5]" not in proc.stdout
+    assert (out_dir / "ingest_manifest.json").is_file()

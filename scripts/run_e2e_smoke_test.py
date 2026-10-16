@@ -37,12 +37,19 @@ from scripts.detect_loudness import (
 )
 from scripts.package_cues import (
     DEFAULT_SCHEMA_PATH,
+    adapt_subtitle_cues_to_raw_detections,
     atomic_write_json,
     load_config_data,
     load_schema,
     package_cues,
 )
 from scripts.validate_index import validate_index
+
+try:
+    from scripts.parse_subtitles import cues_to_dicts, load_wordlist, parse_srt_file
+    PYSRT_AVAILABLE = True
+except ImportError:
+    PYSRT_AVAILABLE = False
 
 DEFAULT_AUDIO_PATH = Path("data/processed/smoke_test/audio_mono_44100.wav")
 DEFAULT_MEDIA_PATH = Path("data/media/smoke_test.mp4")
@@ -99,9 +106,9 @@ def check_detector_availability() -> Dict[str, Dict[str, Any]]:
             "modality": "subtitles",
             "trigger": "profanity",
             "owner": "Person C",
-            "status": "partial",
-            "script_path": "src/subtitles/profanityParser.ts",
-            "notes": "Parser algorithm exists in TypeScript, but no CLI wrapper or subtitle data in pipeline.",
+            "status": "available",
+            "script_path": "scripts/parse_subtitles.py",
+            "notes": "Fully implemented, tested, and integrated with cue packaging.",
         },
     }
 
@@ -159,6 +166,9 @@ def run_player_engine_simulation(
 def run_e2e_smoke_pipeline(
     audio_path: Optional[Path] = None,
     media_path: Optional[Path] = None,
+    srt_path: Optional[Path] = None,
+    subtitles_json_path: Optional[Path] = None,
+    wordlist_path: Optional[Path] = None,
     config_path: Path = DEFAULT_CONFIG_PATH,
     schema_path: Path = DEFAULT_SCHEMA_PATH,
     film_id: str = DEFAULT_FILM_ID,
@@ -179,20 +189,7 @@ def run_e2e_smoke_pipeline(
         for det_name, info in detectors.items():
             print(f"  - {det_name} ({info['owner']}): [{info['status'].upper()}] - {info['notes']}")
 
-    # 2. Audio input verification
-    resolved_audio_path = Path(audio_path) if audio_path else DEFAULT_AUDIO_PATH
-    if not resolved_audio_path.exists():
-        raise FileNotFoundError(f"Input audio file not found: {resolved_audio_path}")
-
-    wav_info = get_wav_info(resolved_audio_path)
-    audio_duration = wav_info["duration_seconds"]
-    if verbose:
-        print(f"\n[Step 2] Input Media Audio Verified:")
-        print(f"  File: {resolved_audio_path}")
-        print(f"  Sample Rate: {wav_info['sample_rate']} Hz, Channels: {wav_info['channels']}")
-        print(f"  Total Samples: {wav_info['total_samples']:,}, Duration: {audio_duration:.3f}s")
-
-    # Set up temporary working directory for pipeline artifacts
+    # Set up working directory for pipeline artifacts
     temp_dir_obj = None
     if output_dir:
         working_dir = Path(output_dir)
@@ -203,6 +200,47 @@ def run_e2e_smoke_pipeline(
 
     raw_cues_path = working_dir / "raw_detections.json"
     index_path = working_dir / "index.json"
+
+    # 2. Audio input verification
+    resolved_audio_path: Optional[Path] = Path(audio_path) if audio_path else None
+
+    # Check if resolved_audio_path is a video file needing extraction
+    if resolved_audio_path and resolved_audio_path.exists() and resolved_audio_path.suffix.lower() in [".mp4", ".mkv", ".mov"]:
+        extracted_wav = working_dir / f"{resolved_audio_path.stem}_audio_mono.wav"
+        if not extracted_wav.exists():
+            subprocess.run(
+                ["ffmpeg", "-nostdin", "-y", "-i", str(resolved_audio_path), "-vn", "-ac", "1", "-ar", "44100", "-c:a", "pcm_s16le", str(extracted_wav)],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                check=True,
+            )
+        resolved_audio_path = extracted_wav
+    elif resolved_audio_path is None or not resolved_audio_path.exists():
+        if media_path and Path(media_path).exists():
+            media_p = Path(media_path)
+            if media_p.suffix.lower() == ".wav":
+                resolved_audio_path = media_p
+            else:
+                extracted_wav = working_dir / f"{media_p.stem}_audio_mono.wav"
+                subprocess.run(
+                    ["ffmpeg", "-nostdin", "-y", "-i", str(media_p), "-vn", "-ac", "1", "-ar", "44100", "-c:a", "pcm_s16le", str(extracted_wav)],
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    check=True,
+                )
+                resolved_audio_path = extracted_wav
+        elif DEFAULT_AUDIO_PATH.exists():
+            resolved_audio_path = DEFAULT_AUDIO_PATH
+        else:
+            raise FileNotFoundError(f"Input audio file not found: {audio_path or DEFAULT_AUDIO_PATH}")
+
+    wav_info = get_wav_info(resolved_audio_path)
+    audio_duration = wav_info["duration_seconds"]
+    if verbose:
+        print(f"\n[Step 2] Input Media Audio Verified:")
+        print(f"  File: {resolved_audio_path}")
+        print(f"  Sample Rate: {wav_info['sample_rate']} Hz, Channels: {wav_info['channels']}")
+        print(f"  Total Samples: {wav_info['total_samples']:,}, Duration: {audio_duration:.3f}s")
 
     try:
         # 3. Detector execution (Loudness Spike Detector)
@@ -222,7 +260,7 @@ def run_e2e_smoke_pipeline(
         if verbose:
             print(f"  Raw loudness spikes detected: {len(raw_detections)}")
 
-        # Validate raw detection contract on all emitted records
+        # Validate raw detection contract on all emitted loudness records
         for i, rec in enumerate(raw_detections):
             assert "start" in rec and rec["start"] >= 0.0, f"Record {i} missing/invalid start"
             assert "end" in rec and rec["end"] > rec["start"], f"Record {i} missing/invalid end"
@@ -230,15 +268,54 @@ def run_e2e_smoke_pipeline(
             assert 0.0 <= rec["score"] <= 1.0, f"Record {i} score {rec.get('score')} out of [0, 1]"
             assert rec["source"] == "loudness_detector", f"Record {i} invalid source {rec.get('source')}"
 
+        # 3b. Optional Subtitle / Profanity Detection
+        profanity_detections: List[Dict[str, Any]] = []
+        if srt_path:
+            resolved_srt = Path(srt_path)
+            if not resolved_srt.exists():
+                raise FileNotFoundError(f"SRT file not found: {resolved_srt}")
+            if not PYSRT_AVAILABLE:
+                raise RuntimeError("pysrt is required for parsing .srt subtitle files.")
+            if verbose:
+                print(f"\n[Step 3b] Parsing Subtitles from {resolved_srt} for Profanity...")
+            resolved_wordlist = Path(wordlist_path) if wordlist_path else REPO_ROOT / "data" / "profanity_wordlist.txt"
+            sub_file = parse_srt_file(resolved_srt, wordlist_path=resolved_wordlist)
+            cue_dicts = cues_to_dicts(sub_file)
+            profanity_detections = adapt_subtitle_cues_to_raw_detections(cue_dicts)
+            if verbose:
+                print(f"  Profanity intervals flagged: {len(profanity_detections)}")
+        elif subtitles_json_path:
+            resolved_sub_json = Path(subtitles_json_path)
+            if not resolved_sub_json.exists():
+                raise FileNotFoundError(f"Subtitles JSON file not found: {resolved_sub_json}")
+            if verbose:
+                print(f"\n[Step 3b] Loading Subtitles from JSON: {resolved_sub_json}...")
+            with resolved_sub_json.open("r", encoding="utf-8") as f:
+                sub_data = json.load(f)
+            profanity_detections = adapt_subtitle_cues_to_raw_detections(sub_data)
+            if verbose:
+                print(f"  Profanity intervals loaded from JSON: {len(profanity_detections)}")
+
+        # Validate raw detection contract on all emitted profanity records
+        for i, rec in enumerate(profanity_detections):
+            assert "start" in rec and rec["start"] >= 0.0, f"Profanity record {i} missing/invalid start"
+            assert "end" in rec and rec["end"] > rec["start"], f"Profanity record {i} missing/invalid end"
+            assert rec["trigger"] == "profanity", f"Profanity record {i} invalid trigger {rec.get('trigger')}"
+            assert 0.0 <= rec["score"] <= 1.0, f"Profanity record {i} score {rec.get('score')} out of [0, 1]"
+
+        all_raw_detections = list(raw_detections) + list(profanity_detections)
+
+        # Save all raw combined detections for transparency
+        atomic_write_json({"detections": all_raw_detections, "film_id": film_id}, raw_cues_path)
         if verbose:
-            print(f"  Saved raw detections to: {raw_cues_path}")
+            print(f"  Combined raw detections ({len(all_raw_detections)} total) saved to: {raw_cues_path}")
 
         # 4. Packaging execution (scripts/package_cues.py)
         if verbose:
             print(f"\n[Step 4] Packaging Cues into index.json...")
 
         packaged_index = package_cues(
-            raw_data=raw_detections,
+            raw_data=all_raw_detections,
             config=config,
             schema=schema,
             film_id=film_id,
@@ -302,6 +379,7 @@ def run_e2e_smoke_pipeline(
             "film_id": film_id,
             "audio_duration_seconds": audio_duration,
             "raw_spikes_detected": len(raw_detections),
+            "profanity_cues_detected": len(profanity_detections),
             "packaged_cues_count": len(packaged_cues),
             "total_boundary_checks": total_checks,
             "passed_boundary_checks": passed_checks,
@@ -332,6 +410,24 @@ def main() -> None:
         type=Path,
         default=DEFAULT_MEDIA_PATH,
         help=f"Path to input MP4 video file (default: {DEFAULT_MEDIA_PATH})",
+    )
+    parser.add_argument(
+        "--srt",
+        type=Path,
+        default=None,
+        help="Optional path to subtitle .srt file for profanity detection",
+    )
+    parser.add_argument(
+        "--subtitles-json",
+        type=Path,
+        default=None,
+        help="Optional path to subtitle cues.json for profanity detection",
+    )
+    parser.add_argument(
+        "--wordlist",
+        type=Path,
+        default=None,
+        help="Optional path to profanity wordlist (default: data/profanity_wordlist.txt)",
     )
     parser.add_argument(
         "--config",
@@ -374,6 +470,9 @@ def main() -> None:
         report = run_e2e_smoke_pipeline(
             audio_path=args.audio,
             media_path=args.media,
+            srt_path=args.srt,
+            subtitles_json_path=args.subtitles_json,
+            wordlist_path=args.wordlist,
             config_path=args.config,
             schema_path=args.schema,
             film_id=args.film_id,

@@ -24,6 +24,7 @@ import pytest
 
 from scripts.package_cues import (
     CueIdCollisionError,
+    adapt_subtitle_cues_to_raw_detections,
     atomic_write_json,
     generate_cue_id,
     merge_detections,
@@ -399,3 +400,266 @@ def test_package_cues_cli_failure_on_invalid_input(tmp_path):
 
     assert res.returncode == 1
     assert "FAILURE" in res.stderr or "FAILURE" in res.stdout
+
+
+# ------------------------------------------------------------------------------
+# 7. Exact Adjacency, Score Aggregation, and Subtitle Adaptation Regression Tests
+# ------------------------------------------------------------------------------
+
+def test_merge_exact_adjacency():
+    """Verify that exactly adjacent intervals [10, 15) and [15, 20) merge cleanly into [10, 20)."""
+    detections = [
+        {"start": 10.0, "end": 15.0, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"},
+        {"start": 15.0, "end": 20.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"},
+    ]
+    merged = merge_detections(detections, max_segment_duration=30.0, default_merge_gap=2.5)
+    assert len(merged) == 1
+    assert merged[0]["start"] == 10.0
+    assert merged[0]["end"] == 20.0
+    assert merged[0]["score"] == 0.9
+    assert merged[0]["trigger"] == "loud_spike"
+    assert merged[0]["source"] == "loudness_detector"
+
+
+def test_merge_score_aggregation_max_score():
+    """Verify that score aggregation retains the maximum score across merged intervals."""
+    detections = [
+        {"start": 1.0, "end": 3.0, "trigger": "profanity", "score": 0.65, "source": "subtitles"},
+        {"start": 4.0, "end": 6.0, "trigger": "profanity", "score": 0.98, "source": "subtitles"},
+        {"start": 7.0, "end": 8.0, "trigger": "profanity", "score": 0.40, "source": "subtitles"},
+    ]
+    # merge gap 2.0 covers gap 1.0 (between 3 and 4) and gap 1.0 (between 6 and 7)
+    merged = merge_detections(detections, max_segment_duration=30.0, default_merge_gap=2.0)
+    assert len(merged) == 1
+    assert merged[0]["start"] == 1.0
+    assert merged[0]["end"] == 8.0
+    assert merged[0]["score"] == 0.98
+
+
+def test_adapt_subtitle_cues_with_flagged_words():
+    """Verify adapt_subtitle_cues_to_raw_detections converts speech cues with flagged words and ignores clean dialogue."""
+    cues_data = [
+        {
+            "id": "c1",
+            "start": 1.0,
+            "end": 3.5,
+            "kind": "speech",
+            "text": "What the fuck is happening?",
+            "flagged_words": [
+                {"word": "fuck", "char_start": 9, "char_end": 13, "evidence": "subtitle_text", "timing": "estimated"}
+            ],
+        },
+        {
+            "id": "c2",
+            "start": 4.0,
+            "end": 6.0,
+            "kind": "sound_description",
+            "text": "[door slams]",
+            "flagged_words": [],
+        },
+        {
+            "id": "c3",
+            "start": 7.0,
+            "end": 9.5,
+            "kind": "speech",
+            "text": "Clean dialogue here with no bad words.",
+            "flagged_words": [],
+        },
+        {
+            "id": "c4",
+            "start": 10.5,
+            "end": 12.0,
+            "kind": "speech",
+            "text": "Damn it!",
+            "flagged_words": [
+                {"word": "damn", "char_start": 0, "char_end": 4, "evidence": "subtitle_text", "timing": "estimated"}
+            ],
+        },
+    ]
+
+    adapted = adapt_subtitle_cues_to_raw_detections(cues_data, default_source="subtitles")
+    assert len(adapted) == 2
+
+    assert adapted[0]["start"] == 1.0
+    assert adapted[0]["end"] == 3.5
+    assert adapted[0]["trigger"] == "profanity"
+    assert adapted[0]["score"] == 1.0
+    assert adapted[0]["source"] == "subtitles"
+
+    assert adapted[1]["start"] == 10.5
+    assert adapted[1]["end"] == 12.0
+    assert adapted[1]["trigger"] == "profanity"
+    assert adapted[1]["score"] == 1.0
+    assert adapted[1]["source"] == "subtitles"
+
+
+def test_adapt_subtitle_cues_detections_json_format():
+    """Verify adapt_subtitle_cues_to_raw_detections handles export_detections_json structure."""
+    detections_payload = {
+        "provenance": {"stage": "subtitles", "status": "ok"},
+        "detections": [
+            {"start": 2.0, "end": 4.5, "trigger": "profanity", "score": 1.0, "source": "subtitles"},
+            {"start": 8.0, "end": 10.0, "trigger": "profanity", "score": 0.95, "source": "subtitles"},
+        ],
+    }
+    adapted = adapt_subtitle_cues_to_raw_detections(detections_payload)
+    assert len(adapted) == 2
+    assert adapted[0]["start"] == 2.0
+    assert adapted[0]["end"] == 4.5
+    assert adapted[0]["trigger"] == "profanity"
+    assert adapted[0]["score"] == 1.0
+    assert adapted[1]["score"] == 0.95
+
+
+def test_adapt_subtitle_cues_non_destructive():
+    """Verify adapt_subtitle_cues_to_raw_detections does not mutate input dictionaries or lists."""
+    cues_data = [
+        {
+            "id": "c1",
+            "start": 1.5,
+            "end": 3.0,
+            "kind": "speech",
+            "text": "Shit!",
+            "flagged_words": [{"word": "shit", "char_start": 0, "char_end": 4}],
+        }
+    ]
+    original_copy = copy.deepcopy(cues_data)
+
+    adapted = adapt_subtitle_cues_to_raw_detections(cues_data)
+    assert len(adapted) == 1
+
+    # Verify input is unchanged
+    assert cues_data == original_copy
+
+
+def test_adapt_subtitle_cues_invalid_input_rejected():
+    """Verify adapt_subtitle_cues_to_raw_detections rejects non-numeric or inverted timestamps."""
+    with pytest.raises(ValueError, match="non-numeric"):
+        adapt_subtitle_cues_to_raw_detections([
+            {"start": "not_a_number", "end": 5.0, "trigger": "profanity"}
+        ])
+
+    with pytest.raises(ValueError, match="invalid interval"):
+        adapt_subtitle_cues_to_raw_detections([
+            {"start": 5.0, "end": 3.0, "trigger": "profanity"}
+        ])
+
+    with pytest.raises(ValueError, match="must be a dictionary or list"):
+        adapt_subtitle_cues_to_raw_detections("invalid_string_input")  # type: ignore
+
+
+def test_package_cues_with_subtitles_integration(tmp_path):
+    """Verify package_cues cleanly integrates audio spikes and subtitle profanity cues."""
+    raw_audio_detections = {
+        "film_id": "speech_test",
+        "timeline": {"duration_seconds": 20.0, "fps": 24.0},
+        "detections": [
+            {"start": 4.0, "end": 5.0, "trigger": "loud_spike", "score": 0.85, "source": "loudness_detector"},
+        ],
+    }
+
+    subtitles_cues = [
+        {
+            "id": "c1",
+            "start": 1.0,
+            "end": 3.0,
+            "kind": "speech",
+            "text": "Watch your mouth!",
+            "flagged_words": [{"word": "mouth", "char_start": 11, "char_end": 16}],
+        },
+        {
+            "id": "c2",
+            "start": 8.0,
+            "end": 10.0,
+            "kind": "speech",
+            "text": "Get out of here!",
+            "flagged_words": [{"word": "hell", "char_start": 0, "char_end": 4}],
+        },
+    ]
+
+    index_data = package_cues(
+        raw_data=raw_audio_detections,
+        subtitles=subtitles_cues,
+        film_id="speech_test",
+        duration_seconds=20.0,
+        fps=24.0,
+    )
+
+    cues = index_data["cues"]
+    assert len(cues) == 3
+
+    # Verify chronological ordering
+    assert cues[0]["start"] == 1.0
+    assert cues[0]["trigger"] == "profanity"
+    assert cues[0]["id"] == "cue_speech_test_profanity_001000_003000"
+
+    assert cues[1]["start"] == 4.0
+    assert cues[1]["trigger"] == "loud_spike"
+    assert cues[1]["id"] == "cue_speech_test_loud_spike_004000_005000"
+
+    assert cues[2]["start"] == 8.0
+    assert cues[2]["trigger"] == "profanity"
+    assert cues[2]["id"] == "cue_speech_test_profanity_008000_010000"
+
+    # Validate output against schema
+    index_file = tmp_path / "index.json"
+    atomic_write_json(index_data, index_file)
+    is_valid, errors = validate_index(index_file, SCHEMA_PATH, CONFIG_PATH)
+    assert is_valid, f"Validation errors: {errors}"
+
+
+def test_package_cues_cli_with_subtitles(tmp_path):
+    """Verify package_cues CLI accepts --subtitles and packages both sources."""
+    audio_cues_file = tmp_path / "audio_cues.json"
+    audio_cues_file.write_text(
+        json.dumps({
+            "film_id": "cli_test",
+            "detections": [
+                {"start": 5.0, "end": 7.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"}
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    subtitles_file = tmp_path / "subtitles_cues.json"
+    subtitles_file.write_text(
+        json.dumps({
+            "detections": [
+                {"start": 1.0, "end": 3.0, "trigger": "profanity", "score": 1.0, "source": "subtitles"}
+            ]
+        }),
+        encoding="utf-8",
+    )
+
+    output_file = tmp_path / "packaged_index.json"
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/package_cues.py",
+            "--input",
+            str(audio_cues_file),
+            "--subtitles",
+            str(subtitles_file),
+            "--output",
+            str(output_file),
+            "--film-id",
+            "cli_test",
+            "--duration",
+            "15.0",
+            "--fps",
+            "24.0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0, f"CLI error: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS: Packaged 2 cue(s)" in res.stdout
+    assert output_file.is_file()
+
+    with output_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert len(data["cues"]) == 2
+    triggers = [c["trigger"] for c in data["cues"]]
+    assert triggers == ["profanity", "loud_spike"]

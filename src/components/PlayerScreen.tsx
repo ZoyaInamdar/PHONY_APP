@@ -55,6 +55,7 @@ export const PlayerScreen = ({
   const isContentHiddenRef = useRef<boolean>(false);
   const effectiveActionsRef = useRef<EffectiveActions | null>(null);
   const lastActiveCuesRef = useRef<string>('');
+  const lastWarnCueIdsRef = useRef<string>('');
 
   // Selected trigger cues & profile
   const [profile, setProfile] = useState<'verification' | 'standard'>(initialProfile);
@@ -71,6 +72,7 @@ export const PlayerScreen = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isContentHidden, setIsContentHidden] = useState(false);
   const [activeActionStatus, setActiveActionStatus] = useState<string>('');
+  const [warningStatus, setWarningStatus] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState('Loading video…');
@@ -130,6 +132,9 @@ export const PlayerScreen = ({
     const activeCueIdsKey = actions.activeCueIds.join(',');
     const cuesChanged = lastActiveCuesRef.current !== activeCueIdsKey;
 
+    const warnCueIdsKey = actions.warnCueIds.join(',');
+    const warnChanged = lastWarnCueIdsRef.current !== warnCueIdsKey;
+
     if (muteChanged) {
       console.log(
         `[Trigger] Mute transition: ${currentMuted} → ${targetMuted} ` +
@@ -154,9 +159,31 @@ export const PlayerScreen = ({
       );
       isContentHiddenRef.current = targetHide;
       setIsContentHidden(targetHide);
+    } else if (actions.visualAction === 'dim' || actions.visualAction === 'blur') {
+      if (cuesChanged || isSeek) {
+        console.warn(
+          `[Trigger] Unsupported visual action "${actions.visualAction}" requested on current renderer for cue(s): [${activeCueIdsKey}]. Preserving original cue metadata without mapping to hide.`,
+        );
+      }
     }
 
-    if (cuesChanged || muteChanged || volumeChanged || hideChanged || isSeek) {
+    // 4. Heads-up warning evaluation (updates on cue start, cue end, and seeking)
+    if (warnChanged || isSeek) {
+      lastWarnCueIdsRef.current = warnCueIdsKey;
+      if (actions.warnCueIds.length === 0) {
+        setWarningStatus('');
+      } else {
+        const warnCues = activeCues.filter((c) =>
+          actions.warnCueIds.includes(c.id),
+        );
+        const warnTriggers = warnCues
+          .map((c) => c.trigger ?? c.id)
+          .join(', ');
+        setWarningStatus(`⚠️ Heads-Up Warning: ${warnTriggers}`);
+      }
+    }
+
+    if (cuesChanged || muteChanged || volumeChanged || hideChanged || warnChanged || isSeek) {
       lastActiveCuesRef.current = activeCueIdsKey;
 
       if (actions.activeCueIds.length === 0) {
@@ -172,13 +199,20 @@ export const PlayerScreen = ({
         let actionDesc = '';
         if (targetHide) {
           actionDesc += '👁️ Visual Hidden';
+        } else if (actions.visualAction === 'dim' || actions.visualAction === 'blur') {
+          actionDesc += `⚠️ ${actions.visualAction.toUpperCase()} (unsupported on renderer)`;
         }
+
         if (triggerWantsMute) {
           actionDesc += `${actionDesc ? ' • ' : ''}🔇 Audio Muted`;
         } else if (actions.soundGain < 1) {
           actionDesc += `${actionDesc ? ' • ' : ''}🔉 Volume Reduced (${Math.round(
             actions.soundGain * 100,
           )}%)`;
+        }
+
+        if (actions.warnCueIds.length > 0 && !actionDesc) {
+          actionDesc = '⚠️ Heads-Up Alert';
         }
 
         setActiveActionStatus(`${actionDesc} [${triggerNames}]`);
@@ -264,6 +298,8 @@ export const PlayerScreen = ({
     const nextProfile = profile === 'verification' ? 'standard' : 'verification';
     setProfile(nextProfile);
     lastActiveCuesRef.current = '';
+    lastWarnCueIdsRef.current = '';
+    setWarningStatus('');
     playbackStateRef.current.reset();
     console.log(`[Player] Switched trigger profile to: ${nextProfile}`);
 
@@ -434,6 +470,17 @@ export const PlayerScreen = ({
         )}
       </View>
 
+      {/* Heads-up warning banner for warn cues */}
+      {warningStatus ? (
+        <View
+          style={styles.warningBanner}
+          testID="warning-banner"
+          accessibilityRole="alert"
+          accessibilityLabel={warningStatus}>
+          <Text style={styles.warningBannerText}>{warningStatus}</Text>
+        </View>
+      ) : null}
+
       {/* Active trigger notification banner */}
       {activeActionStatus ? (
         <View style={styles.triggerBanner} testID="trigger-banner">
@@ -556,6 +603,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
     textAlign: 'center',
+  },
+  warningBanner: {
+    backgroundColor: '#7C2D12',
+    borderColor: '#F97316',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  warningBannerText: {
+    color: '#FFEDD5',
+    fontSize: 15,
+    fontWeight: '700',
   },
   triggerBanner: {
     backgroundColor: '#1E293B',

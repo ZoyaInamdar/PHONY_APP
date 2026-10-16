@@ -70,6 +70,11 @@ export interface EffectiveActions {
   soundGain: number;
   skipTo: number | null;
   activeCueIds: string[];
+  /**
+   * IDs of active cues that specify the `warn` action, enabling heads-up
+   * warning notifications without overriding audio/visual playback states.
+   */
+  warnCueIds: string[];
 }
 
 export const DEFAULT_VIEWER_OPTIONS: ViewerOptions = {

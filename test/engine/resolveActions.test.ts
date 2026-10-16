@@ -117,4 +117,83 @@ describe('resolveActions', () => {
 
     expect(result.hide).toBe(false);
   });
+
+  it('populates warnCueIds when a warn cue is active', () => {
+    const warnCue: Cue = {
+      id: 'warn-1',
+      start: 20,
+      end: 25,
+      source: 'visual',
+      action: 'warn',
+      trigger: 'fast_motion',
+    };
+
+    const before = resolveActions(19.9, [warnCue], DEFAULT_VIEWER_OPTIONS);
+    expect(before.warnCueIds).toEqual([]);
+
+    const during = resolveActions(22.0, [warnCue], DEFAULT_VIEWER_OPTIONS);
+    expect(during.warnCueIds).toEqual(['warn-1']);
+    expect(during.hide).toBe(false);
+    expect(during.soundGain).toBe(1);
+
+    const after = resolveActions(25.0, [warnCue], DEFAULT_VIEWER_OPTIONS);
+    expect(after.warnCueIds).toEqual([]);
+  });
+
+  it('does not allow warning cues to override mute, reduce, or hide actions', () => {
+    const mixedCues: Cue[] = [
+      {
+        id: 'mute-1',
+        start: 30,
+        end: 35,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'loud_spike',
+      },
+      {
+        id: 'warn-2',
+        start: 32,
+        end: 37,
+        source: 'visual',
+        action: 'warn',
+        trigger: 'jump_scare',
+      },
+    ];
+
+    const overlapping = resolveActions(33.0, mixedCues, {
+      ...DEFAULT_VIEWER_OPTIONS,
+      muteEnabled: true,
+    });
+
+    expect(overlapping.soundGain).toBe(0); // Audio remains muted!
+    expect(overlapping.warnCueIds).toEqual(['warn-2']); // Warning is tracked!
+    expect(overlapping.activeCueIds).toEqual(['mute-1', 'warn-2']);
+  });
+
+  it('faithfully preserves dim and blur without converting them to hide', () => {
+    const dimCue: Cue = {
+      id: 'dim-1',
+      start: 40,
+      end: 45,
+      source: 'visual',
+      action: 'dim',
+      trigger: 'flashing',
+    };
+    const blurCue: Cue = {
+      id: 'blur-1',
+      start: 50,
+      end: 55,
+      source: 'visual',
+      action: 'blur',
+      trigger: 'spider',
+    };
+
+    const dimResult = resolveActions(42.0, [dimCue], DEFAULT_VIEWER_OPTIONS);
+    expect(dimResult.visualAction).toBe('dim');
+    expect(dimResult.hide).toBe(false);
+
+    const blurResult = resolveActions(52.0, [blurCue], DEFAULT_VIEWER_OPTIONS);
+    expect(blurResult.visualAction).toBe('blur');
+    expect(blurResult.hide).toBe(false);
+  });
 });

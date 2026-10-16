@@ -52,8 +52,18 @@ export function resolveActions(
   let visualAction: 'hide' | 'blur' | 'dim' | null = null;
   let soundGain = 1;
   let skipTo: number | null = null;
+  const warnCueIds: string[] = [];
 
   for (const cue of active) {
+    // -------------------------------------------------------------------------
+    // Warning actions
+    // `warn` cues provide a heads-up alert without overriding audio, visual,
+    // or skip actions.
+    // -------------------------------------------------------------------------
+    if (cue.action === 'warn') {
+      warnCueIds.push(cue.id);
+    }
+
     // -------------------------------------------------------------------------
     // Visual actions
     // `visual` cues, and `audio_visual` cues when hideEnabled is on, produce a
@@ -124,5 +134,6 @@ export function resolveActions(
     soundGain,
     skipTo,
     activeCueIds: active.map((cue) => cue.id),
+    warnCueIds,
   };
 }

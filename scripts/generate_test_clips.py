@@ -66,6 +66,9 @@ def load_canonical_triggers(config_path: Union[str, Path] = DEFAULT_CONFIG_PATH)
 # Canonical triggers allowed in labels.csv (dynamically loaded from config.yaml)
 CANONICAL_TRIGGERS = load_canonical_triggers(DEFAULT_CONFIG_PATH)
 
+# Deterministic random seed for repeatable synthetic data generation
+DEFAULT_RANDOM_SEED: int = 42
+
 
 @dataclasses.dataclass
 class ClipSpec:
@@ -244,20 +247,321 @@ def write_manifest_json(
     specs: List[ClipSpec],
     output_path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "manifest.json",
 ) -> Path:
-    """Write detailed metadata manifest of all generated clips."""
+    """Write detailed metadata manifest of all generated clips.
+
+    Keeps labels.csv as the authoritative source for labeled trigger intervals,
+    and manifest.json as the authoritative source for clip metadata
+    (clip_name, duration, fps, width, height, technical metadata).
+    Consolidates multi-interval specs so each distinct clip appears exactly once.
+    """
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    distinct_clips: Dict[str, Dict[str, Any]] = {}
+    for s in specs:
+        if s.clip_name not in distinct_clips:
+            clip_dict = dataclasses.asdict(s)
+            # If multiple triggers, prepare list
+            if s.trigger:
+                clip_dict.setdefault("metadata", {})["triggers"] = [s.trigger]
+            distinct_clips[s.clip_name] = clip_dict
+        else:
+            existing = distinct_clips[s.clip_name]
+            meta = existing.setdefault("metadata", {})
+            triggers_list = meta.setdefault("triggers", [])
+            if s.trigger and s.trigger not in triggers_list:
+                triggers_list.append(s.trigger)
+
+    clip_records = list(distinct_clips.values())
+    clip_records.sort(key=lambda c: c["clip_name"])
+
     data = {
         "generator_version": 1,
-        "clip_count": len(specs),
-        "clips": [dataclasses.asdict(s) for s in specs],
+        "clip_count": len(clip_records),
+        "clips": clip_records,
     }
 
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
     return out_path
+
+
+def build_all_clip_specs() -> List[ClipSpec]:
+    """Return ClipSpec definitions for all 28 standardized synthetic benchmark clips.
+
+    Provides exact clip metadata (fps, duration, resolution, parameters)
+    for evaluation harness indexing.
+    """
+    specs: List[ClipSpec] = []
+
+    # 1. Sync calibration clip (1)
+    specs.append(
+        ClipSpec(
+            clip_name="sync_test.mp4",
+            duration=10.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            start=None,
+            end=None,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Synchronization calibration clip with 3 simultaneous visual flashes and 1000Hz beeps",
+                "markers_count": 3,
+            },
+        )
+    )
+
+    # 2. Flash benchmark suite (16 clips)
+    # Rate suite (4)
+    for rate in [2, 3, 4, 6]:
+        b, d, actual = compute_flash_timing(24.0, float(rate))
+        fname = f"flash_rate_{rate}hz_24fps_full_c050.mp4"
+        dur = round(1.0 + 8 * (b + d) / 24.0 + 1.0, 3)
+        specs.append(
+            ClipSpec(
+                clip_name=fname,
+                duration=dur,
+                fps=24.0,
+                width=640,
+                height=360,
+                trigger="flashing",
+                start=1.0,
+                end=round(1.0 + 8 * (b + d) / 24.0, 3),
+                labeller="synthetic_generator",
+                metadata={"target_flash_rate": rate, "actual_flash_rate": actual, "area": "full", "contrast_step": 0.50},
+            )
+        )
+    # FPS suite (3)
+    for fps in [25.0, 30.0, 60.0]:
+        b, d, actual = compute_flash_timing(fps, 4.0)
+        fname = f"flash_fps_{int(fps)}fps_4hz_full_c050.mp4"
+        dur = round(1.0 + 8 * (b + d) / fps + 1.0, 3)
+        specs.append(
+            ClipSpec(
+                clip_name=fname,
+                duration=dur,
+                fps=fps,
+                width=640,
+                height=360,
+                trigger="flashing",
+                start=1.0,
+                end=round(1.0 + 8 * (b + d) / fps, 3),
+                labeller="synthetic_generator",
+                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": "full", "contrast_step": 0.50},
+            )
+        )
+    # Area suite (3)
+    for area, frac in [("half", 0.5), ("quarter", 0.25), ("small_patch", 0.0625)]:
+        b, d, actual = compute_flash_timing(24.0, 4.0)
+        fname = f"flash_area_{area}_24fps_4hz_c050.mp4"
+        dur = round(1.0 + 8 * (b + d) / 24.0 + 1.0, 3)
+        specs.append(
+            ClipSpec(
+                clip_name=fname,
+                duration=dur,
+                fps=24.0,
+                width=640,
+                height=360,
+                trigger="flashing",
+                start=1.0,
+                end=round(1.0 + 8 * (b + d) / 24.0, 3),
+                labeller="synthetic_generator",
+                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": area, "area_fraction": frac, "contrast_step": 0.50},
+            )
+        )
+    # Contrast suite (3)
+    for contrast in [0.05, 0.10, 0.20]:
+        b, d, actual = compute_flash_timing(24.0, 4.0)
+        c_str = f"{int(contrast * 100):03d}"
+        fname = f"flash_contrast_{c_str}_24fps_4hz_full.mp4"
+        dur = round(1.0 + 8 * (b + d) / 24.0 + 1.0, 3)
+        specs.append(
+            ClipSpec(
+                clip_name=fname,
+                duration=dur,
+                fps=24.0,
+                width=640,
+                height=360,
+                trigger="flashing",
+                start=1.0,
+                end=round(1.0 + 8 * (b + d) / 24.0, 3),
+                labeller="synthetic_generator",
+                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": "full", "contrast_step": contrast},
+            )
+        )
+    # Edge cases (3)
+    edge_cases = [
+        ("flash_edge_25fps_3hz_full_c050.mp4", 25.0, 3.0, "full", 0.50),
+        ("flash_edge_30fps_2hz_full_c050.mp4", 30.0, 2.0, "full", 0.50),
+        ("flash_edge_60fps_6hz_full_c050.mp4", 60.0, 6.0, "full", 0.50),
+    ]
+    for fname, fps, rate, area, contrast in edge_cases:
+        b, d, actual = compute_flash_timing(fps, rate)
+        dur = round(1.0 + 8 * (b + d) / fps + 1.0, 3)
+        specs.append(
+            ClipSpec(
+                clip_name=fname,
+                duration=dur,
+                fps=fps,
+                width=640,
+                height=360,
+                trigger="flashing",
+                start=1.0,
+                end=round(1.0 + 8 * (b + d) / fps, 3),
+                labeller="synthetic_generator",
+                metadata={"target_flash_rate": rate, "actual_flash_rate": actual, "area": area, "contrast_step": contrast},
+            )
+        )
+
+    # 3. Fine detail pattern (1)
+    specs.append(
+        ClipSpec(
+            clip_name="detail_test_pattern.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Fine-detail text and contrast pattern for blur/blackout verification"},
+        )
+    )
+
+    # 4. Audio suite (6 clips)
+    specs.append(
+        ClipSpec(
+            clip_name="audio_gunshot_test.mp4",
+            duration=4.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="gunshot",
+            start=1.5,
+            end=2.0,
+            metadata={"event_type": "gunshot", "modality": "audio"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_explosion_test.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="explosion",
+            start=1.0,
+            end=3.2,
+            metadata={"event_type": "explosion", "modality": "audio"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_scream_test.mp4",
+            duration=4.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="scream",
+            start=1.2,
+            end=2.7,
+            metadata={"event_type": "scream", "modality": "audio"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_multi_event_mix.mp4",
+            duration=9.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="gunshot",
+            start=1.0,
+            end=1.5,
+            metadata={"description": "Composite multi-event audio mix", "modality": "audio", "triggers": ["gunshot", "scream", "explosion"]},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_negative_ambient.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Negative baseline clip without acoustic spikes", "event_type": "ambient_noise"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="audio_negative_dialogue.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Negative baseline clip without acoustic spikes", "event_type": "calm_dialogue"},
+        )
+    )
+
+    # 5. Speech triggers test clip (1)
+    specs.append(
+        ClipSpec(
+            clip_name="speech_triggers_test.mp4",
+            duration=17.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger="profanity",
+            start=1.0,
+            end=3.5,
+            metadata={"description": "Speech trigger clip with matching .srt truth subtitles", "modality": "speech_subtitles", "triggers": ["profanity"]},
+        )
+    )
+
+    # 6. Negative video clips (3)
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_smooth_gradient.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Smooth spatial sinusoidal luminance gradient, delta Y < 0.05"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_slow_fade.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Slow continuous fade (0.2 Hz) below WCAG 3 Hz flash cutoff"},
+        )
+    )
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_static.mp4",
+            duration=5.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            metadata={"description": "Completely static 50% neutral gray video"},
+        )
+    )
+
+    return specs
+
+
+def reexport_full_manifest(output_path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "manifest.json") -> Path:
+    """Re-export manifest.json with all 28 clips and complete stream metadata."""
+    specs = build_all_clip_specs()
+    return write_manifest_json(specs, output_path)
 
 
 def read_labels_csv(csv_path: Union[str, Path]) -> List[Dict[str, Any]]:
@@ -776,20 +1080,23 @@ def synthesize_audio_event(
     event_type: str,
     duration: float,
     sample_rate: int = 44100,
+    seed: int = DEFAULT_RANDOM_SEED,
 ) -> Any:
     """Synthesize an acoustic waveform for positive or negative audio triggers.
 
     Returns a 1D numpy array of float values in [-1.0, 1.0].
+    Deterministic output is guaranteed via the fixed seed parameter.
     """
     import numpy as np
 
+    rng = np.random.default_rng(seed)
     total_samples = int(duration * sample_rate)
     t = np.linspace(0, duration, total_samples, endpoint=False)
 
     if event_type == "gunshot":
         # Sharp impulse crack with fast exponential decay
         decay_transient = np.exp(-t / 0.04)
-        noise = np.random.normal(0, 1, total_samples) * decay_transient
+        noise = rng.normal(0, 1, total_samples) * decay_transient
         sub_resonance = 0.5 * np.sin(2 * np.pi * 80 * t) * np.exp(-t / 0.1)
         audio = noise + sub_resonance
         peak = np.max(np.abs(audio))
@@ -802,7 +1109,7 @@ def synthesize_audio_event(
         decay_rumble = np.exp(-t / 0.45)
         sweep_freq = np.linspace(55, 25, total_samples)
         sub_detonation = 0.8 * np.sin(2 * np.pi * sweep_freq * t) * np.exp(-t / 0.6)
-        noise = np.random.normal(0, 1, total_samples) * decay_rumble
+        noise = rng.normal(0, 1, total_samples) * decay_rumble
         audio = noise + sub_detonation
         peak = np.max(np.abs(audio))
         if peak > 0:
@@ -814,7 +1121,7 @@ def synthesize_audio_event(
         f_vibrato = 750 + 200 * np.sin(2 * np.pi * 5 * t)
         formant1 = np.sin(2 * np.pi * f_vibrato * t)
         formant2 = 0.6 * np.sin(2 * np.pi * 2 * f_vibrato * t)
-        breath_noise = 0.25 * np.random.normal(0, 1, total_samples)
+        breath_noise = 0.25 * rng.normal(0, 1, total_samples)
         envelope = np.minimum(1.0, t / 0.1) * np.exp(-np.maximum(0, t - 0.8) / 0.5)
         audio = (formant1 + formant2 + breath_noise) * envelope
         peak = np.max(np.abs(audio))
@@ -824,7 +1131,7 @@ def synthesize_audio_event(
 
     elif event_type == "ambient_noise":
         # Gentle continuous pink/brownian noise at -30 dBFS
-        noise = np.random.normal(0, 0.03, total_samples)
+        noise = rng.normal(0, 0.03, total_samples)
         return noise
 
     elif event_type == "calm_dialogue":
@@ -847,6 +1154,7 @@ def generate_audio_clip(
     width: int = 640,
     height: int = 360,
     sample_rate: int = 44100,
+    base_seed: int = DEFAULT_RANDOM_SEED,
 ) -> Tuple[Path, List[ClipSpec]]:
     """Generate an MP4 clip with a black video track and placed audio events.
 
@@ -859,6 +1167,7 @@ def generate_audio_clip(
         width: Video width (default: 640).
         height: Video height (default: 360).
         sample_rate: Audio sampling rate (default: 44100).
+        base_seed: Base deterministic random seed.
 
     Returns:
         Tuple of (path to created MP4, list of ClipSpecs for positive triggers).
@@ -876,9 +1185,11 @@ def generate_audio_clip(
 
     specs: List[ClipSpec] = []
 
-    for event_type, start_s, end_s in events:
+    for idx, (event_type, start_s, end_s) in enumerate(events):
         event_dur = end_s - start_s
-        event_wave = synthesize_audio_event(event_type, event_dur, sample_rate)
+        # Deterministic seed per event
+        event_seed = int((base_seed + abs(hash((filename, event_type, idx)))) % (2**31 - 1))
+        event_wave = synthesize_audio_event(event_type, event_dur, sample_rate, seed=event_seed)
 
         start_samp = int(round(start_s * sample_rate))
         end_samp = start_samp + len(event_wave)
@@ -1540,6 +1851,11 @@ def main() -> None:
         action="store_true",
         help="Generate only negative video and audio clips (gradients, slow fades, ambient, dialogue).",
     )
+    parser.add_argument(
+        "--reexport-manifest",
+        action="store_true",
+        help="Re-export manifest.json with all 28 clips without regenerating media files.",
+    )
 
     args = parser.parse_args()
     out_dir = Path(args.output_dir)
@@ -1549,6 +1865,11 @@ def main() -> None:
     print("Trigger-Aware Player — Synthetic Test-Clip Generator")
     print(f"Target Output Directory: {out_dir}")
     print("=" * 70)
+
+    if args.reexport_manifest:
+        out_manifest = reexport_full_manifest(out_dir / "manifest.json")
+        print(f"Re-exported manifest with all 28 clips to: {out_manifest}")
+        return
 
     if args.sync_only:
         print("[1/1] Generating sync test clip...")
@@ -1620,8 +1941,23 @@ def main() -> None:
         print(f"Generated {len(neg_v_paths)} negative video clips in {out_dir}")
         print("(Note: All negative clips are strictly omitted from labels.csv)")
 
-        # Update manifest with all specs
-        all_specs = flash_specs + [detail_spec] + audio_specs + sp_specs + neg_v_specs
+        # Update manifest with all 28 specs
+        sync_clip_spec = ClipSpec(
+            clip_name="sync_test.mp4",
+            duration=10.0,
+            fps=24.0,
+            width=640,
+            height=360,
+            trigger=None,
+            start=None,
+            end=None,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Synchronization calibration clip with 3 simultaneous visual flashes and 1000Hz beeps",
+                "markers_count": len(sync_specs),
+            },
+        )
+        all_specs = [sync_clip_spec] + flash_specs + [detail_spec] + audio_specs + sp_specs + neg_v_specs
         write_manifest_json(all_specs, out_dir / "manifest.json")
 
     print("\nGeneration complete!")

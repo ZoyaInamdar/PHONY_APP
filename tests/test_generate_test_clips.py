@@ -29,6 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.generate_test_clips import (
     CANONICAL_TRIGGERS,
     ClipSpec,
+    build_all_clip_specs,
     compute_flash_timing,
     find_tool,
     generate_audio_clip,
@@ -41,9 +42,11 @@ from scripts.generate_test_clips import (
     get_area_geometry,
     load_canonical_triggers,
     read_labels_csv,
+    reexport_full_manifest,
     synthesize_audio_event,
     verify_subtitle_parser_on_speech_clip,
     write_labels_csv,
+    write_manifest_json,
     write_srt_file,
     write_sync_labels_csv,
 )
@@ -528,6 +531,45 @@ def test_canonical_triggers_loaded_from_config(tmp_path: Path):
     bad_config.write_text("other_field: 123\n", encoding="utf-8")
     with pytest.raises(ValueError, match="missing top-level 'triggers' section"):
         load_canonical_triggers(bad_config)
+
+
+def test_manifest_reexport_and_deterministic_audio(tmp_path: Path):
+    """Verify manifest export covers all 28 clips with metadata, and audio synthesis is deterministic."""
+    import numpy as np
+
+    # 1. Deterministic audio generation with fixed seed
+    wave1 = synthesize_audio_event("gunshot", duration=1.0, seed=42)
+    wave2 = synthesize_audio_event("gunshot", duration=1.0, seed=42)
+    wave3 = synthesize_audio_event("gunshot", duration=1.0, seed=99)
+    assert np.array_equal(wave1, wave2)
+    assert not np.array_equal(wave1, wave3)
+
+    # 2. Build all specs returns 28 distinct clips
+    specs = build_all_clip_specs()
+    assert len(specs) == 28
+    clip_names = {s.clip_name for s in specs}
+    assert len(clip_names) == 28
+
+    # 3. Export manifest to tmp_path
+    manifest_p = tmp_path / "manifest.json"
+    write_manifest_json(specs, manifest_p)
+    assert manifest_p.is_file()
+
+    with manifest_p.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["clip_count"] == 28
+    assert len(data["clips"]) == 28
+
+    # Check that each clip contains required metadata fields
+    for c in data["clips"]:
+        assert "clip_name" in c
+        assert "duration" in c and c["duration"] > 0
+        assert "fps" in c and c["fps"] > 0
+        assert "width" in c and c["width"] == 640
+        assert "height" in c and c["height"] == 360
+        assert "metadata" in c
+
 
 
 

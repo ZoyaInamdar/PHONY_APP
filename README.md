@@ -292,3 +292,67 @@ pytest tests/test_config.py -v
 2. **Speech-to-Text Fallback (`profanity`)**: `faster-whisper` vs. `Amazon Transcribe` (Owner: Person B; status: `unresolved`).
 3. **Zero-Shot Visual Classifier (`spider`)**: `CLIP` vs. `SigLIP` (Owner: Person C; status: `unresolved`).
 4. **Stretch Features (`fast_motion`, `jump_scare`)**: Disabled by default (`status: "experimental"`, `enabled: false`).
+
+---
+
+## 9. Automated Synthetic Test-Clip & Ground-Truth Generator (Person C)
+
+To ensure detector reproducibility, calibration, and regression testing prior to real-media ingest, Person C implemented an automated synthetic test-clip generator in [`scripts/generate_test_clips.py`](scripts/generate_test_clips.py).
+
+### CLI Usage
+
+```bash
+# Generate the full benchmark suite (sync, flash, detail, audio, speech, negatives)
+python scripts/generate_test_clips.py --output-dir data/test_clips
+
+# Generate individual benchmark components
+python scripts/generate_test_clips.py --sync-only      # Flash + beep sync calibration clip
+python scripts/generate_test_clips.py --flash-only     # Flash rate, fps, area, contrast matrix
+python scripts/generate_test_clips.py --detail-only    # Fine-detail text pattern for blur checks
+python scripts/generate_test_clips.py --audio-only     # Gunshot, explosion, scream & negative audio
+python scripts/generate_test_clips.py --speech-only    # Spoken lines with truth .srt & parser audit
+python scripts/generate_test_clips.py --negatives-only # Negative video gradients & fades
+```
+
+### Generated Asset Inventory
+
+| Asset Name | Target Purpose | Trigger Label in `labels.csv` | Notes / Properties |
+| :--- | :--- | :---: | :--- |
+| `sync_test.mp4` | Person A Vega sync calibration | *None* (logged to `sync_labels.csv`) | 10s MP4, 3 simultaneous white flashes & 1000 Hz beeps |
+| `flash_rate_*hz_*.mp4` | Flash detector rate sensitivity | `flashing` | 2, 3, 4, 6 flashes/sec at 24 fps (WCAG $\ge 3$ Hz threshold) |
+| `flash_fps_*fps_*.mp4` | Framerate invariance | `flashing` | 24, 25, 30, 60 fps test cases with whole-frame phase timing |
+| `flash_area_*_*.mp4` | Spatial area cutoff calibration | `flashing` | `full` (100%), `half` (50%), `quarter` (25% WCAG), `small_patch` (6.25%) |
+| `flash_contrast_*_*.mp4`| Luminance step thresholds | `flashing` | Contrast steps: 0.05, 0.10, 0.20, 0.50 |
+| `detail_test_pattern.mp4` | Blur & blackout check on Vega | *None* | Fine text (8–10pt), 1px grid lines, contrast swatches |
+| `audio_gunshot_test.mp4` | AudioSet gunshot classifier | `gunshot` | High-frequency acoustic transient burst ($e^{-t / 0.04}$) |
+| `audio_explosion_test.mp4`| AudioSet explosion classifier | `explosion` | Low-frequency detonation rumble (55 Hz $\rightarrow$ 25 Hz sweep) |
+| `audio_scream_test.mp4` | AudioSet scream classifier | `scream` | Vocal distress vocalization (750–950 Hz vibrato + formants) |
+| `audio_multi_event_mix.mp4`| Multi-modal composite mix | `gunshot`, `scream`, `explosion` | Composite 9-second clip with sequential acoustic triggers |
+| `speech_triggers_test.mp4` | Subtitle & profanity pipeline | `profanity` | Dialogue lines matched to [`speech_triggers_truth.srt`](data/test_clips/speech_triggers_truth.srt) |
+| `audio_negative_*.mp4` | False-positive control | *None* | Continuous ambient noise (-30 dBFS) & calm dialogue |
+| `video_negative_*.mp4` | False-positive control | *None* | Sinusoidal spatial gradient, slow 0.2 Hz fade, static gray |
+
+### Ground-Truth Contracts (`data/test_clips/labels.csv`)
+- **Strict Canonical Enums**: Every positive row maps strictly to canonical trigger IDs (`flashing`, `gunshot`, `explosion`, `scream`, `profanity`).
+- **Interval Bounds**: Mathematical intervals $[start, end)$ span from the first trigger event to the last trigger event ($0.0 \le start < end \le \text{duration}$).
+- **Negative Isolation**: All negative controls and calibration markers (`sync_marker`) are strictly excluded from `labels.csv`.
+
+---
+
+### Critical Evaluation Limitations: Synthetic Clips vs. Real Films
+
+> [!WARNING]
+> **Synthetic test clips are significantly easier for automated detectors to parse than real-world commercial films.**
+>
+> 1. **Acoustic Simplicity**:
+>    - Synthetic audio samples have isolated, high signal-to-noise ratios (SNR) with zero background musical accompaniment, dialogue overlap, or room reverberation.
+>    - In contrast, real film audio mixes (*Sintel*, *Tears of Steel*) feature complex orchestral scores, Foley layers, ambient environmental effects, and overlapping speaker dialogue that can mask acoustic peaks and decrease detector confidence.
+> 2. **Photometric & Geometric Uniformity**:
+>    - Synthetic flash cases alternate between mathematically uniform RGB values across rectangular screen boundaries without motion blur, camera pans, compression macroblocking, or lighting gradients.
+>    - Real-world flash sequences (e.g. muzzle flashes, lightning, emergency strobes) feature rapid non-uniform lighting, rolling shutter artifacts, lens flares, and dynamic scene motion that challenge luminance-delta algorithms.
+> 3. **Subtitle Precision**:
+>    - Synthetic speech lines have 100% accurate spelling, whole-cue alignment, and clean punctuation in [`speech_triggers_truth.srt`](data/test_clips/speech_triggers_truth.srt).
+>    - Real film subtitles frequently feature dialect slang, mistranscriptions, timing drift, and sound effect annotations that require robust heuristic parsing.
+>
+> **Role in Pipeline:** These synthetic clips establish the **idealized upper bound of detector performance** and provide zero-regression smoke testing. High precision and recall on synthetic benchmarks are necessary but not sufficient for real-media deployment.
+

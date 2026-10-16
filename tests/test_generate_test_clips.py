@@ -35,6 +35,7 @@ from scripts.generate_test_clips import (
     generate_audio_test_suite,
     generate_detail_pattern_clip,
     generate_flash_clip,
+    generate_negative_video_clips,
     generate_speech_test_clip,
     generate_sync_clip,
     get_area_geometry,
@@ -45,6 +46,7 @@ from scripts.generate_test_clips import (
     write_srt_file,
     write_sync_labels_csv,
 )
+
 
 
 
@@ -437,6 +439,37 @@ def test_generate_speech_test_clip_and_parser_integration(tmp_path: Path):
         assert row["trigger"] == "profanity"
         assert row["trigger"] in CANONICAL_TRIGGERS
         assert 0.0 <= float(row["start"]) < float(row["end"]) <= duration_s
+
+
+def test_generate_negative_video_clips(tmp_path: Path):
+    """Verify negative video clips (gradients, slow fades, static) have valid streams and no labels."""
+    paths, specs = generate_negative_video_clips(output_dir=tmp_path)
+    assert len(paths) == 3
+    assert len(specs) == 3
+
+    for p in paths:
+        assert p.is_file()
+        probe_data = probe_clip(p)
+        streams = probe_data.get("streams", [])
+        codec_types = {s["codec_type"] for s in streams}
+        assert "video" in codec_types
+        assert "audio" in codec_types
+        assert float(probe_data["format"]["duration"]) >= 4.9
+
+    for s in specs:
+        assert s.trigger is None
+        assert s.start is None
+        assert s.end is None
+        assert s.to_label_dict() is None
+
+    labels_csv = tmp_path / "labels.csv"
+    valid_rows = [s.to_label_dict() for s in specs if s.to_label_dict() is not None]
+    assert len(valid_rows) == 0
+    write_labels_csv(valid_rows, labels_csv)
+
+    loaded = read_labels_csv(labels_csv)
+    assert len(loaded) == 0
+
 
 
 

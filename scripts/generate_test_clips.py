@@ -1353,6 +1353,122 @@ def generate_speech_test_clip(
     return mp4_path, srt_path, specs
 
 
+def generate_negative_video_clips(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    width: int = 640,
+    height: int = 360,
+    fps: float = 24.0,
+) -> Tuple[List[Path], List[ClipSpec]]:
+    """Generate negative video clips (smooth spatial gradients, slow fades, static gray).
+
+    These clips have NO rapid luminance transitions (< 0.5 Hz / delta Y << 0.1),
+    providing clean negative controls for the flash detector.
+
+    Constraint:
+        These clips have NO trigger label (trigger=None) and are strictly NOT written to labels.csv.
+
+    Args:
+        output_dir: Destination directory.
+        width: Video width (default: 640).
+        height: Video height (default: 360).
+        fps: Framerate (default: 24.0).
+
+    Returns:
+        Tuple of (list of generated MP4 paths, list of negative ClipSpecs).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = find_tool("ffmpeg")
+
+    generated_paths: List[Path] = []
+    specs: List[ClipSpec] = []
+
+    # 1. Smooth moving spatial gradient (horizontal sinusoidal luminance wave)
+    p1 = out_dir / "video_negative_smooth_gradient.mp4"
+    vf_grad = (
+        "geq=r='128+35*sin(2*PI*(X/W + T*0.1))':"
+        "g='128+35*sin(2*PI*(X/W + T*0.1))':"
+        "b='128+35*sin(2*PI*(X/W + T*0.1))'"
+    )
+    cmd1 = [
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", f"color=c=0x808080:s={width}x{height}:r={fps}:d=5",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=5",
+        "-vf", vf_grad,
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "64k",
+        "-t", "5.000",
+        str(p1),
+    ]
+    subprocess.run(cmd1, capture_output=True, check=True)
+    generated_paths.append(p1)
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_smooth_gradient.mp4",
+            duration=5.0,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger=None,
+            metadata={"description": "Smooth spatial sinusoidal luminance gradient, delta Y < 0.05"},
+        )
+    )
+
+    # 2. Slow fade in and fade out (0.2 Hz, far below 3 Hz flash threshold)
+    p2 = out_dir / "video_negative_slow_fade.mp4"
+    cmd2 = [
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", f"color=c=0x404040:s={width}x{height}:r={fps}:d=5",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=5",
+        "-vf", "fade=t=in:st=0:d=2.5,fade=t=out:st=2.5:d=2.5",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "64k",
+        "-t", "5.000",
+        str(p2),
+    ]
+    subprocess.run(cmd2, capture_output=True, check=True)
+    generated_paths.append(p2)
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_slow_fade.mp4",
+            duration=5.0,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger=None,
+            metadata={"description": "Slow continuous fade (0.2 Hz) below WCAG 3 Hz flash cutoff"},
+        )
+    )
+
+    # 3. Static neutral gray video
+    p3 = out_dir / "video_negative_static.mp4"
+    cmd3 = [
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", f"color=c=0x808080:s={width}x{height}:r={fps}:d=5",
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=5",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "64k",
+        "-t", "5.000",
+        str(p3),
+    ]
+    subprocess.run(cmd3, capture_output=True, check=True)
+    generated_paths.append(p3)
+    specs.append(
+        ClipSpec(
+            clip_name="video_negative_static.mp4",
+            duration=5.0,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger=None,
+            metadata={"description": "Completely static 50% neutral gray video"},
+        )
+    )
+
+    return generated_paths, specs
+
+
+
 
 
 def main() -> None:
@@ -1390,6 +1506,11 @@ def main() -> None:
         "--speech-only",
         action="store_true",
         help="Generate only the speech triggers test clip, matching .srt, and parser verification.",
+    )
+    parser.add_argument(
+        "--negatives-only",
+        action="store_true",
+        help="Generate only negative video and audio clips (gradients, slow fades, ambient, dialogue).",
     )
 
     args = parser.parse_args()
@@ -1429,36 +1550,50 @@ def main() -> None:
         print(f"Generated matching SRT: {sp_srt}")
         print(f"Verified subtitle parser caught {len(sp_specs)} profanity triggers.")
         print(f"Updated labels in: {out_dir / 'labels.csv'}")
+    elif args.negatives_only:
+        print("[1/2] Generating negative video clips (gradients, slow fades, static)...")
+        neg_v_paths, neg_v_specs = generate_negative_video_clips(out_dir)
+        print(f"Generated {len(neg_v_paths)} negative video clips in {out_dir}")
+
+        print("[2/2] Generating negative audio clips (ambient, calm dialogue)...")
+        neg_a_paths, neg_a_specs = generate_audio_test_suite(out_dir, include_negatives=True)
+        print(f"Generated negative audio controls in {out_dir}")
+        print("(Note: All negative clips are strictly omitted from labels.csv)")
     else:
-        print("[1/5] Generating sync test clip...")
+        print("[1/6] Generating sync test clip...")
         sync_path, sync_specs = generate_sync_clip(out_dir)
         print(f"Generated sync clip: {sync_path}")
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
 
-        print("\n[2/5] Generating flash benchmark suite...")
+        print("\n[2/6] Generating flash benchmark suite...")
         flash_paths, flash_specs = generate_flash_test_suite(out_dir)
         print(f"Generated {len(flash_paths)} flash test clips in {out_dir}")
         print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
 
-        print("\n[3/5] Generating fine-detail pattern clip for blur checks...")
+        print("\n[3/6] Generating fine-detail pattern clip for blur checks...")
         detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
         print(f"Generated detail pattern clip: {detail_path}")
         print("(Note: Not written to labels.csv as this clip has no trigger label)")
 
-        print("\n[4/5] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
+        print("\n[4/6] Generating audio benchmark suite (gunshot, explosion, scream, negatives)...")
         audio_paths, audio_specs = generate_audio_test_suite(out_dir, include_negatives=True)
         print(f"Generated {len(audio_paths)} audio test clips in {out_dir}")
         print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
 
-        print("\n[5/5] Generating speech trigger test clip and matching .srt...")
+        print("\n[5/6] Generating speech trigger test clip and matching .srt...")
         sp_mp4, sp_srt, sp_specs = generate_speech_test_clip(out_dir)
         print(f"Generated speech MP4: {sp_mp4}")
         print(f"Generated matching SRT: {sp_srt}")
         print(f"Verified subtitle parser caught {len(sp_specs)} profanity triggers.")
         print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
 
+        print("\n[6/6] Generating negative video clips (gradients, slow fades, static)...")
+        neg_v_paths, neg_v_specs = generate_negative_video_clips(out_dir)
+        print(f"Generated {len(neg_v_paths)} negative video clips in {out_dir}")
+        print("(Note: All negative clips are strictly omitted from labels.csv)")
+
         # Update manifest with all specs
-        all_specs = flash_specs + [detail_spec] + audio_specs + sp_specs
+        all_specs = flash_specs + [detail_spec] + audio_specs + sp_specs + neg_v_specs
         write_manifest_json(all_specs, out_dir / "manifest.json")
 
     print("\nGeneration complete!")
@@ -1466,6 +1601,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 

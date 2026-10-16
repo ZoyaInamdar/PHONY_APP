@@ -635,8 +635,16 @@ def test_actual_rate_and_loud_spike_labels(tmp_path: Path):
     assert "actual_rate" not in loud_row or loud_row["actual_rate"] is None or loud_row["actual_rate"] == ""
 
 
+def test_synthetic_dataset_overall_integrity():
+    """Verify that the live data/test_clips dataset passes all comprehensive integrity checks."""
+    from scripts.validate_synthetic_dataset import validate_dataset
 
-
-
-
+    report = validate_dataset()
+    assert report["is_valid"] is True
+    assert len(report["errors"]) == 0
+    assert report["total_mp4_files"] == 30
+    assert report["unique_manifest_clips"] == 30
+    assert report["total_label_rows"] == 27
+    assert report["flashing_actual_rates_valid"] is True
+    assert report["loudness_clips_valid"] is True
 

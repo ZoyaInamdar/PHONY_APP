@@ -305,12 +305,40 @@ def write_manifest_json(
 
 
 def build_all_clip_specs() -> List[ClipSpec]:
-    """Return ClipSpec definitions for all 28 standardized synthetic benchmark clips.
+    """Return ClipSpec definitions for all 30 standardized synthetic benchmark clips.
 
-    Provides exact clip metadata (fps, duration, resolution, parameters)
+    Provides exact clip metadata (fps, duration, resolution, technical parameters)
     for evaluation harness indexing.
     """
     specs: List[ClipSpec] = []
+
+    def _make_flash_metadata(
+        fps: float,
+        target_rate: float,
+        area: str,
+        contrast_step: float,
+        area_frac: float = 1.0,
+    ) -> Dict[str, Any]:
+        b, d, actual = compute_flash_timing(fps, float(target_rate))
+        cycle_frames = b + d
+        lead_in = int(round(1.0 * fps))
+        lead_out = int(round(1.0 * fps))
+        return {
+            "target_flash_rate": target_rate,
+            "actual_flash_rate": actual,
+            "bright_frames": b,
+            "dark_frames": d,
+            "cycle_frames": cycle_frames,
+            "area": area,
+            "area_fraction": area_frac,
+            "contrast_step": contrast_step,
+            "dark_val": int(round(128.0 * (1.0 - contrast_step))),
+            "bright_val": int(round(128.0 * (1.0 + contrast_step))),
+            "lead_in_seconds": 1.0,
+            "lead_out_seconds": 1.0,
+            "first_flash_frame": lead_in,
+            "last_flash_end_frame": lead_in + 8 * cycle_frames,
+        }
 
     # 1. Sync calibration clip (1)
     specs.append(
@@ -348,7 +376,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
                 start=1.0,
                 end=round(1.0 + 8 * (b + d) / 24.0, 3),
                 labeller="synthetic_generator",
-                metadata={"target_flash_rate": rate, "actual_flash_rate": actual, "area": "full", "contrast_step": 0.50},
+                metadata=_make_flash_metadata(24.0, rate, "full", 0.50, 1.0),
             )
         )
     # FPS suite (3)
@@ -367,7 +395,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
                 start=1.0,
                 end=round(1.0 + 8 * (b + d) / fps, 3),
                 labeller="synthetic_generator",
-                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": "full", "contrast_step": 0.50},
+                metadata=_make_flash_metadata(fps, 4.0, "full", 0.50, 1.0),
             )
         )
     # Area suite (3)
@@ -386,7 +414,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
                 start=1.0,
                 end=round(1.0 + 8 * (b + d) / 24.0, 3),
                 labeller="synthetic_generator",
-                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": area, "area_fraction": frac, "contrast_step": 0.50},
+                metadata=_make_flash_metadata(24.0, 4.0, area, 0.50, frac),
             )
         )
     # Contrast suite (3)
@@ -406,7 +434,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
                 start=1.0,
                 end=round(1.0 + 8 * (b + d) / 24.0, 3),
                 labeller="synthetic_generator",
-                metadata={"target_flash_rate": 4.0, "actual_flash_rate": actual, "area": "full", "contrast_step": contrast},
+                metadata=_make_flash_metadata(24.0, 4.0, "full", contrast, 1.0),
             )
         )
     # Edge cases (3)
@@ -429,7 +457,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
                 start=1.0,
                 end=round(1.0 + 8 * (b + d) / fps, 3),
                 labeller="synthetic_generator",
-                metadata={"target_flash_rate": rate, "actual_flash_rate": actual, "area": area, "contrast_step": contrast},
+                metadata=_make_flash_metadata(fps, rate, area, contrast, 1.0),
             )
         )
 
@@ -442,7 +470,12 @@ def build_all_clip_specs() -> List[ClipSpec]:
             width=640,
             height=360,
             trigger=None,
-            metadata={"description": "Fine-detail text and contrast pattern for blur/blackout verification"},
+            metadata={
+                "description": "Fine-detail text and contrast pattern for blur/blackout verification",
+                "has_fine_text": True,
+                "has_1px_grid": True,
+                "has_contrast_swatches": True,
+            },
         )
     )
 
@@ -457,7 +490,11 @@ def build_all_clip_specs() -> List[ClipSpec]:
             trigger="gunshot",
             start=1.5,
             end=2.0,
-            metadata={"event_type": "gunshot", "modality": "audio"},
+            metadata={
+                "event_type": "gunshot",
+                "modality": "audio",
+                "acoustic_model": "synthetic_physical_transient",
+            },
         )
     )
     specs.append(
@@ -470,7 +507,11 @@ def build_all_clip_specs() -> List[ClipSpec]:
             trigger="explosion",
             start=1.0,
             end=3.2,
-            metadata={"event_type": "explosion", "modality": "audio"},
+            metadata={
+                "event_type": "explosion",
+                "modality": "audio",
+                "acoustic_model": "synthetic_physical_transient",
+            },
         )
     )
     specs.append(
@@ -483,7 +524,11 @@ def build_all_clip_specs() -> List[ClipSpec]:
             trigger="scream",
             start=1.2,
             end=2.7,
-            metadata={"event_type": "scream", "modality": "audio"},
+            metadata={
+                "event_type": "scream",
+                "modality": "audio",
+                "acoustic_model": "synthetic_physical_transient",
+            },
         )
     )
     specs.append(
@@ -611,7 +656,7 @@ def build_all_clip_specs() -> List[ClipSpec]:
 
 
 def reexport_full_manifest(output_path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "manifest.json") -> Path:
-    """Re-export manifest.json with all 28 clips and complete stream metadata."""
+    """Re-export manifest.json with all 30 clips (28 base suite + 2 loud_spike clips) and complete stream metadata."""
     specs = build_all_clip_specs()
     return write_manifest_json(specs, output_path)
 
@@ -1958,7 +2003,7 @@ def main() -> None:
     parser.add_argument(
         "--reexport-manifest",
         action="store_true",
-        help="Re-export manifest.json with all 28 clips without regenerating media files.",
+        help="Re-export manifest.json with all 30 clips (28 base suite + 2 loud_spike clips) without regenerating media files.",
     )
 
     args = parser.parse_args()
@@ -1972,7 +2017,7 @@ def main() -> None:
 
     if args.reexport_manifest:
         out_manifest = reexport_full_manifest(out_dir / "manifest.json")
-        print(f"Re-exported manifest with all 28 clips to: {out_manifest}")
+        print(f"Re-exported manifest with all 30 clips to: {out_manifest}")
         return
 
     if args.sync_only:

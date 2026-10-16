@@ -622,6 +622,128 @@ def generate_flash_test_suite(
     return generated_paths, specs
 
 
+def generate_detail_pattern_clip(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    filename: str = "detail_test_pattern.mp4",
+    duration: float = 5.0,
+    fps: float = 24.0,
+    width: int = 640,
+    height: int = 360,
+) -> Tuple[Path, ClipSpec]:
+    """Generate a short MP4 video of a test pattern containing fine, small text.
+
+    This is for Person A to check blur, dim, and blackout behaviors on the
+    Vega virtual device.
+
+    Constraint:
+        This clip has NO trigger label, so it is strictly NOT written to labels.csv.
+
+    Args:
+        output_dir: Destination directory for MP4.
+        filename: Destination MP4 filename (default: detail_test_pattern.mp4).
+        duration: Clip duration in seconds (default: 5.0s).
+        fps: Target framerate (default: 24.0).
+        width: Video width (default: 640).
+        height: Video height (default: 360).
+
+    Returns:
+        Tuple of (path to generated MP4, ClipSpec with trigger=None).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / filename
+
+    from PIL import Image, ImageDraw
+    import tempfile
+
+    img = Image.new("RGB", (width, height), color=(240, 240, 240))
+    draw = ImageDraw.Draw(img)
+
+    # 1. High-frequency grid lines (every 20px)
+    for x in range(0, width, 20):
+        draw.line([(x, 0), (x, height)], fill=(215, 215, 215), width=1)
+    for y in range(0, height, 20):
+        draw.line([(0, y), (width, y)], fill=(215, 215, 215), width=1)
+
+    # 2. 1-pixel alternating line resolution chart in top-right corner
+    for y in range(20, 100, 2):
+        draw.line([(width - 120, y), (width - 20, y)], fill=(0, 0, 0), width=1)
+
+    # 3. Fine text blocks of varying sizes and legibility
+    draw.text((30, 20), "TRIGGER-AWARE PLAYER — VEGA TEST PATTERN", fill=(0, 0, 0))
+    draw.text((30, 42), "PURPOSE: Fine text resolution, blur decay, and blackout check", fill=(60, 60, 60))
+    draw.text((30, 70), "Line 1 (Fine 10pt): The quick brown fox jumps over the lazy dog 0123456789", fill=(0, 0, 0))
+    draw.text((30, 95), "Line 2 (Fine 8pt): Small text legibility test for Vega Virtual Device canvas scrim", fill=(20, 20, 20))
+    draw.text((30, 120), "Line 3 (Contrast test): High contrast dark on light text pattern for blur decay", fill=(0, 0, 0))
+    draw.text((30, 145), "Line 4 (Sub-pixel test): Testing anti-aliasing and letter edge preservation", fill=(40, 40, 40))
+    draw.text((30, 170), "Line 5 (Latin sample): Lorem ipsum dolor sit amet, consectetur adipiscing elit", fill=(50, 50, 50))
+
+    # 4. Standard grayscale contrast calibration swatches
+    swatches = [
+        ("BLACK (0%)", (0, 0, 0), (255, 255, 255)),
+        ("25% GRAY", (64, 64, 64), (255, 255, 255)),
+        ("50% GRAY", (128, 128, 128), (0, 0, 0)),
+        ("75% GRAY", (192, 192, 192), (0, 0, 0)),
+        ("WHITE (100%)", (255, 255, 255), (0, 0, 0)),
+    ]
+    swatch_w = 100
+    swatch_h = 65
+    start_x = 30
+    y_pos = 240
+    for idx, (label, bg_col, text_col) in enumerate(swatches):
+        bx = start_x + idx * (swatch_w + 20)
+        draw.rectangle([bx, y_pos, bx + swatch_w, y_pos + swatch_h], fill=bg_col, outline=(100, 100, 100))
+        draw.text((bx + 10, y_pos + 25), label, fill=text_col)
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+        temp_png_path = Path(tf.name)
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    try:
+        img.save(temp_png_path)
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-loop", "1",
+            "-i", str(temp_png_path),
+            "-f", "lavfi",
+            "-i", f"anullsrc=r=44100:cl=mono:d={duration}",
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-t", f"{duration:.3f}",
+            "-r", str(fps),
+            "-c:a", "aac",
+            "-b:a", "64k",
+            str(mp4_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed to generate detail test pattern:\n{proc.stderr}")
+    finally:
+        if temp_png_path.exists():
+            temp_png_path.unlink()
+
+    spec = ClipSpec(
+        clip_name=filename,
+        duration=duration,
+        fps=fps,
+        width=width,
+        height=height,
+        trigger=None,
+        start=None,
+        end=None,
+        labeller="synthetic_generator",
+        metadata={
+            "description": "Fine-detail text and contrast pattern for blur/blackout verification",
+            "has_fine_text": True,
+            "has_1px_grid": True,
+            "has_contrast_swatches": True,
+        },
+    )
+
+    return mp4_path, spec
+
+
 def main() -> None:
     """CLI entrypoint for generating synthetic test clips."""
     parser = argparse.ArgumentParser(
@@ -643,13 +765,18 @@ def main() -> None:
         action="store_true",
         help="Generate only the flash test cases suite.",
     )
+    parser.add_argument(
+        "--detail-only",
+        action="store_true",
+        help="Generate only the fine-detail pattern clip for blur checks.",
+    )
 
     args = parser.parse_args()
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 70)
-    print("Trigger-Aware Player — Synthetic Test-Clip Generator (Delivery 1)")
+    print("Trigger-Aware Player — Synthetic Test-Clip Generator")
     print(f"Target Output Directory: {out_dir}")
     print("=" * 70)
 
@@ -664,22 +791,36 @@ def main() -> None:
         print(f"Generated {len(paths)} flash test clips in {out_dir}")
         print(f"Wrote labels to: {out_dir / 'labels.csv'}")
         print(f"Wrote manifest to: {out_dir / 'manifest.json'}")
+    elif args.detail_only:
+        print("[1/1] Generating fine-detail pattern clip for blur checks...")
+        detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
+        print(f"Generated detail pattern clip: {detail_path}")
+        print("(Note: Not written to labels.csv as this clip has no trigger label)")
     else:
-        print("[1/2] Generating sync test clip...")
+        print("[1/3] Generating sync test clip...")
         sync_path, sync_specs = generate_sync_clip(out_dir)
         print(f"Generated sync clip: {sync_path}")
         print(f"Wrote sync ground truth: {out_dir / 'sync_labels.csv'}")
 
-        print("\n[2/2] Generating flash benchmark suite...")
+        print("\n[2/3] Generating flash benchmark suite...")
         paths, specs = generate_flash_test_suite(out_dir)
         print(f"Generated {len(paths)} flash test clips in {out_dir}")
         print(f"Wrote primary labels to: {out_dir / 'labels.csv'}")
-        print(f"Wrote manifest to: {out_dir / 'manifest.json'}")
+
+        print("\n[3/3] Generating fine-detail pattern clip for blur checks...")
+        detail_path, detail_spec = generate_detail_pattern_clip(out_dir)
+        print(f"Generated detail pattern clip: {detail_path}")
+        print("(Note: Not written to labels.csv as this clip has no trigger label)")
+
+        # Update manifest with all specs
+        all_specs = specs + [detail_spec]
+        write_manifest_json(all_specs, out_dir / "manifest.json")
 
     print("\nGeneration complete!")
 
 
 if __name__ == "__main__":
     main()
+
 
 

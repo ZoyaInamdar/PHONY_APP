@@ -31,6 +31,7 @@ from scripts.generate_test_clips import (
     ClipSpec,
     compute_flash_timing,
     find_tool,
+    generate_detail_pattern_clip,
     generate_flash_clip,
     generate_sync_clip,
     get_area_geometry,
@@ -38,6 +39,7 @@ from scripts.generate_test_clips import (
     write_labels_csv,
     write_sync_labels_csv,
 )
+
 
 
 def probe_clip(clip_path: Path) -> Dict[str, Any]:
@@ -249,3 +251,40 @@ def test_labels_match_generated_clip_durations(tmp_path: Path):
         # Label constraint 4: Trigger must be canonical 'flashing'
         assert row["trigger"] in CANONICAL_TRIGGERS
         assert row["trigger"] == "flashing"
+
+
+def test_generate_detail_pattern_clip_no_label(tmp_path: Path):
+    """Verify detail pattern clip has valid media streams and is NEVER written to labels.csv."""
+    mp4_path, spec = generate_detail_pattern_clip(
+        output_dir=tmp_path,
+        filename="test_detail.mp4",
+        duration=2.0,
+        fps=24.0,
+    )
+    assert mp4_path.is_file()
+
+    # Verify stream properties
+    probe_data = probe_clip(mp4_path)
+    streams = probe_data.get("streams", [])
+    codec_types = {s["codec_type"] for s in streams}
+    assert "video" in codec_types
+    assert "audio" in codec_types
+
+    duration_s = float(probe_data["format"]["duration"])
+    assert duration_s == pytest.approx(2.0, abs=0.1)
+
+    # Constraint: Must NOT have a trigger label and must NOT convert to a label row
+    assert spec.trigger is None
+    assert spec.start is None
+    assert spec.end is None
+    assert spec.to_label_dict() is None
+
+    # Write labels with spec included and confirm it's omitted
+    labels_csv = tmp_path / "labels.csv"
+    specs_to_write = [s for s in [spec] if s.to_label_dict() is not None]
+    assert len(specs_to_write) == 0
+    write_labels_csv(specs_to_write, labels_csv)
+
+    loaded = read_labels_csv(labels_csv)
+    assert len(loaded) == 0
+

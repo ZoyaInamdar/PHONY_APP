@@ -6,6 +6,10 @@ import { Cue } from './types';
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateCue = ajv.compile(cueSchema);
 
+/**
+ * @deprecated Legacy cue index interface for initial Person A testing.
+ * Canonical pipeline packaged indexes conform to schema/index.schema.json.
+ */
 export interface CueIndex {
   schema_version: string;
   cues: Cue[];
@@ -15,6 +19,10 @@ export interface AnalysisManifest {
   status: 'complete' | 'partial' | 'failed';
 }
 
+/**
+ * @deprecated Legacy validator for Person A initial cue index format.
+ * Use adaptPackagedIndex() from ./packagedIndexAdapter and schema/index.schema.json instead.
+ */
 export function validateCueIndex(input: unknown): CueIndex {
   if (
     typeof input !== 'object' ||
@@ -125,6 +133,10 @@ export function validateManifest(
   return manifest as unknown as AnalysisManifest;
 }
 
+/**
+ * @deprecated Legacy playback input validator.
+ * Use adaptPackagedIndex() from ./packagedIndexAdapter instead.
+ */
 export function validatePlaybackInputs(
   indexInput: unknown,
   manifestInput: unknown

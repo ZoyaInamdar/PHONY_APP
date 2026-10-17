@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://phony-app.local/schema/cue.schema.json",
   "title": "Trigger-Aware Player Cue",
+  "description": "DEPRECATED: Legacy cue schema for initial Person A testing. Canonical pipeline indexes conform to schema/index.schema.json.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "start", "end", "source", "action"],

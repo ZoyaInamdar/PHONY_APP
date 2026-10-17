@@ -259,13 +259,13 @@
         "threshold": { "type": ["number", "object"] },
         "default_action": {
           "type": "string",
-          "enum": ["dim", "mute", "blur", "skip", "warn"]
+          "enum": ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
         },
         "allowed_actions": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["dim", "mute", "blur", "skip", "warn"]
+            "enum": ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
           },
           "minItems": 1
         },

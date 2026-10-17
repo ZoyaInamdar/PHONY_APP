@@ -32,7 +32,9 @@
     "timeline": {
       "type": "object",
       "required": [
-        "duration_seconds"
+        "duration_seconds",
+        "timestamp_unit",
+        "interval_convention"
       ],
       "properties": {
         "duration_seconds": {
@@ -124,6 +126,11 @@
           "type": "string",
           "minLength": 1,
           "description": "Stable component identifier that produced the detection record."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "needs_review"],
+          "description": "Optional review status for the cue (defaults to 'ready')."
         }
       },
       "additionalProperties": false

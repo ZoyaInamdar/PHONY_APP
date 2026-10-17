@@ -71,9 +71,9 @@ The engine consumes the packaged index emitted by `scripts/package_cues.py`. The
 ### Key Field Requirements:
 - **`schema_version`**: Must be integer `1`.
 - **`film_id`**: Non-empty string identifier.
-- **`timeline.duration_seconds`**: Positive finite number.
-- **`timeline.timestamp_unit`**: Must be `"seconds"`.
-- **`timeline.interval_convention`**: Must be `"half_open"` ($[\text{start}, \text{end})$).
+- **`timeline.duration_seconds`**: Positive finite number (required).
+- **`timeline.timestamp_unit`**: Must be `"seconds"` (required in `schema/index.schema.json`).
+- **`timeline.interval_convention`**: Must be `"half_open"` ($[\text{start}, \text{end})$) (required in `schema/index.schema.json`).
 - **`cues`**: Chronologically sorted array of cues. Each cue must include:
   - `id`: Unique, non-empty deterministic string.
   - `start`: Float in seconds ($\ge 0.0$).
@@ -81,6 +81,7 @@ The engine consumes the packaged index emitted by `scripts/package_cues.py`. The
   - `trigger`: One of the 9 canonical trigger IDs (`flashing`, `loud_spike`, `gunshot`, `explosion`, `scream`, `profanity`, `spider`, `fast_motion`, `jump_scare`).
   - `score`: Normalized float in $[0.0, 1.0]$.
   - `source`: Detector component string (e.g., `loudness_detector`, `flash_detector`).
+  - `status`: Optional review status string (`"ready"` or `"needs_review"`). Defaults to `"ready"` in `adaptPackagedIndex` if omitted.
 
 ---
 
@@ -213,10 +214,26 @@ export interface EffectiveActions {
      - `reduce`: lowers audio gain (`soundGain = cue.gain ?? options.reduceGain`).
      - `hide`: sets `hide = true` to blank the video element and display the privacy/protection overlay.
      - `skip`: computes `skipTo` to forward seek past the trigger interval.
-6. **Skip Evaluation:**
-   - Computes `skipTo = Math.max(...activeSkipCueEnds)`.
+6. **Canonical Action Vocabulary & Modalities:**
+   - **Supported Actions:**
+     - `hide`: Visual blackout overlay during active cue.
+     - `mute`: Audio ramp down to 0.0 over 150ms.
+     - `reduce`: Audio ramp down to specified `cue.gain` or `options.reduceGain` over 150ms. Subordinate to `mute` during overlap.
+     - `skip`: Seek video playback forward past active trigger interval.
+     - `warn`: Non-intrusive heads-up banner notification without media disruption.
+   - **Faithfully Represented (No Phase 0 Renderer):**
+     - `dim`: Brightness reduction (stored in metadata; logged and badged in HUD banner).
+     - `blur`: Low-pass filter / spatial blur (stored in metadata; logged and badged in HUD banner).
+   - *Note on `obscure`:* `obscure` is rejected across all schemas and engine code; `dim` and `blur` are retained as distinct tokens.
+7. **Skip Evaluation & Review-Status Contract (`status: 'needs_review'`):**
+   - Packaged cues optionally provide `status: 'ready' | 'needs_review'` (defaulting to `'ready'`).
+   - Computes `skipTo = Math.max(...activeSkipCueEnds)` across active skip cues.
    - In `PlaybackState`, each skip cue fires at most once per forward playback pass. Rewinding past `cue.start` re-arms the skip cue.
-   - Cues with `status: 'needs_review'` are skipped only if `options.confirmReviewSkip === true`.
+   - **Protection Guardrail:** Any cue marked `status: 'needs_review'` **never skips automatically** without explicit viewer confirmation (`options.confirmReviewSkip === true`).
+   - **Safe Fallback (`src/engine/reviewPolicy.ts`):** When `confirmReviewSkip === false` (the runtime default), unconfirmed review skip cues automatically downgrade:
+     - Visual skip $\rightarrow$ `hide` (if `options.hideEnabled`)
+     - Audio, text, or compound skip $\rightarrow$ `mute` (if `options.muteEnabled`)
+     - Otherwise $\rightarrow$ `warn` (heads-up banner alert)
 
 ---
 

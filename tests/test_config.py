@@ -225,3 +225,29 @@ def test_validate_config_cli_execution():
     )
     assert result.returncode == 0, f"CLI validation failed with stderr: {result.stderr}\nstdout: {result.stdout}"
     assert "SUCCESS" in result.stdout
+
+
+def test_schema_accepts_hide_and_reduce_actions():
+    """Verify that config schema accepts 'hide' and 'reduce' in action enums."""
+    config = load_config(CONFIG_PATH)
+    schema = load_schema(SCHEMA_PATH)
+
+    config["triggers"]["flashing"]["default_action"] = "hide"
+    config["triggers"]["flashing"]["allowed_actions"] = ["hide", "reduce", "dim"]
+    config["triggers"]["loud_spike"]["default_action"] = "reduce"
+    config["triggers"]["loud_spike"]["allowed_actions"] = ["reduce", "mute", "skip"]
+
+    errors = validate_schema_compliance(config, schema)
+    assert len(errors) == 0, f"Schema should have accepted 'hide' and 'reduce', got errors: {errors}"
+    domain_errors = validate_domain_rules(config)
+    assert len(domain_errors) == 0, f"Domain rules should have accepted 'hide' and 'reduce', got errors: {domain_errors}"
+
+
+def test_schema_rejects_obscure_action():
+    """Verify that config schema rejects non-canonical action 'obscure'."""
+    config = load_config(CONFIG_PATH)
+    schema = load_schema(SCHEMA_PATH)
+
+    config["triggers"]["flashing"]["default_action"] = "obscure"
+    errors = validate_schema_compliance(config, schema)
+    assert len(errors) > 0, "Schema should have rejected 'obscure' action"

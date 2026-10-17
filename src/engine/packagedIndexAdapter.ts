@@ -1,4 +1,4 @@
-import { Cue, CueAction, CueSource } from './types';
+import { Cue, CueAction, CueSource, CueStatus } from './types';
 
 /**
  * A trigger policy record, either from the legacy per-test fixture format or
@@ -29,6 +29,7 @@ type PackagedCue = {
   trigger: string;
   score: number;
   source: string;
+  status?: CueStatus;
 };
 
 type PackagedIndex = {
@@ -163,6 +164,16 @@ function validatePackagedIndex(input: unknown): PackagedIndex {
         `Packaged index contains an invalid cue: missing or invalid trigger, score, or detector source for "${cue.id}".`,
       );
     }
+
+    if (
+      cue.status !== undefined &&
+      cue.status !== 'ready' &&
+      cue.status !== 'needs_review'
+    ) {
+      throw new Error(
+        `Packaged index contains an invalid status "${String(cue.status)}" for cue "${cue.id}".`,
+      );
+    }
   }
 
   return input as unknown as PackagedIndex;
@@ -241,7 +252,7 @@ export function adaptPackagedIndex(
       end: packagedCue.end,
       source: source as CueSource,
       action: action as CueAction,
-      status: 'ready',
+      status: packagedCue.status ?? 'ready',
       trigger: packagedCue.trigger,
       score: packagedCue.score,
       detectorSource: packagedCue.source,

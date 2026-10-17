@@ -284,4 +284,56 @@ describe('adaptPackagedIndex', () => {
       detectorSource: 'loudness_detector',
     });
   });
+
+  it('preserves packaged cue status "needs_review"', () => {
+    const indexWithReview = {
+      ...packagedIndex,
+      cues: [
+        {
+          ...packagedIndex.cues[0],
+          status: 'needs_review',
+        },
+      ],
+    };
+
+    const result = adaptPackagedIndex(indexWithReview, triggerPolicies);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('needs_review');
+  });
+
+  it('defaults packaged cue status to "ready" when absent', () => {
+    const indexWithoutStatus = {
+      ...packagedIndex,
+      cues: [
+        {
+          id: 'cue-no-status',
+          start: 5.0,
+          end: 7.0,
+          trigger: 'loud_spike',
+          score: 0.8,
+          source: 'loudness_detector',
+        },
+      ],
+    };
+
+    const result = adaptPackagedIndex(indexWithoutStatus, triggerPolicies);
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('ready');
+  });
+
+  it('rejects an invalid packaged cue status', () => {
+    const indexWithInvalidStatus = {
+      ...packagedIndex,
+      cues: [
+        {
+          ...packagedIndex.cues[0],
+          status: 'pending_approval',
+        },
+      ],
+    };
+
+    expect(() => adaptPackagedIndex(indexWithInvalidStatus, triggerPolicies)).toThrow(
+      /invalid status/i,
+    );
+  });
 });

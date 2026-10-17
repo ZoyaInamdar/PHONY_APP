@@ -450,3 +450,39 @@ def test_cli_execution_failure(tmp_path):
     )
     assert res.returncode == 1
     assert "FAILURE" in res.stdout
+
+
+def test_timeline_requires_timestamp_unit_and_interval_convention(valid_index_dict, index_schema_dict):
+    """Verify that schema/index.schema.json requires timestamp_unit and interval_convention."""
+    # Test missing timestamp_unit
+    index_missing_unit = copy.deepcopy(valid_index_dict)
+    del index_missing_unit["timeline"]["timestamp_unit"]
+    errors = validate_schema_compliance(index_missing_unit, index_schema_dict)
+    assert any("timestamp_unit" in err for err in errors), "Schema must require timestamp_unit in timeline"
+
+    # Test missing interval_convention
+    index_missing_conv = copy.deepcopy(valid_index_dict)
+    del index_missing_conv["timeline"]["interval_convention"]
+    errors = validate_schema_compliance(index_missing_conv, index_schema_dict)
+    assert any("interval_convention" in err for err in errors), "Schema must require interval_convention in timeline"
+
+
+def test_packaged_cue_status_validation(valid_index_dict, index_schema_dict):
+    """Verify that packaged cues accept optional status ('ready', 'needs_review') and reject invalid values."""
+    # Valid status: ready
+    index_ready = copy.deepcopy(valid_index_dict)
+    index_ready["cues"][0]["status"] = "ready"
+    errors = validate_schema_compliance(index_ready, index_schema_dict)
+    assert len(errors) == 0, f"Expected status 'ready' to be valid, got errors: {errors}"
+
+    # Valid status: needs_review
+    index_review = copy.deepcopy(valid_index_dict)
+    index_review["cues"][0]["status"] = "needs_review"
+    errors = validate_schema_compliance(index_review, index_schema_dict)
+    assert len(errors) == 0, f"Expected status 'needs_review' to be valid, got errors: {errors}"
+
+    # Invalid status
+    index_invalid = copy.deepcopy(valid_index_dict)
+    index_invalid["cues"][0]["status"] = "pending_approval"
+    errors = validate_schema_compliance(index_invalid, index_schema_dict)
+    assert any("pending_approval" in err or "status" in err for err in errors), "Schema must reject invalid status"

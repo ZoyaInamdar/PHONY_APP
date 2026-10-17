@@ -35,7 +35,7 @@ CANONICAL_TRIGGER_IDS = [
     "jump_scare",
 ]
 
-ALLOWED_ACTIONS = ["dim", "mute", "blur", "skip", "warn"]
+ALLOWED_ACTIONS = ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
 
 
 def load_config(config_path: Path | str = DEFAULT_CONFIG_PATH) -> Dict[str, Any]:

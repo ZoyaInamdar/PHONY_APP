@@ -17,7 +17,12 @@ import {
   skipVerificationTestCues,
   verificationTestCues,
 } from '../data/playbackCues';
-import {appendBotheredLog} from '../storage';
+import {
+  appendBotheredLog,
+  getItem,
+  setItem,
+  STORAGE_KEYS,
+} from '../storage';
 import {RecapView} from './RecapView';
 
 // ---------------------------------------------------------------------------
@@ -50,6 +55,72 @@ export interface PlayerScreenProps {
   initialProfile?: PlayerProfile;
   testVideoUrl?: string;
   rampDurationMs?: number;
+}
+
+export const CANONICAL_TRIGGER_CATEGORIES = [
+  'flashing',
+  'loud_spike',
+  'gunshot',
+  'explosion',
+  'scream',
+  'profanity',
+  'spider',
+  'fast_motion',
+  'jump_scare',
+] as const;
+
+export type CanonicalTriggerCategory =
+  (typeof CANONICAL_TRIGGER_CATEGORIES)[number];
+
+const CANONICAL_TRIGGER_SET = new Set<string>(CANONICAL_TRIGGER_CATEGORIES);
+
+/**
+ * Sanitizes and validates arbitrary input into a safe ViewerOptions object.
+ * Validates individual fields strictly by type and range, falling back to
+ * default values for any missing or malformed properties.
+ */
+export function sanitizeViewerOptions(
+  raw: unknown,
+  fallback: ViewerOptions,
+): ViewerOptions {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return fallback;
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const result: ViewerOptions = { ...fallback };
+
+  if (typeof obj.hideEnabled === 'boolean') {
+    result.hideEnabled = obj.hideEnabled;
+  }
+  if (typeof obj.muteEnabled === 'boolean') {
+    result.muteEnabled = obj.muteEnabled;
+  }
+  if (typeof obj.reduceEnabled === 'boolean') {
+    result.reduceEnabled = obj.reduceEnabled;
+  }
+  if (typeof obj.skipEnabled === 'boolean') {
+    result.skipEnabled = obj.skipEnabled;
+  }
+  if (
+    typeof obj.reduceGain === 'number' &&
+    Number.isFinite(obj.reduceGain) &&
+    obj.reduceGain >= 0 &&
+    obj.reduceGain <= 1
+  ) {
+    result.reduceGain = obj.reduceGain;
+  }
+  if (typeof obj.confirmReviewSkip === 'boolean') {
+    result.confirmReviewSkip = obj.confirmReviewSkip;
+  }
+  if (Array.isArray(obj.disabledCategories)) {
+    result.disabledCategories = obj.disabledCategories.filter(
+      (item): item is string =>
+        typeof item === 'string' && CANONICAL_TRIGGER_SET.has(item),
+    );
+  }
+
+  return result;
 }
 
 export const PlayerScreen = ({
@@ -103,13 +174,21 @@ export const PlayerScreen = ({
     customCues ?? getProfileCues(profile);
 
   // User protection preferences state
-  const [viewerOptions, setViewerOptions] = useState<ViewerOptions>({
+  const baseDefaults: ViewerOptions = {
     ...defaultPlaybackOptions,
     ...customOptions,
     disabledCategories: customOptions?.disabledCategories ?? [],
-  });
+  };
+
+  const [viewerOptions, setViewerOptions] = useState<ViewerOptions>(baseDefaults);
   const viewerOptionsRef = useRef<ViewerOptions>(viewerOptions);
   viewerOptionsRef.current = viewerOptions;
+
+  // Storage synchronization and race-condition guard refs
+  const isMountedRef = useRef<boolean>(true);
+  const hasUserModifiedOptionsRef = useRef<boolean>(false);
+  const latestSavePayloadRef = useRef<ViewerOptions | null>(null);
+  const isSavingRef = useRef<boolean>(false);
 
   // Settings drawer state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -555,9 +634,36 @@ export const PlayerScreen = ({
     );
   };
 
+  // Serialized persistence worker to prevent concurrent/out-of-order writes
+  const persistViewerOptions = (optionsToSave: ViewerOptions) => {
+    latestSavePayloadRef.current = optionsToSave;
+    if (isSavingRef.current) {
+      return;
+    }
+    isSavingRef.current = true;
+
+    (async () => {
+      try {
+        while (latestSavePayloadRef.current !== null) {
+          const payload = latestSavePayloadRef.current;
+          latestSavePayloadRef.current = null;
+          await setItem(STORAGE_KEYS.USER_SETTINGS, payload);
+        }
+      } catch (e) {
+        console.error('Failed to save viewer options to storage', e);
+      } finally {
+        isSavingRef.current = false;
+        if (latestSavePayloadRef.current !== null) {
+          persistViewerOptions(latestSavePayloadRef.current);
+        }
+      }
+    })();
+  };
+
   const updateViewerOptions = (
     updater: (prev: ViewerOptions) => ViewerOptions,
   ) => {
+    hasUserModifiedOptionsRef.current = true;
     setViewerOptions((prev) => {
       const next = updater(prev);
       viewerOptionsRef.current = next;
@@ -565,9 +671,42 @@ export const PlayerScreen = ({
       if (video) {
         applyTriggerActions(video.currentTime, true, next);
       }
+      persistViewerOptions(next);
       return next;
     });
   };
+
+  // Restore saved viewer preferences from AsyncStorage on mount
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    (async () => {
+      try {
+        const saved = await getItem<unknown>(STORAGE_KEYS.USER_SETTINGS);
+        if (
+          isMountedRef.current &&
+          !hasUserModifiedOptionsRef.current &&
+          saved !== null &&
+          saved !== undefined
+        ) {
+          const merged = sanitizeViewerOptions(saved, viewerOptionsRef.current);
+          setViewerOptions(merged);
+          viewerOptionsRef.current = merged;
+
+          const video = videoRef.current;
+          if (video) {
+            applyTriggerActions(video.currentTime, true, merged);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to restore viewer options from storage', e);
+      }
+    })();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const toggleProfile = () => {
     const nextProfile: PlayerProfile =

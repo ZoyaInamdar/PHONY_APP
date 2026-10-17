@@ -4,7 +4,11 @@ import { BackHandler } from '@amazon-devices/react-native-kepler';
 import { Video } from '@amazon-devices/react-native-w3cmedia';
 import Ajv2020 from 'ajv/dist/2020';
 import cueSchema from '../../schema/cue.schema.json';
-import { PlayerScreen } from '../../src/components/PlayerScreen';
+import {
+  CANONICAL_TRIGGER_CATEGORIES,
+  PlayerScreen,
+  sanitizeViewerOptions,
+} from '../../src/components/PlayerScreen';
 import { Cue } from '../../src/engine/types';
 import {
   defaultPlaybackOptions,
@@ -12,8 +16,13 @@ import {
   skipVerificationTestCues,
   verificationTestCues,
 } from '../../src/data/playbackCues';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../../src/storage';
 
 describe('PlayerScreen Component Tests', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
   const testCues: Cue[] = [
     {
       id: 'test-mute-1',
@@ -1303,6 +1312,362 @@ describe('PlayerScreen Component Tests', () => {
         videoComp.props.onTimeUpdate();
       });
       expect(videoComp.instance.currentTime).toBe(18.0);
+    });
+  });
+
+  describe('Viewer settings persistence with AsyncStorage', () => {
+    beforeEach(async () => {
+      await AsyncStorage.clear();
+      jest.clearAllMocks();
+    });
+
+    it('restores saved viewer preferences on mount', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_SETTINGS,
+        JSON.stringify({
+          skipEnabled: true,
+          hideEnabled: false,
+          reduceEnabled: false,
+        }),
+      );
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      // Flush mount microtasks so storage is read
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Open settings drawer
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Verify restored settings state
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-visual-protection').props.accessibilityState.checked,
+      ).toBe(false);
+      expect(
+        screen.getByTestId('toggle-volume-reduction').props.accessibilityState.checked,
+      ).toBe(false);
+    });
+
+    it('leaves default preferences intact when storage is empty', async () => {
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Open settings drawer
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Verify default settings
+      expect(
+        screen.getByTestId('toggle-visual-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-audio-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-volume-reduction').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(false);
+    });
+
+    it('safely merges a valid partial settings object with defaults', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_SETTINGS,
+        JSON.stringify({ skipEnabled: true }),
+      );
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // skipEnabled is restored to true
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      // unmentioned fields retain their defaults
+      expect(
+        screen.getByTestId('toggle-visual-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-audio-protection').props.accessibilityState.checked,
+      ).toBe(true);
+      expect(
+        screen.getByTestId('toggle-volume-reduction').props.accessibilityState.checked,
+      ).toBe(true);
+    });
+
+    it('handles malformed JSON and invalid field values without crashing', async () => {
+      // Malformed string in storage
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_SETTINGS,
+        '{ malformed json %%%',
+      );
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText('Trigger-Aware Player')).toBeTruthy();
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+      expect(
+        screen.getByTestId('toggle-visual-protection').props.accessibilityState.checked,
+      ).toBe(true);
+
+      // Invalid types in storage
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_SETTINGS,
+        JSON.stringify({
+          hideEnabled: 'invalid-string',
+          reduceGain: -5.0,
+          disabledCategories: 'not-an-array',
+        }),
+      );
+
+      const screen2 = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      act(() => {
+        fireEvent.press(screen2.getByTestId('control-settings'));
+      });
+      expect(
+        screen2.getByTestId('toggle-visual-protection').props.accessibilityState.checked,
+      ).toBe(true);
+    });
+
+    it('writes updated preferences to the existing settings key when changed', async () => {
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Toggle skip protection ON
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('toggle-skip-protection'));
+        await Promise.resolve();
+      });
+
+      const storedRaw = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+      expect(storedRaw).toBeTruthy();
+      const stored = JSON.parse(storedRaw!);
+      expect(stored.skipEnabled).toBe(true);
+      expect(stored.hideEnabled).toBe(true);
+      expect(stored.muteEnabled).toBe(true);
+    });
+
+    it('ensures immediate user changes are not overwritten by a late storage read', async () => {
+      let resolveGetItem: (val: string | null) => void;
+      const delayedGet = new Promise<string | null>((resolve) => {
+        resolveGetItem = resolve;
+      });
+      jest.spyOn(AsyncStorage, 'getItem').mockImplementationOnce(() => delayedGet);
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      // User immediately opens settings and toggles skipEnabled to true before storage finishes loading
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('toggle-skip-protection'));
+        await Promise.resolve();
+      });
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(true);
+
+      // Now resolve the late storage read with stale data ({ skipEnabled: false })
+      await act(async () => {
+        resolveGetItem!(JSON.stringify({ skipEnabled: false }));
+        await Promise.resolve();
+      });
+
+      // User change must not be overwritten
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(true);
+    });
+
+    it('serializes rapid consecutive changes and preserves the newest saved value', async () => {
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Rapidly toggle skip (OFF -> ON) then visual (ON -> OFF)
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('toggle-skip-protection'));
+        fireEvent.press(screen.getByTestId('toggle-visual-protection'));
+        await Promise.resolve();
+      });
+
+      const storedRaw = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+      expect(storedRaw).toBeTruthy();
+      const stored = JSON.parse(storedRaw!);
+      expect(stored.skipEnabled).toBe(true);
+      expect(stored.hideEnabled).toBe(false);
+    });
+
+    it('does not break normal player interaction if storage read or write fails', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('Storage failure'));
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Toggle should still succeed in-memory
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('toggle-skip-protection'));
+        await Promise.resolve();
+      });
+
+      expect(
+        screen.getByTestId('toggle-skip-protection').props.accessibilityState.checked,
+      ).toBe(true);
+
+      // Normal playback and navigation controls still work
+      act(() => {
+        fireEvent.press(screen.getByTestId('settings-done'));
+      });
+      expect(screen.getByText('Play')).toBeTruthy();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('filters out non-canonical category strings from storage on mount', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_SETTINGS,
+        JSON.stringify({
+          disabledCategories: [
+            'flashing',
+            'non_existent_trigger',
+            123,
+            null,
+            '',
+            'spider',
+          ],
+        }),
+      );
+
+      const onBack = jest.fn();
+      const screen = render(<PlayerScreen onBack={onBack} cues={testCues} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        fireEvent.press(screen.getByTestId('control-settings'));
+      });
+
+      // Flashing and spider are canonical and recognized
+      const rawVal = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+      const sanitized = sanitizeViewerOptions(
+        JSON.parse(rawVal!),
+        defaultPlaybackOptions,
+      );
+      expect(sanitized.disabledCategories).toEqual(['flashing', 'spider']);
+    });
+  });
+
+  describe('sanitizeViewerOptions unit tests', () => {
+    it('validates and preserves all 9 canonical trigger categories', () => {
+      const sanitized = sanitizeViewerOptions(
+        {
+          disabledCategories: [...CANONICAL_TRIGGER_CATEGORIES],
+        },
+        defaultPlaybackOptions,
+      );
+
+      expect(sanitized.disabledCategories).toEqual([
+        'flashing',
+        'loud_spike',
+        'gunshot',
+        'explosion',
+        'scream',
+        'profanity',
+        'spider',
+        'fast_motion',
+        'jump_scare',
+      ]);
+    });
+
+    it('rejects unknown trigger categories and non-string values', () => {
+      const sanitized = sanitizeViewerOptions(
+        {
+          disabledCategories: [
+            'flashing',
+            'unknown_trigger',
+            'random_category',
+            123,
+            false,
+            '',
+            'profanity',
+          ],
+        },
+        defaultPlaybackOptions,
+      );
+
+      expect(sanitized.disabledCategories).toEqual(['flashing', 'profanity']);
+    });
+
+    it('falls back to defaults when input is not an object or is an array', () => {
+      expect(sanitizeViewerOptions(null, defaultPlaybackOptions)).toEqual(
+        defaultPlaybackOptions,
+      );
+      expect(sanitizeViewerOptions('string', defaultPlaybackOptions)).toEqual(
+        defaultPlaybackOptions,
+      );
+      expect(sanitizeViewerOptions([1, 2, 3], defaultPlaybackOptions)).toEqual(
+        defaultPlaybackOptions,
+      );
     });
   });
 });

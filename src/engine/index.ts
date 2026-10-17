@@ -6,3 +6,4 @@ export * from './reviewPolicy';
 export * from './timing';
 export * from './validation';
 export * from './validatedPlayback';
+export * from './recap';

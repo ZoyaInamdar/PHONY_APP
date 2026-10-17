@@ -17,6 +17,8 @@ import {
   skipVerificationTestCues,
   verificationTestCues,
 } from '../data/playbackCues';
+import {appendBotheredLog} from '../storage';
+import {RecapView} from './RecapView';
 
 // ---------------------------------------------------------------------------
 // Trigger-Aware Player for Fire TV Vega OS
@@ -134,6 +136,9 @@ export const PlayerScreen = ({
   const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState('Loading video…');
   const [focusedControl, setFocusedControl] = useState<string>('play');
+  const [botheredFeedback, setBotheredFeedback] = useState<string>('');
+  const [showRecap, setShowRecap] = useState<boolean>(false);
+  const botheredFeedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const videoSource = testVideoUrl ?? DEFAULT_VIDEO_URL;
 
@@ -249,6 +254,10 @@ export const PlayerScreen = ({
   useEffect(() => {
     return () => {
       cancelVolumeRamp();
+      if (botheredFeedbackTimerRef.current !== null) {
+        clearTimeout(botheredFeedbackTimerRef.current);
+        botheredFeedbackTimerRef.current = null;
+      }
       const video = videoRef.current ?? videoInstanceRef.current;
       if (video) {
         video.muted = false;
@@ -595,6 +604,38 @@ export const PlayerScreen = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const handleThatBotheredMe = async () => {
+    const video = videoRef.current;
+    const time = Number.isFinite(video?.currentTime)
+      ? (video?.currentTime as number)
+      : currentTime;
+
+    const activeAtTime = activeCues.filter(
+      (cue) => cue.start <= time && time < cue.end,
+    );
+    const triggerNames = activeAtTime
+      .map((c) => c.trigger ?? c.id)
+      .filter(Boolean);
+    const activeTrigger =
+      triggerNames.length > 0 ? triggerNames.join(', ') : 'none';
+
+    await appendBotheredLog({
+      timestamp: Number(time.toFixed(2)),
+      activeTrigger,
+      loggedAt: Date.now(),
+    });
+
+    setBotheredFeedback(`🚩 Marked at ${formatTime(time)} [${activeTrigger}]`);
+
+    if (botheredFeedbackTimerRef.current !== null) {
+      clearTimeout(botheredFeedbackTimerRef.current);
+    }
+    botheredFeedbackTimerRef.current = setTimeout(() => {
+      setBotheredFeedback('');
+      botheredFeedbackTimerRef.current = null;
+    }, 3000);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -730,6 +771,7 @@ export const PlayerScreen = ({
             console.log('[Player] onEnded');
             setIsPlaying(false);
             setStatus('Playback finished');
+            setShowRecap(true);
           }}
           onError={() => {
             const video = videoRef.current;
@@ -843,6 +885,15 @@ export const PlayerScreen = ({
           isFocused={focusedControl === 'profile'}
           onFocus={() => setFocusedControl('profile')}
           focusable={!isSettingsOpen}
+        />
+        <Control
+          id="bothered"
+          testID="control-bothered"
+          label="🚩 That Bothered Me"
+          onPress={handleThatBotheredMe}
+          isFocused={focusedControl === 'bothered'}
+          onFocus={() => setFocusedControl('bothered')}
+          focusable={!isSettingsOpen && !showRecap}
         />
         <Control
           id="settings"
@@ -996,6 +1047,26 @@ export const PlayerScreen = ({
             </TouchableOpacity>
           </TVFocusGuideView>
         </View>
+      )}
+
+      {/* Toast feedback when "That Bothered Me" is clicked */}
+      {botheredFeedback ? (
+        <View style={styles.botheredToast} testID="bothered-toast">
+          <Text style={styles.botheredToastText}>{botheredFeedback}</Text>
+        </View>
+      ) : null}
+
+      {/* Playback Protection Recap view rendered at end of playback */}
+      {showRecap && (
+        <RecapView
+          sessionPayload={playbackStateRef.current.getSessionPayload()}
+          onClose={() => setShowRecap(false)}
+          onRestart={() => {
+            setShowRecap(false);
+            seekBy(-currentTime);
+            togglePlayback();
+          }}
+        />
       )}
     </View>
   );
@@ -1345,5 +1416,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  botheredToast: {
+    position: 'absolute',
+    top: 36,
+    alignSelf: 'center',
+    backgroundColor: '#0F172A',
+    borderColor: '#EF4444',
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    zIndex: 90,
+  },
+  botheredToastText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

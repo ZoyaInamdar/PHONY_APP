@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {PlaybackState} from '../engine/playbackState';
 import {
   defaultPlaybackOptions,
   sintelIndexCues,
+  skipVerificationTestCues,
   verificationTestCues,
 } from '../data/playbackCues';
 
@@ -34,12 +36,16 @@ const DEFAULT_VIDEO_URL =
   'https://media.w3.org/2010/05/sintel/trailer.mp4';
 
 export const DEFAULT_RAMP_DURATION_MS = 150;
+export const CONTAINER_PADDING_HORIZONTAL = 48;
+export const VIDEO_FRAME_HEIGHT = 400;
+
+export type PlayerProfile = 'verification' | 'standard' | 'skip_verification';
 
 export interface PlayerScreenProps {
   onBack: () => void;
   cues?: Cue[];
   options?: Partial<ViewerOptions>;
-  initialProfile?: 'verification' | 'standard';
+  initialProfile?: PlayerProfile;
   testVideoUrl?: string;
   rampDurationMs?: number;
 }
@@ -77,9 +83,22 @@ export const PlayerScreen = ({
   const lastWarnCueIdsRef = useRef<string>('');
 
   // Selected trigger cues & profile
-  const [profile, setProfile] = useState<'verification' | 'standard'>(initialProfile);
+  const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
+
+  const getProfileCues = (p: PlayerProfile): Cue[] => {
+    switch (p) {
+      case 'standard':
+        return sintelIndexCues;
+      case 'skip_verification':
+        return skipVerificationTestCues;
+      case 'verification':
+      default:
+        return verificationTestCues;
+    }
+  };
+
   const activeCues: Cue[] =
-    customCues ?? (profile === 'verification' ? verificationTestCues : sintelIndexCues);
+    customCues ?? getProfileCues(profile);
 
   // User protection preferences state
   const [viewerOptions, setViewerOptions] = useState<ViewerOptions>({
@@ -117,6 +136,18 @@ export const PlayerScreen = ({
   const [focusedControl, setFocusedControl] = useState<string>('play');
 
   const videoSource = testVideoUrl ?? DEFAULT_VIDEO_URL;
+
+  // Derived video layout dimensions to satisfy W3CMedia Video numeric prop contract
+  const initialWindowWidth = Dimensions.get('window').width;
+  const initialVideoWidth =
+    typeof initialWindowWidth === 'number' && initialWindowWidth > 0
+      ? Math.max(0, Math.round(initialWindowWidth - CONTAINER_PADDING_HORIZONTAL * 2))
+      : 1824;
+
+  const [videoDimensions, setVideoDimensions] = useState<{width: number; height: number}>({
+    width: initialVideoWidth,
+    height: VIDEO_FRAME_HEIGHT,
+  });
 
   // TV Remote back button handling (Vega OS / Fire TV hardware back)
   useEffect(() => {
@@ -530,7 +561,12 @@ export const PlayerScreen = ({
   };
 
   const toggleProfile = () => {
-    const nextProfile = profile === 'verification' ? 'standard' : 'verification';
+    const nextProfile: PlayerProfile =
+      profile === 'verification'
+        ? 'standard'
+        : profile === 'standard'
+        ? 'skip_verification'
+        : 'verification';
     setProfile(nextProfile);
     lastActiveCuesRef.current = '';
     lastWarnCueIdsRef.current = '';
@@ -540,7 +576,7 @@ export const PlayerScreen = ({
     console.log(`[Player] Switched trigger profile to: ${nextProfile}`);
 
     const nextCues =
-      customCues ?? (nextProfile === 'verification' ? verificationTestCues : sintelIndexCues);
+      customCues ?? getProfileCues(nextProfile);
 
     // Re-evaluate actions immediately with new cues
     const video = videoRef.current;
@@ -564,11 +600,29 @@ export const PlayerScreen = ({
       <View style={styles.headerRow}>
         <Text style={styles.title}>Trigger-Aware Player</Text>
         <Text style={styles.profileBadge}>
-          Profile: {profile === 'verification' ? 'Verification Cues' : 'Sintel Index'}
+          Profile:{' '}
+          {profile === 'verification'
+            ? 'Verification Cues'
+            : profile === 'skip_verification'
+            ? 'Skip Verification'
+            : 'Sintel Index'}
         </Text>
       </View>
 
-      <View style={styles.videoFrame}>
+      <View
+        style={styles.videoFrame}
+        onLayout={(e) => {
+          const {width, height} = e.nativeEvent.layout;
+          if (width > 0 && height > 0) {
+            const nextW = Math.round(width);
+            const nextH = Math.round(height);
+            setVideoDimensions((prev) =>
+              prev.width === nextW && prev.height === nextH
+                ? prev
+                : {width: nextW, height: nextH},
+            );
+          }
+        }}>
         <Video
           ref={(instance) => {
             (videoRef as any).current = instance;
@@ -576,6 +630,8 @@ export const PlayerScreen = ({
               videoInstanceRef.current = instance;
             }
           }}
+          width={videoDimensions.width}
+          height={videoDimensions.height}
           style={[styles.video, isContentHidden && styles.videoHidden]}
           src={videoSource}
           autoplay={true}
@@ -776,7 +832,13 @@ export const PlayerScreen = ({
         <Control
           id="profile"
           testID="control-profile"
-          label={profile === 'verification' ? 'Cues: Verify' : 'Cues: Index'}
+          label={
+            profile === 'verification'
+              ? 'Cues: Verify'
+              : profile === 'skip_verification'
+              ? 'Cues: Skip'
+              : 'Cues: Index'
+          }
           onPress={toggleProfile}
           isFocused={focusedControl === 'profile'}
           onFocus={() => setFocusedControl('profile')}

@@ -2,8 +2,16 @@ import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { BackHandler } from '@amazon-devices/react-native-kepler';
 import { Video } from '@amazon-devices/react-native-w3cmedia';
+import Ajv2020 from 'ajv/dist/2020';
+import cueSchema from '../../schema/cue.schema.json';
 import { PlayerScreen } from '../../src/components/PlayerScreen';
 import { Cue } from '../../src/engine/types';
+import {
+  defaultPlaybackOptions,
+  sintelIndexCues,
+  skipVerificationTestCues,
+  verificationTestCues,
+} from '../../src/data/playbackCues';
 
 describe('PlayerScreen Component Tests', () => {
   const testCues: Cue[] = [
@@ -1115,6 +1123,186 @@ describe('PlayerScreen Component Tests', () => {
         videoComp.props.onTimeUpdate();
       });
       expect(videoComp.instance.currentTime).toBe(15.0);
+    });
+  });
+
+  describe('Dedicated Skip Verification Profile', () => {
+    it('proves the verification profile is opt-in and does not replace default or production profiles', () => {
+      const onBack = jest.fn();
+      const { getByText } = render(<PlayerScreen onBack={onBack} />);
+
+      // Default profile is 'verification'
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText('Cues: Verify')).toBeTruthy();
+
+      // Pressing profile cycles to 'standard' (production index)
+      fireEvent.press(getByText('Cues: Verify'));
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Cues: Index')).toBeTruthy();
+
+      // Pressing again cycles to opt-in 'skip_verification'
+      fireEvent.press(getByText('Cues: Index'));
+      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
+      expect(getByText('Cues: Skip')).toBeTruthy();
+
+      // Pressing again returns to 'verification'
+      fireEvent.press(getByText('Cues: Skip'));
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+
+      // Can also be directly opted into via initialProfile prop
+      const { getByText: getByTextDirect } = render(
+        <PlayerScreen onBack={onBack} initialProfile="skip_verification" />,
+      );
+      expect(getByTextDirect(/Profile: Skip Verification/i)).toBeTruthy();
+      expect(getByTextDirect('Cues: Skip')).toBeTruthy();
+    });
+
+    it('confirms existing default and production profiles remain unchanged', () => {
+      expect(verificationTestCues).toHaveLength(6);
+      expect(verificationTestCues.some((c) => c.action === 'skip')).toBe(false);
+
+      expect(sintelIndexCues).toHaveLength(7);
+      expect(sintelIndexCues.some((c) => c.action === 'skip')).toBe(false);
+    });
+
+    it('passes schema and validation checks for all cues in skipVerificationTestCues', () => {
+      expect(skipVerificationTestCues.length).toBeGreaterThanOrEqual(2);
+
+      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      const validateCue = ajv.compile(cueSchema);
+
+      for (const cue of skipVerificationTestCues) {
+        expect(cue.end).toBeGreaterThan(cue.start);
+        expect(Number.isFinite(cue.start)).toBe(true);
+        expect(Number.isFinite(cue.end)).toBe(true);
+        expect(['visual', 'audio']).toContain(cue.source);
+        expect(['skip', 'mute', 'reduce', 'hide', 'warn']).toContain(cue.action);
+
+        // Validate structural conformity with cue schema (id, start, end, source, action, status)
+        const schemaPayload = {
+          id: cue.id,
+          start: cue.start,
+          end: cue.end,
+          source: cue.source,
+          action: cue.action,
+          status: cue.status,
+        };
+        const valid = validateCue(schemaPayload);
+        expect(valid).toBe(true);
+      }
+    });
+
+    it('makes ready Skip cue available and seeks forward to destination when skipEnabled is true', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          initialProfile="skip_verification"
+          options={{ skipEnabled: true }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Normal playback before cue
+      act(() => {
+        videoComp.instance.currentTime = 5.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(5.0);
+
+      // Trigger ready Skip cue at 10.0s [10.0, 18.0)
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Video seeks past the cue interval to 18.0s
+      expect(videoComp.instance.currentTime).toBe(18.0);
+
+      // Destination action at 18.0s (cue-skip-verify-destination-mute) is applied immediately
+      expect(videoComp.instance.muted).toBe(true);
+      expect(videoComp.instance.volume).toBe(0);
+    });
+
+    it('prevents seeking when Skip Protection is disabled in viewer options', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          initialProfile="skip_verification"
+          options={{ skipEnabled: false }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Does not seek
+      expect(videoComp.instance.currentTime).toBe(10.0);
+      expect(videoComp.instance.muted).toBe(false);
+    });
+
+    it('ensures unconfirmed needs_review cues cannot cause a seek and fall back safely', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType, queryByTestId } = render(
+        <PlayerScreen
+          onBack={onBack}
+          initialProfile="skip_verification"
+          options={{ skipEnabled: true, confirmReviewSkip: false }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Advance to 30.0s (cue-skip-verify-needs-review [30.0, 36.0), needs_review: true)
+      act(() => {
+        videoComp.instance.currentTime = 30.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Must NOT seek to 36.0s
+      expect(videoComp.instance.currentTime).toBe(30.0);
+
+      // Falls back to safe visual protection
+      expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+    });
+
+    it('re-arms skip cue after rewinding before the start time', () => {
+      const onBack = jest.fn();
+      const { getByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          initialProfile="skip_verification"
+          options={{ skipEnabled: true }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. First forward skip
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(18.0);
+
+      // 2. Rewind using "Back 10s" to 8.0s (< cue.start of 10.0s)
+      act(() => {
+        fireEvent.press(getByText('Back 10s'));
+      });
+      expect(videoComp.instance.currentTime).toBe(8.0);
+
+      // 3. Second forward pass: re-armed and skips again to 18.0s
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(18.0);
     });
   });
 });

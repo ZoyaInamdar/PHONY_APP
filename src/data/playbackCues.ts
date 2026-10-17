@@ -94,6 +94,52 @@ export const verificationTestCues: Cue[] = [
 ];
 
 /**
+ * Dedicated, opt-in test cue fixture specifically crafted to verify Skip playback on Vega:
+ * 1. Ready Skip Cue [10.0s - 18.0s):
+ *    - Jumps forward past the trigger interval to 18.0s when skipEnabled is true.
+ *    - Does NOT jump when skipEnabled is false.
+ * 2. Destination Action Cue [18.0s - 24.0s):
+ *    - Immediately activates audio mute at the seek destination (18.0s) to verify
+ *      destination action synchronization and state restoration.
+ * 3. Review-Required Skip Cue [30.0s - 36.0s):
+ *    - status: 'needs_review'
+ *    - Proves that unconfirmed review cues do NOT trigger a seek, falling back
+ *      safely to visual hiding.
+ */
+export const skipVerificationTestCues: Cue[] = [
+  // 1. Ready Skip Cue: triggers forward seek past interval [10.0, 18.0)
+  {
+    id: 'cue-skip-verify-main',
+    start: 10.0,
+    end: 18.0,
+    source: 'visual',
+    action: 'skip',
+    trigger: 'flashing',
+    status: 'ready',
+  },
+  // 2. Destination Action: active immediately at seek destination [18.0, 24.0)
+  {
+    id: 'cue-skip-verify-destination-mute',
+    start: 18.0,
+    end: 24.0,
+    source: 'audio',
+    action: 'mute',
+    trigger: 'gunshot',
+    status: 'ready',
+  },
+  // 3. Review-Required Skip Cue: must not seek without confirmation [30.0, 36.0)
+  {
+    id: 'cue-skip-verify-needs-review',
+    start: 30.0,
+    end: 36.0,
+    source: 'visual',
+    action: 'skip',
+    trigger: 'spider',
+    status: 'needs_review',
+  },
+];
+
+/**
  * Default options with both mute, hide, and reduce explicitly enabled.
  */
 export const defaultPlaybackOptions: ViewerOptions = {

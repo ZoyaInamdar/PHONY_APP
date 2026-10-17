@@ -77,8 +77,10 @@ function formatTriggerNoun(triggerType: string, count: number): string {
 
 /**
  * Normalizes applied effects into readable participle verbs.
+ *
  * Ensures that if a requested blur or dim fell back to blackout,
- * it faithfully outputs "blacked out".
+ * it faithfully outputs "blacked out". "blurred" is reserved exclusively
+ * for cases where visual blur was confirmed as rendered on screen.
  */
 function formatEffectVerb(appliedEffect: string): string {
   const norm = appliedEffect.toLowerCase().trim();
@@ -100,6 +102,9 @@ function formatEffectVerb(appliedEffect: string): string {
     case 'warned':
     case 'warn':
       return 'warned with heads-up';
+    case 'blurred':
+    case 'blur':
+      return 'blurred';
     default:
       return norm.replace(/_/g, ' ');
   }

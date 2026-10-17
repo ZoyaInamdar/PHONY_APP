@@ -154,6 +154,8 @@ export const PlayerScreen = ({
   const effectiveActionsRef = useRef<EffectiveActions | null>(null);
   const lastActiveCuesRef = useRef<string>('');
   const lastWarnCueIdsRef = useRef<string>('');
+  // Fallback deduplication tracking for unsupported renderer actions (e.g. Vega blur fallback)
+  const recordedFallbackCueIdsRef = useRef<Set<string>>(new Set());
 
   // Selected trigger cues & profile
   const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
@@ -343,6 +345,7 @@ export const PlayerScreen = ({
         video.volume = 1.0;
       }
       playbackStateRef.current.reset();
+      recordedFallbackCueIdsRef.current.clear();
       if (process.env.NODE_ENV !== 'test') {
         console.log('[Player] Unmounted — playback state reset, audio restored');
       }
@@ -403,7 +406,10 @@ export const PlayerScreen = ({
     }
 
     // 3. Visual Hiding evaluation
-    const targetHide = actions.hide;
+    // On Vega OS, native video-surface blur is unsupported by KeplerVideoSurfaceView.
+    // Requested blur cues safely fall back to visual blackout protection so viewers are protected.
+    const isVegaBlurFallback = actions.visualAction === 'blur';
+    const targetHide = actions.hide || isVegaBlurFallback;
 
     // Compare against current hardware/element state
     const currentMuted = video.muted;
@@ -490,15 +496,50 @@ export const PlayerScreen = ({
     if (hideChanged) {
       console.log(
         `[Trigger] Visual hide transition: ${currentHide} → ${targetHide} ` +
-          `(action: ${actions.visualAction}, activeCues: [${activeCueIdsKey}])`,
+          `(action: ${actions.visualAction}${isVegaBlurFallback ? ' [blur fallback to blackout]' : ''}, activeCues: [${activeCueIdsKey}])`,
       );
       isContentHiddenRef.current = targetHide;
       setIsContentHidden(targetHide);
-    } else if (actions.visualAction === 'dim' || actions.visualAction === 'blur') {
+    } else if (actions.visualAction === 'dim') {
       if (cuesChanged || isSeek) {
         console.warn(
           `[Trigger] Unsupported visual action "${actions.visualAction}" requested on current renderer for cue(s): [${activeCueIdsKey}]. Preserving original cue metadata without mapping to hide.`,
         );
+      }
+    }
+
+    // Fallback applied-action recording for Vega OS:
+    // When a blur cue activates the blackout fallback, record the applied effect as 'blacked_out'
+    // while preserving requestedAction: 'blur'. Deduplicate by cue ID to prevent repeated records.
+    if (isVegaBlurFallback && targetHide) {
+      for (const cue of currentCues) {
+        if (
+          cue.action === 'blur' &&
+          (cue.source === 'visual' || cue.source === 'audio_visual') &&
+          cue.start <= time &&
+          time < cue.end
+        ) {
+          if (
+            currentOptions.disabledCategories &&
+            cue.trigger &&
+            currentOptions.disabledCategories.includes(cue.trigger)
+          ) {
+            continue;
+          }
+
+          const fallbackKey = `blur_fallback_${cue.id}`;
+          if (!recordedFallbackCueIdsRef.current.has(fallbackKey)) {
+            recordedFallbackCueIdsRef.current.add(fallbackKey);
+            playbackStateRef.current.recordAction({
+              triggerType: cue.trigger ?? 'visual',
+              appliedEffect: 'blacked_out',
+              requestedAction: 'blur',
+              cueId: cue.id,
+              start: cue.start,
+              end: cue.end,
+            });
+          }
+        }
       }
     }
 
@@ -534,7 +575,7 @@ export const PlayerScreen = ({
         let actionDesc = '';
         if (targetHide) {
           actionDesc += '👁️ Visual Hidden';
-        } else if (actions.visualAction === 'dim' || actions.visualAction === 'blur') {
+        } else if (actions.visualAction === 'dim') {
           actionDesc += `⚠️ ${actions.visualAction.toUpperCase()} (unsupported on renderer)`;
         }
 
@@ -600,6 +641,13 @@ export const PlayerScreen = ({
 
     // Notify playback engine of seek (for skip-invalidation on rewind)
     playbackStateRef.current.seek(newTime, activeCues);
+    if (newTime < currentPos) {
+      for (const cue of activeCues) {
+        if (cue.start > newTime) {
+          recordedFallbackCueIdsRef.current.delete(`blur_fallback_${cue.id}`);
+        }
+      }
+    }
 
     // Apply native seek
     video.currentTime = newTime;
@@ -721,6 +769,7 @@ export const PlayerScreen = ({
     setWarningStatus('');
     cancelVolumeRamp();
     playbackStateRef.current.reset();
+    recordedFallbackCueIdsRef.current.clear();
     console.log(`[Player] Switched trigger profile to: ${nextProfile}`);
 
     const nextCues =
@@ -1202,6 +1251,8 @@ export const PlayerScreen = ({
           onClose={() => setShowRecap(false)}
           onRestart={() => {
             setShowRecap(false);
+            playbackStateRef.current.reset();
+            recordedFallbackCueIdsRef.current.clear();
             seekBy(-currentTime);
             togglePlayback();
           }}

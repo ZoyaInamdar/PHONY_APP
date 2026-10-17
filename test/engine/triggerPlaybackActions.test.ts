@@ -311,6 +311,321 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
       const fresh = playbackState.resolveAt(0, verificationTestCues, options);
       expect(fresh.time).toBe(0);
       expect(fresh.soundGain).toBe(1);
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 8. Visual Blur State Representation, Boundaries, and Precedence (Phase 2A)
+  // ---------------------------------------------------------------------------
+  describe('Visual blur state representation and boundaries (Phase 2A)', () => {
+    const blurCues: Cue[] = [
+      {
+        id: 'cue-spider-blur',
+        start: 40.0,
+        end: 45.0,
+        source: 'visual',
+        action: 'blur',
+        trigger: 'spider',
+        status: 'ready',
+      },
+    ];
+
+    it('activates blur at cue start, maintains it during cue, and deactivates at cue end', () => {
+      // 1. Immediately before cue start (t=39.9s)
+      const before = playbackState.resolveAt(39.9, blurCues, options);
+      expect(before.visualAction).toBeNull();
+      expect(before.hide).toBe(false);
+      expect(before.soundGain).toBe(1);
+      expect(before.activeCueIds).not.toContain('cue-spider-blur');
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+
+      // 2. Exactly at cue start (t=40.0s, boundary inclusive)
+      const atStart = playbackState.resolveAt(40.0, blurCues, options);
+      expect(atStart.visualAction).toBe('blur');
+      expect(atStart.hide).toBe(false);
+      expect(atStart.soundGain).toBe(1);
+      expect(atStart.activeCueIds).toContain('cue-spider-blur');
+      expect(playbackState.getActiveVisualAction()).toBe('blur');
+
+      // 3. During cue (t=42.5s)
+      const during = playbackState.resolveAt(42.5, blurCues, options);
+      expect(during.visualAction).toBe('blur');
+      expect(during.hide).toBe(false);
+      expect(during.soundGain).toBe(1);
+      expect(playbackState.getActiveVisualAction()).toBe('blur');
+
+      // 4. Exactly at cue end (t=45.0s, boundary exclusive)
+      const atEnd = playbackState.resolveAt(45.0, blurCues, options);
+      expect(atEnd.visualAction).toBeNull();
+      expect(atEnd.hide).toBe(false);
+      expect(atEnd.soundGain).toBe(1);
+      expect(atEnd.activeCueIds).not.toContain('cue-spider-blur');
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+
+      // 5. Well after cue end (t=46.0s)
+      const after = playbackState.resolveAt(46.0, blurCues, options);
+      expect(after.visualAction).toBeNull();
+      expect(after.hide).toBe(false);
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+    });
+
+    it('does not activate blur if hideEnabled (visual protection toggle) is false', () => {
+      const disabledOptions = { ...options, hideEnabled: false };
+      const result = playbackState.resolveAt(42.0, blurCues, disabledOptions);
+      expect(result.visualAction).toBeNull();
+      expect(result.hide).toBe(false);
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+    });
+
+    it('does not activate blur if the trigger category is disabled by viewer preferences', () => {
+      const disabledOptions = {
+        ...options,
+        disabledCategories: ['spider'],
+      };
+      const result = playbackState.resolveAt(42.0, blurCues, disabledOptions);
+      expect(result.visualAction).toBeNull();
+      expect(result.hide).toBe(false);
+      expect(result.activeCueIds).not.toContain('cue-spider-blur');
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+    });
+
+    it('immediately activates blur when seeking into a blur cue', () => {
+      playbackState.seek(42.0, blurCues);
+      const result = playbackState.resolveAt(42.0, blurCues, options);
+      expect(result.visualAction).toBe('blur');
+      expect(result.hide).toBe(false);
+      expect(playbackState.getActiveVisualAction()).toBe('blur');
+      expect(playbackState.getCurrentTime()).toBe(42.0);
+    });
+
+    it('immediately deactivates blur when seeking out of a blur cue', () => {
+      // First resolve inside cue
+      playbackState.resolveAt(42.0, blurCues, options);
+      expect(playbackState.getActiveVisualAction()).toBe('blur');
+
+      // Seek outside cue: stale visual action is immediately invalidated
+      playbackState.seek(48.0, blurCues);
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+      expect(playbackState.getCurrentTime()).toBe(48.0);
+
+      const result = playbackState.resolveAt(48.0, blurCues, options);
+      expect(result.visualAction).toBeNull();
+      expect(result.hide).toBe(false);
+      expect(playbackState.getActiveVisualAction()).toBeNull();
+    });
+
+    describe('Blur overlapping cues and action precedence', () => {
+      it('gives hide precedence over blur when both are active simultaneously, and restores blur when hide ends', () => {
+        const overlappingCues: Cue[] = [
+          {
+            id: 'c-hide',
+            start: 10.0,
+            end: 15.0,
+            source: 'visual',
+            action: 'hide',
+            trigger: 'flashing',
+          },
+          {
+            id: 'c-blur',
+            start: 12.0,
+            end: 18.0,
+            source: 'visual',
+            action: 'blur',
+            trigger: 'spider',
+          },
+        ];
+
+        // Before blur starts (t=11.0s): hide only
+        const t11 = playbackState.resolveAt(11.0, overlappingCues, options);
+        expect(t11.visualAction).toBe('hide');
+        expect(t11.hide).toBe(true);
+        expect(playbackState.getActiveVisualAction()).toBe('hide');
+
+        // Overlap region (t=13.0s): hide > blur priority (3 > 2)
+        const t13 = playbackState.resolveAt(13.0, overlappingCues, options);
+        expect(t13.visualAction).toBe('hide');
+        expect(t13.hide).toBe(true);
+        expect(t13.activeCueIds).toEqual(['c-hide', 'c-blur']);
+        expect(playbackState.getActiveVisualAction()).toBe('hide');
+
+        // Hide ends, blur still active (t=16.0s): transitions cleanly to blur, hide becomes false
+        const t16 = playbackState.resolveAt(16.0, overlappingCues, options);
+        expect(t16.visualAction).toBe('blur');
+        expect(t16.hide).toBe(false);
+        expect(t16.activeCueIds).toEqual(['c-blur']);
+        expect(playbackState.getActiveVisualAction()).toBe('blur');
+
+        // Blur ends (t=19.0s): all visual actions clear
+        const t19 = playbackState.resolveAt(19.0, overlappingCues, options);
+        expect(t19.visualAction).toBeNull();
+        expect(t19.hide).toBe(false);
+        expect(playbackState.getActiveVisualAction()).toBeNull();
+      });
+
+      it('gives blur precedence over dim when both are active simultaneously, and restores dim when blur ends', () => {
+        const overlappingCues: Cue[] = [
+          {
+            id: 'c-dim',
+            start: 10.0,
+            end: 20.0,
+            source: 'visual',
+            action: 'dim',
+            trigger: 'flashing',
+          },
+          {
+            id: 'c-blur',
+            start: 12.0,
+            end: 16.0,
+            source: 'visual',
+            action: 'blur',
+            trigger: 'spider',
+          },
+        ];
+
+        // Before blur starts (t=11.0s): dim active
+        const t11 = playbackState.resolveAt(11.0, overlappingCues, options);
+        expect(t11.visualAction).toBe('dim');
+        expect(t11.hide).toBe(false);
+
+        // During overlap (t=14.0s): blur > dim priority (2 > 1)
+        const t14 = playbackState.resolveAt(14.0, overlappingCues, options);
+        expect(t14.visualAction).toBe('blur');
+        expect(t14.hide).toBe(false);
+        expect(playbackState.getActiveVisualAction()).toBe('blur');
+
+        // Blur ends, dim still active (t=18.0s): restores to dim
+        const t18 = playbackState.resolveAt(18.0, overlappingCues, options);
+        expect(t18.visualAction).toBe('dim');
+        expect(t18.hide).toBe(false);
+        expect(playbackState.getActiveVisualAction()).toBe('dim');
+      });
+
+      it('maintains independent audio mute and volume reduction alongside visual blur', () => {
+        const multiChannelCues: Cue[] = [
+          {
+            id: 'c-blur',
+            start: 10.0,
+            end: 20.0,
+            source: 'visual',
+            action: 'blur',
+            trigger: 'spider',
+          },
+          {
+            id: 'c-reduce',
+            start: 12.0,
+            end: 18.0,
+            source: 'audio',
+            action: 'reduce',
+            gain: 0.35,
+            trigger: 'scream',
+          },
+          {
+            id: 'c-mute',
+            start: 14.0,
+            end: 16.0,
+            source: 'audio',
+            action: 'mute',
+            trigger: 'gunshot',
+          },
+        ];
+
+        // t=11.0s: Blur active, audio full
+        const t11 = playbackState.resolveAt(11.0, multiChannelCues, options);
+        expect(t11.visualAction).toBe('blur');
+        expect(t11.hide).toBe(false);
+        expect(t11.soundGain).toBe(1);
+
+        // t=13.0s: Blur active, audio reduced
+        const t13 = playbackState.resolveAt(13.0, multiChannelCues, options);
+        expect(t13.visualAction).toBe('blur');
+        expect(t13.soundGain).toBe(0.35);
+
+        // t=15.0s: Blur active, audio muted
+        const t15 = playbackState.resolveAt(15.0, multiChannelCues, options);
+        expect(t15.visualAction).toBe('blur');
+        expect(t15.soundGain).toBe(0);
+
+        // t=17.0s: Blur active, audio restores to reduced (0.35)
+        const t17 = playbackState.resolveAt(17.0, multiChannelCues, options);
+        expect(t17.visualAction).toBe('blur');
+        expect(t17.soundGain).toBe(0.35);
+
+        // t=19.0s: Blur active, audio restores to full volume (1)
+        const t19 = playbackState.resolveAt(19.0, multiChannelCues, options);
+        expect(t19.visualAction).toBe('blur');
+        expect(t19.soundGain).toBe(1);
+      });
+
+      it('preserves skip action when skip cue overlaps with visual blur cue', () => {
+        const skipAndBlurCues: Cue[] = [
+          {
+            id: 'c-blur',
+            start: 10.0,
+            end: 20.0,
+            source: 'visual',
+            action: 'blur',
+            trigger: 'spider',
+          },
+          {
+            id: 'c-skip',
+            start: 12.0,
+            end: 16.0,
+            source: 'visual',
+            action: 'skip',
+            trigger: 'flashing',
+            status: 'ready',
+          },
+        ];
+
+        // When skipEnabled is true: skipTo is populated
+        const skipOptions = { ...options, skipEnabled: true };
+        const result = playbackState.resolveAt(13.0, skipAndBlurCues, skipOptions);
+        expect(result.skipTo).toBe(16.0);
+        expect(result.visualAction).toBe('blur');
+
+        // When skipEnabled is false: skipTo is null, blur remains active
+        const noSkipOptions = { ...options, skipEnabled: false };
+        const resultNoSkip = playbackState.resolveAt(13.0, skipAndBlurCues, noSkipOptions);
+        expect(resultNoSkip.skipTo).toBeNull();
+        expect(resultNoSkip.visualAction).toBe('blur');
+      });
+    });
+
+    it('ensures no active blur outside applicable cue intervals or on non-visual modalities', () => {
+      const nonVisualCues: Cue[] = [
+        {
+          id: 'c-audio',
+          start: 5.0,
+          end: 10.0,
+          source: 'audio',
+          action: 'mute',
+          trigger: 'loud_spike',
+        },
+        {
+          id: 'c-text',
+          start: 8.0,
+          end: 12.0,
+          source: 'text',
+          action: 'mute',
+          trigger: 'profanity',
+        },
+      ];
+
+      // At t=6.0s: audio mute
+      const t6 = playbackState.resolveAt(6.0, nonVisualCues, options);
+      expect(t6.visualAction).toBeNull();
+      expect(t6.hide).toBe(false);
+
+      // At t=9.0s: audio + text
+      const t9 = playbackState.resolveAt(9.0, nonVisualCues, options);
+      expect(t9.visualAction).toBeNull();
+      expect(t9.hide).toBe(false);
+
+      // Empty cue array
+      const emptyResult = playbackState.resolveAt(25.0, [], options);
+      expect(emptyResult.visualAction).toBeNull();
+      expect(emptyResult.hide).toBe(false);
     });
   });
 });

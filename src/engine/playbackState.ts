@@ -7,6 +7,7 @@ export class PlaybackState {
   private recordedCueActionIds = new Set<string>();
   private appliedActions: AppliedAction[] = [];
   private currentTime = 0;
+  private currentVisualAction: 'hide' | 'blur' | 'dim' | null = null;
 
   /**
    * Resolve actions at the current playback time.
@@ -25,6 +26,7 @@ export class PlaybackState {
 
     const actions = resolveActions(time, availableCues, options);
     this.currentTime = time;
+    this.currentVisualAction = actions.visualAction;
 
     // Record applied actions for session recap
     for (const cue of cues) {
@@ -172,6 +174,25 @@ export class PlaybackState {
     }
 
     this.currentTime = newTime;
+    this.currentVisualAction = null;
+  }
+
+  /**
+   * Get the active visual action resolved at the current playback time.
+   *
+   * Note: This reflects the engine-resolved action ('hide' | 'blur' | 'dim' | null)
+   * requested by active cues according to viewer preferences and action priority.
+   * It does not represent whether the underlying video hardware has rendered the effect.
+   */
+  getActiveVisualAction(): 'hide' | 'blur' | 'dim' | null {
+    return this.currentVisualAction;
+  }
+
+  /**
+   * Get the current playback time recorded by the engine.
+   */
+  getCurrentTime(): number {
+    return this.currentTime;
   }
 
   /** Useful when starting a completely new video. */
@@ -180,5 +201,6 @@ export class PlaybackState {
     this.recordedCueActionIds.clear();
     this.appliedActions = [];
     this.currentTime = 0;
+    this.currentVisualAction = null;
   }
 }

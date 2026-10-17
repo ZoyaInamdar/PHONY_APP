@@ -47,6 +47,13 @@ describe('Dynamic Recap Aggregation & Display Strings', () => {
     expect(formatActionDisplayString('scene_skipped', 3)).toBe(
       '3 scenes skipped',
     );
+
+    expect(formatActionDisplayString('spider_blurred', 1)).toBe(
+      '1 spider scene blurred',
+    );
+    expect(formatActionDisplayString('spider_blurred', 2)).toBe(
+      '2 spider scenes blurred',
+    );
   });
 
   it('correctly outputs display strings from a session list', () => {

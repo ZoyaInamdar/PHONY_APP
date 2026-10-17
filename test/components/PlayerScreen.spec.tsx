@@ -102,8 +102,8 @@ describe('PlayerScreen Component Tests', () => {
     expect(video).toBeTruthy();
   });
 
-  it('reports active dim and blur actions explicitly as unsupported on renderer without mapping to hide or reduce', () => {
-    const unsupportedCues: Cue[] = [
+  it('reports active dim action explicitly as unsupported on renderer without mapping to hide or reduce', () => {
+    const dimCues: Cue[] = [
       {
         id: 'cue-dim',
         start: 10.0,
@@ -112,25 +112,17 @@ describe('PlayerScreen Component Tests', () => {
         action: 'dim',
         trigger: 'flashing',
       },
-      {
-        id: 'cue-blur',
-        start: 20.0,
-        end: 25.0,
-        source: 'visual',
-        action: 'blur',
-        trigger: 'spider',
-      },
     ];
 
     const onBack = jest.fn();
     const { getByText, queryByTestId, UNSAFE_getByType } = render(
-      <PlayerScreen onBack={onBack} cues={unsupportedCues} />,
+      <PlayerScreen onBack={onBack} cues={dimCues} />,
     );
 
     const videoComp = UNSAFE_getByType(Video);
     expect(videoComp.instance).toBeTruthy();
 
-    // 1. Enter dim cue at t=12.0s
+    // Enter dim cue at t=12.0s
     act(() => {
       videoComp.instance.currentTime = 12.0;
       videoComp.props.onTimeUpdate();
@@ -142,20 +134,148 @@ describe('PlayerScreen Component Tests', () => {
     expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
     // Must NOT be muted
     expect(videoComp.instance.muted).toBe(false);
+    expect(videoComp.instance.volume).toBe(1.0);
+  });
 
-    // 2. Enter blur cue at t=22.0s
+  it('activates honest blackout fallback for blur cues on Vega OS and records blacked_out appliedEffect with requestedAction blur', () => {
+    const blurCues: Cue[] = [
+      {
+        id: 'cue-spider-blur',
+        start: 20.0,
+        end: 25.0,
+        source: 'visual',
+        action: 'blur',
+        trigger: 'spider',
+      },
+    ];
+
+    const onBack = jest.fn();
+    const { getByText, getByTestId, queryByText, queryByTestId, UNSAFE_getByType } = render(
+      <PlayerScreen onBack={onBack} cues={blurCues} />,
+    );
+
+    const videoComp = UNSAFE_getByType(Video);
+    expect(videoComp.instance).toBeTruthy();
+
+    // 1. Before cue at t=19.5s: no overlay
+    act(() => {
+      videoComp.instance.currentTime = 19.5;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+
+    // 2. Enter blur cue at t=22.0s: blackout fallback overlay activates
     act(() => {
       videoComp.instance.currentTime = 22.0;
       videoComp.props.onTimeUpdate();
     });
 
-    // Explicitly reported as unsupported blur on current renderer
-    expect(getByText(/⚠️ BLUR \(unsupported on renderer\) \[spider\]/)).toBeTruthy();
-    // Must NOT be mapped to hide
-    expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
-    // Must NOT be muted or reduced
+    // Blackout overlay IS rendered to protect the viewer
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+    expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+    // Audio is NOT muted or reduced for a visual-only trigger
     expect(videoComp.instance.muted).toBe(false);
     expect(videoComp.instance.volume).toBe(1.0);
+
+    // 3. Repeated ticks inside cue do NOT duplicate applied-action records
+    act(() => {
+      videoComp.instance.currentTime = 22.5;
+      videoComp.props.onTimeUpdate();
+      videoComp.instance.currentTime = 23.0;
+      videoComp.props.onTimeUpdate();
+      videoComp.instance.currentTime = 24.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+    // 4. Cue ends at t=25.0s: blackout overlay deactivates
+    act(() => {
+      videoComp.instance.currentTime = 25.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+
+    // 5. Seek back into cue at t=22.0s: overlay reactivates
+    act(() => {
+      videoComp.instance.currentTime = 22.0;
+      videoComp.props.onSeeked();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+    // 6. Seek outside cue to t=28.0s: overlay deactivates
+    act(() => {
+      videoComp.instance.currentTime = 28.0;
+      videoComp.props.onSeeked();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+
+    // 7. Playback finishes at end: recap opens and confirms honest blackout recording
+    act(() => {
+      videoComp.instance.currentTime = 50.0;
+      videoComp.props.onEnded();
+    });
+
+    expect(getByTestId('recap-view')).toBeTruthy();
+    // Exactly 1 spider scene blacked out recorded (no duplication from repeated ticks!)
+    expect(getByText('1 spider scene blacked out')).toBeTruthy();
+    // Recap must NEVER claim unrendered blur occurred
+    expect(queryByText(/blurred/i)).toBeNull();
+  });
+
+  it('preserves priority across overlapping hide and blur cues without exposing the scene in transition', () => {
+    const overlappingCues: Cue[] = [
+      {
+        id: 'cue-hide',
+        start: 10.0,
+        end: 15.0,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      },
+      {
+        id: 'cue-blur',
+        start: 12.0,
+        end: 18.0,
+        source: 'visual',
+        action: 'blur',
+        trigger: 'spider',
+      },
+    ];
+
+    const onBack = jest.fn();
+    const { queryByTestId, UNSAFE_getByType } = render(
+      <PlayerScreen onBack={onBack} cues={overlappingCues} />,
+    );
+
+    const videoComp = UNSAFE_getByType(Video);
+
+    // 1. At t=11.0s: hide active -> overlay present
+    act(() => {
+      videoComp.instance.currentTime = 11.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+    // 2. At t=13.0s: hide and blur overlap -> overlay remains present continuously
+    act(() => {
+      videoComp.instance.currentTime = 13.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+    // 3. At t=16.0s: hide has ended, blur is still active -> overlay REMAINS present via blur fallback!
+    act(() => {
+      videoComp.instance.currentTime = 16.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+    // 4. At t=19.0s: both ended -> overlay removed
+    act(() => {
+      videoComp.instance.currentTime = 19.0;
+      videoComp.props.onTimeUpdate();
+    });
+    expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
   });
 
   it('renders heads-up warning banner on cue start, expires it on cue end, and updates on seek', () => {

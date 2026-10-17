@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel",
+  "pipeline_stage": "ingestion",
+  "status": "complete",
+  "created_at": "2026-10-17T08:52:59.378089+00:00",
+  "source_media": {
+    "path": "C:\\Users\\ishit\\OneDrive\\Documents\\AWS_hackathon\\PHONY_APP\\data\\media\\sintel.mkv",
+    "filename": "sintel.mkv",
+    "size_bytes": 1172428172,
+    "container_duration_seconds": 888.032,
+    "format_name": "matroska,webm",
+    "video_stream_count": 1,
+    "audio_stream_count": 1
+  },
+  "normalized_video": {
+    "path": "normalized.mp4",
+    "codec": "h264",
+    "pixel_format": "yuv420p",
+    "width": 1920,
+    "height": 818,
+    "fps": 24.0,
+    "duration_seconds": 888.032,
+    "frame_count": 21312,
+    "timeline_start_seconds": 0.0
+  },
+  "audio": {
+    "present": true,
+    "extraction_status": "extracted",
+    "path": "audio_mono_44100.wav",
+    "codec": "pcm_s16le",
+    "sample_rate": 44100,
+    "channels": 1,
+    "duration_seconds": 888.032018,
+    "error": null
+  },
+  "low_res_frames": {
+    "path": "low_res_frames_128x72.rgb",
+    "width": 128,
+    "height": 72,
+    "pixel_format": "rgb24",
+    "fps": 24.0,
+    "frame_count": 21312,
+    "storage_format": "raw_rgb24",
+    "bytes_per_frame": 27648,
+    "total_bytes": 589234176,
+    "frame_loss_count": 0,
+    "loss_policy": "strict_zero_loss"
+  },
+  "snapshots": {
+    "output_dir": "snapshots",
+    "manifest_path": "snapshots/frames_manifest.json",
+    "snapshot_count": 888,
+    "target_fps": 1.0,
+    "max_dimension": 512,
+    "format": "jpeg"
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -20,8 +20,23 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
-# Binary media assets
+# Binary media assets and container formats
 *.mp4
 *.wav
 *.raw
 *.rgb
+*.mkv
+*.mov
+*.webm
+*.avi
+*.zip
+
+# Local downloaded media
+data/media/
+
+# Ingestion frame snapshots (extracted JPEGs)
+**/snapshots/
+
+# Local logs
+logs/
+

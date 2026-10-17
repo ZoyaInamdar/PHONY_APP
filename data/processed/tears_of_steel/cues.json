@@ -1,0 +1,633 @@
+[
+  {
+    "id": "c1",
+    "start": 23.0,
+    "end": 24.5,
+    "kind": "speech",
+    "text": "You're a jerk, Thom.",
+    "flagged_words": []
+  },
+  {
+    "id": "c2",
+    "start": 25.0,
+    "end": 27.0,
+    "kind": "speech",
+    "text": "Look Celia, we have to follow our passions;",
+    "flagged_words": []
+  },
+  {
+    "id": "c3",
+    "start": 27.0,
+    "end": 30.5,
+    "kind": "speech",
+    "text": "...you have your robotics, and I\njust want to be awesome in space.",
+    "flagged_words": []
+  },
+  {
+    "id": "c4",
+    "start": 30.8,
+    "end": 34.0,
+    "kind": "speech",
+    "text": "Why don't you just admit that\nyou're freaked out by my robot hand?",
+    "flagged_words": []
+  },
+  {
+    "id": "c5",
+    "start": 34.5,
+    "end": 36.0,
+    "kind": "speech",
+    "text": "I'm not freaked out by- it's...",
+    "flagged_words": []
+  },
+  {
+    "id": "c6",
+    "start": 37.0,
+    "end": 38.0,
+    "kind": "speech",
+    "text": "...alright! Fine!",
+    "flagged_words": []
+  },
+  {
+    "id": "c7",
+    "start": 38.0,
+    "end": 41.0,
+    "kind": "speech",
+    "text": "I'm freaked out! I have nightmares\nthat I'm being chased...",
+    "flagged_words": []
+  },
+  {
+    "id": "c8",
+    "start": 41.0,
+    "end": 42.0,
+    "kind": "speech",
+    "text": "...by these giant robotic claws of death...",
+    "flagged_words": []
+  },
+  {
+    "id": "c9",
+    "start": 42.2,
+    "end": 45.0,
+    "kind": "speech",
+    "text": "\"Fourty years later\"\nWhatever, Thom. We're done.",
+    "flagged_words": []
+  },
+  {
+    "id": "c10",
+    "start": 50.0,
+    "end": 53.5,
+    "kind": "speech",
+    "text": "Robot's memory synced and locked!",
+    "flagged_words": []
+  },
+  {
+    "id": "c11",
+    "start": 61.0,
+    "end": 63.0,
+    "kind": "speech",
+    "text": "This is pretty freaky.",
+    "flagged_words": []
+  },
+  {
+    "id": "c12",
+    "start": 117.0,
+    "end": 119.0,
+    "kind": "speech",
+    "text": "Shouldn't you be down there?",
+    "flagged_words": []
+  },
+  {
+    "id": "c13",
+    "start": 131.0,
+    "end": 133.0,
+    "kind": "speech",
+    "text": "I heard you guys talking last night.",
+    "flagged_words": []
+  },
+  {
+    "id": "c14",
+    "start": 136.0,
+    "end": 138.0,
+    "kind": "speech",
+    "text": "It's not my fault, you know.",
+    "flagged_words": []
+  },
+  {
+    "id": "c15",
+    "start": 191.0,
+    "end": 192.0,
+    "kind": "speech",
+    "text": "Are you ready?",
+    "flagged_words": []
+  },
+  {
+    "id": "c16",
+    "start": 193.0,
+    "end": 195.0,
+    "kind": "speech",
+    "text": "Of course you're ready, you're a rockstar.",
+    "flagged_words": []
+  },
+  {
+    "id": "c17",
+    "start": 197.0,
+    "end": 198.0,
+    "kind": "speech",
+    "text": "How's it looking, Barley?",
+    "flagged_words": []
+  },
+  {
+    "id": "c18",
+    "start": 199.0,
+    "end": 201.0,
+    "kind": "speech",
+    "text": "We should have about ten minutes...",
+    "flagged_words": []
+  },
+  {
+    "id": "c19",
+    "start": 201.5,
+    "end": 203.0,
+    "kind": "speech",
+    "text": "Well that's perfect.",
+    "flagged_words": []
+  },
+  {
+    "id": "c20",
+    "start": 203.5,
+    "end": 206.5,
+    "kind": "speech",
+    "text": "We're on in one! All systems go!\nYeah you, go!",
+    "flagged_words": []
+  },
+  {
+    "id": "c21",
+    "start": 208.0,
+    "end": 212.0,
+    "kind": "speech",
+    "text": "Go! Move your asses! Go go go!",
+    "flagged_words": []
+  },
+  {
+    "id": "c22",
+    "start": 213.0,
+    "end": 217.0,
+    "kind": "speech",
+    "text": "I love it! Come on, go!",
+    "flagged_words": []
+  },
+  {
+    "id": "c23",
+    "start": 223.0,
+    "end": 224.0,
+    "kind": "speech",
+    "text": "That's nice.",
+    "flagged_words": []
+  },
+  {
+    "id": "c24",
+    "start": 224.5,
+    "end": 225.7,
+    "kind": "speech",
+    "text": "Nothing to worry about.",
+    "flagged_words": []
+  },
+  {
+    "id": "c25",
+    "start": 226.0,
+    "end": 227.0,
+    "kind": "speech",
+    "text": "Thom.",
+    "flagged_words": []
+  },
+  {
+    "id": "c26",
+    "start": 231.0,
+    "end": 233.0,
+    "kind": "speech",
+    "text": "There she is.",
+    "flagged_words": []
+  },
+  {
+    "id": "c27",
+    "start": 233.5,
+    "end": 234.5,
+    "kind": "speech",
+    "text": "Now.",
+    "flagged_words": []
+  },
+  {
+    "id": "c28",
+    "start": 235.0,
+    "end": 236.0,
+    "kind": "speech",
+    "text": "You love her.",
+    "flagged_words": []
+  },
+  {
+    "id": "c29",
+    "start": 237.0,
+    "end": 238.5,
+    "kind": "speech",
+    "text": "She is your passion!",
+    "flagged_words": []
+  },
+  {
+    "id": "c30",
+    "start": 240.0,
+    "end": 241.0,
+    "kind": "speech",
+    "text": "Be tender to her.",
+    "flagged_words": []
+  },
+  {
+    "id": "c31",
+    "start": 241.5,
+    "end": 244.5,
+    "kind": "speech",
+    "text": "Be honest! Eh- be tender.",
+    "flagged_words": []
+  },
+  {
+    "id": "c32",
+    "start": 245.0,
+    "end": 248.0,
+    "kind": "speech",
+    "text": "Remind her what love is.",
+    "flagged_words": []
+  },
+  {
+    "id": "c33",
+    "start": 292.0,
+    "end": 295.0,
+    "kind": "speech",
+    "text": "...and, action!",
+    "flagged_words": []
+  },
+  {
+    "id": "c34",
+    "start": 296.5,
+    "end": 298.0,
+    "kind": "speech",
+    "text": "Memory overwrite in progress!",
+    "flagged_words": []
+  },
+  {
+    "id": "c35",
+    "start": 299.0,
+    "end": 301.0,
+    "kind": "speech",
+    "text": "You're a jerk, Thom!",
+    "flagged_words": []
+  },
+  {
+    "id": "c36",
+    "start": 302.5,
+    "end": 305.0,
+    "kind": "speech",
+    "text": "Ohp- Sorry! Sorry.",
+    "flagged_words": []
+  },
+  {
+    "id": "c37",
+    "start": 316.0,
+    "end": 317.0,
+    "kind": "speech",
+    "text": "Look Celia.",
+    "flagged_words": []
+  },
+  {
+    "id": "c38",
+    "start": 318.0,
+    "end": 320.0,
+    "kind": "speech",
+    "text": "We have to follow our passions.",
+    "flagged_words": []
+  },
+  {
+    "id": "c39",
+    "start": 321.0,
+    "end": 323.0,
+    "kind": "speech",
+    "text": "You have your robotics...",
+    "flagged_words": []
+  },
+  {
+    "id": "c40",
+    "start": 325.0,
+    "end": 328.0,
+    "kind": "speech",
+    "text": "...and I just want to be awesome in space.",
+    "flagged_words": []
+  },
+  {
+    "id": "c41",
+    "start": 339.0,
+    "end": 341.0,
+    "kind": "speech",
+    "text": "Okay, they're coming. Two minutes left!",
+    "flagged_words": []
+  },
+  {
+    "id": "c42",
+    "start": 343.0,
+    "end": 344.0,
+    "kind": "speech",
+    "text": "Speed it up, Thom!",
+    "flagged_words": []
+  },
+  {
+    "id": "c43",
+    "start": 345.0,
+    "end": 346.0,
+    "kind": "speech",
+    "text": "Vivacissimo!",
+    "flagged_words": []
+  },
+  {
+    "id": "c44",
+    "start": 347.0,
+    "end": 350.0,
+    "kind": "speech",
+    "text": "Why don't you just admit that you're\nfreaked out by my robot hand?",
+    "flagged_words": []
+  },
+  {
+    "id": "c45",
+    "start": 356.0,
+    "end": 359.0,
+    "kind": "speech",
+    "text": "Listen Celia, I was young...",
+    "flagged_words": []
+  },
+  {
+    "id": "c46",
+    "start": 359.5,
+    "end": 361.0,
+    "kind": "speech",
+    "text": "...and a dick.",
+    "flagged_words": [
+      {
+        "word": "dick",
+        "char_start": 9,
+        "char_end": 13,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "spoken_confirmed": null
+      }
+    ],
+    "flagged": [
+      {
+        "term_id": "w11",
+        "word": "dick",
+        "char_start": 9,
+        "char_end": 13,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "start": 360.464,
+        "end": 360.893,
+        "confidence": 1.0,
+        "spoken_confirmed": null
+      }
+    ]
+  },
+  {
+    "id": "c47",
+    "start": 361.0,
+    "end": 363.0,
+    "kind": "speech",
+    "text": "But that's no reason to\ndestroy the world.",
+    "flagged_words": []
+  },
+  {
+    "id": "c48",
+    "start": 365.0,
+    "end": 366.0,
+    "kind": "speech",
+    "text": "Why does he do this?",
+    "flagged_words": []
+  },
+  {
+    "id": "c49",
+    "start": 366.5,
+    "end": 368.5,
+    "kind": "speech",
+    "text": "We already tried that one!",
+    "flagged_words": []
+  },
+  {
+    "id": "c50",
+    "start": 371.5,
+    "end": 372.5,
+    "kind": "speech",
+    "text": "Abort!",
+    "flagged_words": []
+  },
+  {
+    "id": "c51",
+    "start": 373.0,
+    "end": 374.0,
+    "kind": "speech",
+    "text": "Cut!",
+    "flagged_words": []
+  },
+  {
+    "id": "c52",
+    "start": 374.0,
+    "end": 375.0,
+    "kind": "speech",
+    "text": "Whoaaa!",
+    "flagged_words": []
+  },
+  {
+    "id": "c53",
+    "start": 379.0,
+    "end": 380.0,
+    "kind": "speech",
+    "text": "Whoaaa!",
+    "flagged_words": []
+  },
+  {
+    "id": "c54",
+    "start": 381.0,
+    "end": 383.0,
+    "kind": "speech",
+    "text": "Nooooo!",
+    "flagged_words": []
+  },
+  {
+    "id": "c55",
+    "start": 383.0,
+    "end": 385.0,
+    "kind": "speech",
+    "text": "You broke my heart.",
+    "flagged_words": []
+  },
+  {
+    "id": "c56",
+    "start": 386.0,
+    "end": 387.0,
+    "kind": "speech",
+    "text": "I know.",
+    "flagged_words": []
+  },
+  {
+    "id": "c57",
+    "start": 387.0,
+    "end": 389.0,
+    "kind": "speech",
+    "text": "You forgot me on earth.",
+    "flagged_words": []
+  },
+  {
+    "id": "c58",
+    "start": 389.0,
+    "end": 390.0,
+    "kind": "speech",
+    "text": "I know.",
+    "flagged_words": []
+  },
+  {
+    "id": "c59",
+    "start": 390.5,
+    "end": 393.0,
+    "kind": "speech",
+    "text": "I should just crush you.",
+    "flagged_words": []
+  },
+  {
+    "id": "c60",
+    "start": 396.0,
+    "end": 397.0,
+    "kind": "speech",
+    "text": "I'm-",
+    "flagged_words": []
+  },
+  {
+    "id": "c61",
+    "start": 407.0,
+    "end": 408.0,
+    "kind": "speech",
+    "text": "I'm sorry.",
+    "flagged_words": []
+  },
+  {
+    "id": "c62",
+    "start": 410.0,
+    "end": 411.0,
+    "kind": "speech",
+    "text": "Good ad-lib.",
+    "flagged_words": []
+  },
+  {
+    "id": "c63",
+    "start": 419.0,
+    "end": 420.5,
+    "kind": "speech",
+    "text": "Not my fault!",
+    "flagged_words": []
+  },
+  {
+    "id": "c64",
+    "start": 422.0,
+    "end": 423.0,
+    "kind": "speech",
+    "text": "This time.",
+    "flagged_words": []
+  },
+  {
+    "id": "c65",
+    "start": 428.0,
+    "end": 429.5,
+    "kind": "speech",
+    "text": "Quiet on set!",
+    "flagged_words": []
+  },
+  {
+    "id": "c66",
+    "start": 430.0,
+    "end": 431.0,
+    "kind": "speech",
+    "text": "We're out of time!",
+    "flagged_words": []
+  },
+  {
+    "id": "c67",
+    "start": 493.0,
+    "end": 494.0,
+    "kind": "speech",
+    "text": "Come on!",
+    "flagged_words": []
+  },
+  {
+    "id": "c68",
+    "start": 502.0,
+    "end": 504.0,
+    "kind": "speech",
+    "text": "RAAAAAAAAH!",
+    "flagged_words": []
+  },
+  {
+    "id": "c69",
+    "start": 504.0,
+    "end": 505.0,
+    "kind": "speech",
+    "text": "Memory overwrite, 90%.",
+    "flagged_words": []
+  },
+  {
+    "id": "c70",
+    "start": 506.0,
+    "end": 508.0,
+    "kind": "speech",
+    "text": "Captain! We have to abort!",
+    "flagged_words": []
+  },
+  {
+    "id": "c71",
+    "start": 518.0,
+    "end": 520.0,
+    "kind": "speech",
+    "text": "The world's changed, Celia...",
+    "flagged_words": []
+  },
+  {
+    "id": "c72",
+    "start": 534.0,
+    "end": 536.0,
+    "kind": "speech",
+    "text": "...maybe we can too.",
+    "flagged_words": []
+  },
+  {
+    "id": "c73",
+    "start": 538.0,
+    "end": 539.0,
+    "kind": "speech",
+    "text": "Memory overwrite complete!",
+    "flagged_words": []
+  },
+  {
+    "id": "c74",
+    "start": 559.0,
+    "end": 560.0,
+    "kind": "speech",
+    "text": "You know.",
+    "flagged_words": []
+  },
+  {
+    "id": "c75",
+    "start": 562.0,
+    "end": 564.0,
+    "kind": "speech",
+    "text": "There's a lesson to be learned from this.",
+    "flagged_words": []
+  },
+  {
+    "id": "c76",
+    "start": 566.0,
+    "end": 567.0,
+    "kind": "speech",
+    "text": "Could'a gone worse.",
+    "flagged_words": []
+  }
+]

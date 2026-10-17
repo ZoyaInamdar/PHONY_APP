@@ -1,0 +1,210 @@
+[
+  {
+    "id": "c1",
+    "start": 107.25,
+    "end": 110.5,
+    "kind": "speech",
+    "text": "This blade has a dark past.",
+    "flagged_words": []
+  },
+  {
+    "id": "c2",
+    "start": 111.8,
+    "end": 115.8,
+    "kind": "speech",
+    "text": "It has shed much innocent blood.",
+    "flagged_words": []
+  },
+  {
+    "id": "c3",
+    "start": 118.0,
+    "end": 121.45,
+    "kind": "speech",
+    "text": "You're a fool for traveling alone,\nso completely unprepared.",
+    "flagged_words": []
+  },
+  {
+    "id": "c4",
+    "start": 121.75,
+    "end": 124.8,
+    "kind": "speech",
+    "text": "You're lucky your blood's still flowing.",
+    "flagged_words": []
+  },
+  {
+    "id": "c5",
+    "start": 125.25,
+    "end": 126.3,
+    "kind": "speech",
+    "text": "Thank you.",
+    "flagged_words": []
+  },
+  {
+    "id": "c6",
+    "start": 127.5,
+    "end": 129.0,
+    "kind": "speech",
+    "text": "So...",
+    "flagged_words": []
+  },
+  {
+    "id": "c7",
+    "start": 129.4,
+    "end": 133.8,
+    "kind": "speech",
+    "text": "What brings you to\nthe land of the gatekeepers?",
+    "flagged_words": []
+  },
+  {
+    "id": "c8",
+    "start": 135.0,
+    "end": 137.5,
+    "kind": "speech",
+    "text": "I'm searching for someone.",
+    "flagged_words": []
+  },
+  {
+    "id": "c9",
+    "start": 138.0,
+    "end": 142.2,
+    "kind": "speech",
+    "text": "Someone very dear?\nA kindred spirit?",
+    "flagged_words": []
+  },
+  {
+    "id": "c10",
+    "start": 143.4,
+    "end": 145.0,
+    "kind": "speech",
+    "text": "A dragon.",
+    "flagged_words": []
+  },
+  {
+    "id": "c11",
+    "start": 148.85,
+    "end": 151.75,
+    "kind": "speech",
+    "text": "A dangerous quest for a lone hunter.",
+    "flagged_words": []
+  },
+  {
+    "id": "c12",
+    "start": 152.95,
+    "end": 155.87,
+    "kind": "speech",
+    "text": "I've been alone for\nas long as I can remember.",
+    "flagged_words": []
+  },
+  {
+    "id": "c13",
+    "start": 207.25,
+    "end": 210.5,
+    "kind": "speech",
+    "text": "We're almost done. Shhh...",
+    "flagged_words": []
+  },
+  {
+    "id": "c14",
+    "start": 210.75,
+    "end": 213.5,
+    "kind": "speech",
+    "text": "Hey, sit still.",
+    "flagged_words": []
+  },
+  {
+    "id": "c15",
+    "start": 228.25,
+    "end": 232.25,
+    "kind": "speech",
+    "text": "Good night, Scales.",
+    "flagged_words": []
+  },
+  {
+    "id": "c16",
+    "start": 250.35,
+    "end": 253.85,
+    "kind": "speech",
+    "text": "Get him, Scales! Come on!",
+    "flagged_words": []
+  },
+  {
+    "id": "c17",
+    "start": 265.25,
+    "end": 268.25,
+    "kind": "speech",
+    "text": "Scales?",
+    "flagged_words": []
+  },
+  {
+    "id": "c18",
+    "start": 304.0,
+    "end": 307.5,
+    "kind": "speech",
+    "text": "Yeah! Come on!",
+    "flagged_words": []
+  },
+  {
+    "id": "c19",
+    "start": 338.75,
+    "end": 342.0,
+    "kind": "speech",
+    "text": "Scales!",
+    "flagged_words": []
+  },
+  {
+    "id": "c20",
+    "start": 445.85,
+    "end": 447.5,
+    "kind": "speech",
+    "text": "I have failed.",
+    "flagged_words": []
+  },
+  {
+    "id": "c21",
+    "start": 452.8,
+    "end": 456.5,
+    "kind": "speech",
+    "text": "You've only failed to see...",
+    "flagged_words": []
+  },
+  {
+    "id": "c22",
+    "start": 457.8,
+    "end": 460.5,
+    "kind": "speech",
+    "text": "These are dragon lands, Sintel.",
+    "flagged_words": []
+  },
+  {
+    "id": "c23",
+    "start": 460.85,
+    "end": 464.0,
+    "kind": "speech",
+    "text": "You are closer than you know.",
+    "flagged_words": []
+  },
+  {
+    "id": "c24",
+    "start": 557.6,
+    "end": 559.5,
+    "kind": "speech",
+    "text": "Scales!",
+    "flagged_words": []
+  },
+  {
+    "id": "c25",
+    "start": 621.6,
+    "end": 624.0,
+    "kind": "speech",
+    "text": "Scales?",
+    "flagged_words": []
+  },
+  {
+    "id": "c26",
+    "start": 626.2,
+    "end": 629.8,
+    "kind": "speech",
+    "text": "Scales...",
+    "flagged_words": []
+  }
+]

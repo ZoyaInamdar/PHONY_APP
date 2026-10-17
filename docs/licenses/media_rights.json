@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "films": [
+    {
+      "film_id": "sintel",
+      "title": "Sintel",
+      "media": {
+        "source_url": "https://download.blender.org/demo/movies/Sintel.2010.720p.mkv.zip",
+        "license_name": "CC BY 3.0",
+        "license_url": "https://durian.blender.org/sharing/",
+        "attribution": "(CC) Blender Foundation | durian.blender.org",
+        "verification_date": "2026-10-17",
+        "sha256": "fae11ed41b2c99dfbeabce7ea5458446e21e7b840a982f510f2341919c3d9920"
+      },
+      "subtitles": [
+        {
+          "language": "en",
+          "source_url": "",
+          "license_name": "Unverified",
+          "license_url": "https://durian.blender.org/sharing/",
+          "attribution": "(CC) Blender Foundation | durian.blender.org",
+          "verification_date": "2026-10-17",
+          "sha256": "4ed7e1f1bc5ff69fe33606960e4c048ba6766237bf33b132fef76e1a92cb64b2"
+        }
+      ]
+    },
+    {
+      "film_id": "tears_of_steel",
+      "title": "Tears of Steel",
+      "media": {
+        "source_url": "https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov",
+        "license_name": "CC BY 3.0",
+        "license_url": "https://mango.blender.org/sharing/",
+        "attribution": "(CC) Blender Foundation | mango.blender.org",
+        "verification_date": "2026-10-17",
+        "sha256": "328253280A05E6B14A92F1F43D818D9B7D38AB5D3F6D5D98606198FD3DAEF2FF"
+      },
+      "subtitles": [
+        {
+          "language": "en",
+          "source_url": "https://download.blender.org/demo/movies/ToS/subtitles/TOS-en.srt",
+          "license_name": "Unverified",
+          "license_url": "https://mango.blender.org/sharing/",
+          "attribution": "CC BY 3.0",
+          "verification_date": "2026-10-17",
+          "sha256": "CE9578F6FE098A5821045A38884B229160F9E7BA27890448A92F5BE330C6E6FE"
+        }
+      ]
+    }
+  ]
+}

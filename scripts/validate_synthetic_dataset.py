@@ -182,9 +182,12 @@ def validate_dataset(clips_dir: Path | str = DEFAULT_CLIPS_DIR) -> Dict[str, Any
         if lc not in manifest_by_name:
             errors.append(f"Loudness test clip missing from manifest.json: {lc}")
 
-    loudness_labels = [r for r in label_rows if r.get("trigger") == "loud_spike"]
+    loudness_labels = [
+        r for r in label_rows
+        if r.get("trigger") == "loud_spike" and r.get("clip") in loudness_clips
+    ]
     if len(loudness_labels) != 2:
-        errors.append(f"Expected 2 loud_spike labels, found {len(loudness_labels)}")
+        errors.append(f"Expected 2 loud_spike labels for dedicated loudness clips, found {len(loudness_labels)}")
 
     # 5. Multi-event clip integrity
     multi_event_labels = [r for r in label_rows if r.get("clip") == "audio_multi_event_mix.mp4"]

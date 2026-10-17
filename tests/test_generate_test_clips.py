@@ -644,7 +644,24 @@ def test_synthetic_dataset_overall_integrity():
     assert len(report["errors"]) == 0
     assert report["total_mp4_files"] == 30
     assert report["unique_manifest_clips"] == 30
-    assert report["total_label_rows"] == 27
+    assert report["total_label_rows"] == 31
     assert report["flashing_actual_rates_valid"] is True
     assert report["loudness_clips_valid"] is True
+
+
+def test_multi_trigger_fixture_labels():
+    """Verify that multi_trigger_test.mp4 in labels.csv contains expected triggers and intervals."""
+    from scripts.generate_test_clips import read_labels_csv, DEFAULT_LABELS_PATH
+
+    records = read_labels_csv(DEFAULT_LABELS_PATH)
+    multi_records = [r for r in records if r["clip"] == "multi_trigger_test.mp4"]
+    assert len(multi_records) == 4
+
+    triggers = [r["trigger"] for r in multi_records]
+    assert triggers == ["profanity", "loud_spike", "profanity", "loud_spike"]
+
+    # Verify chronological intervals
+    intervals = [(float(r["start"]), float(r["end"])) for r in multi_records]
+    assert intervals == [(1.0, 3.5), (5.0, 5.4), (7.0, 9.5), (11.0, 11.3)]
+
 

@@ -7,28 +7,6 @@ import { AppliedAction } from '../../src/engine/recap';
 import { Cue } from '../../src/engine/types';
 import * as storageModule from '../../src/storage/index';
 
-jest.mock('@react-native-async-storage/async-storage', () => {
-  const store = new Map<string, string>();
-  return {
-    __esModule: true,
-    default: {
-      getItem: jest.fn(async (key: string) => store.get(key) ?? null),
-      setItem: jest.fn(async (key: string, value: string) => {
-        store.set(key, value);
-      }),
-      removeItem: jest.fn(async (key: string) => {
-        store.delete(key);
-      }),
-      multiRemove: jest.fn(async (keys: string[]) => {
-        keys.forEach((k) => store.delete(k));
-      }),
-      clear: jest.fn(async () => {
-        store.clear();
-      }),
-    },
-  };
-});
-
 describe('Person C - "That Bothered Me" and RecapView', () => {
   const mockCues: Cue[] = [
     {

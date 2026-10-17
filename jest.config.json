@@ -8,7 +8,8 @@
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
   "moduleNameMapper": {
     "^~/(.*)$": "<rootDir>/src/$1",
-    "^@amazon-devices/react-native-w3cmedia$": "<rootDir>/__mocks__/@amazon-devices/react-native-w3cmedia.js"
+    "^@amazon-devices/react-native-w3cmedia$": "<rootDir>/__mocks__/@amazon-devices/react-native-w3cmedia.js",
+    "^@react-native-async-storage/async-storage$": "<rootDir>/__mocks__/@react-native-async-storage/async-storage.js"
   },
   "modulePaths": ["<rootDir>/src"],
   "roots": [

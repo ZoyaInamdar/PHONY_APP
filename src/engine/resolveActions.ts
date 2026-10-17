@@ -45,6 +45,14 @@ export function resolveActions(
       throw new Error(`Invalid cue: ${cue.id || '(missing id)'}`);
     }
 
+    if (
+      options.disabledCategories &&
+      cue.trigger &&
+      options.disabledCategories.includes(cue.trigger)
+    ) {
+      return false;
+    }
+
     return cue.start <= time && time < cue.end;
   });
 

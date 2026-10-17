@@ -1,10 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {BackHandler, TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Video} from '@amazon-devices/react-native-w3cmedia';
 import {Cue, EffectiveActions, ViewerOptions} from '../engine/types';
 import {PlaybackState} from '../engine/playbackState';
@@ -30,12 +32,15 @@ import {
 const DEFAULT_VIDEO_URL =
   'https://media.w3.org/2010/05/sintel/trailer.mp4';
 
+export const DEFAULT_RAMP_DURATION_MS = 150;
+
 export interface PlayerScreenProps {
   onBack: () => void;
   cues?: Cue[];
   options?: Partial<ViewerOptions>;
   initialProfile?: 'verification' | 'standard';
   testVideoUrl?: string;
+  rampDurationMs?: number;
 }
 
 export const PlayerScreen = ({
@@ -44,10 +49,23 @@ export const PlayerScreen = ({
   options: customOptions,
   initialProfile = 'verification',
   testVideoUrl,
+  rampDurationMs,
 }: PlayerScreenProps) => {
+  const rampDuration =
+    rampDurationMs !== undefined
+      ? rampDurationMs
+      : process.env.NODE_ENV === 'test'
+      ? 0
+      : DEFAULT_RAMP_DURATION_MS;
+
   const videoRef = useRef<Video>(null);
+  const videoInstanceRef = useRef<Video | null>(null);
   const playbackStateRef = useRef<PlaybackState>(new PlaybackState());
   const lastLoggedSecond = useRef<number>(-1);
+
+  // Volume ramp controller refs for on-device smooth transitions
+  const volumeRampTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const rampTargetVolumeRef = useRef<number | null>(null);
 
   // User baseline settings (independent of automated trigger actions)
   const userVolumeRef = useRef<number>(1.0);
@@ -62,10 +80,29 @@ export const PlayerScreen = ({
   const activeCues: Cue[] =
     customCues ?? (profile === 'verification' ? verificationTestCues : sintelIndexCues);
 
-  const viewerOptions: ViewerOptions = {
+  // User protection preferences state
+  const [viewerOptions, setViewerOptions] = useState<ViewerOptions>({
     ...defaultPlaybackOptions,
     ...customOptions,
-  };
+    disabledCategories: customOptions?.disabledCategories ?? [],
+  });
+  const viewerOptionsRef = useRef<ViewerOptions>(viewerOptions);
+  viewerOptionsRef.current = viewerOptions;
+
+  // Settings drawer state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const isSettingsOpenRef = useRef(false);
+  isSettingsOpenRef.current = isSettingsOpen;
+  const [focusedDrawerItem, setFocusedDrawerItem] = useState<string>('toggle-visual');
+
+  // Active trigger categories in current index
+  const activeCategories = Array.from(
+    new Set(
+      activeCues
+        .map((c) => c.trigger)
+        .filter((t): t is string => typeof t === 'string' && t.length > 0),
+    ),
+  ).sort();
 
   // UI state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,13 +113,111 @@ export const PlayerScreen = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [status, setStatus] = useState('Loading video…');
+  const [focusedControl, setFocusedControl] = useState<string>('play');
 
   const videoSource = testVideoUrl ?? DEFAULT_VIDEO_URL;
 
-  // Cleanup on unmount: reset engine and restore player settings
+  // TV Remote back button handling (Vega OS / Fire TV hardware back)
+  useEffect(() => {
+    const handler = BackHandler;
+    const onBackPress = () => {
+      if (isSettingsOpenRef.current) {
+        setIsSettingsOpen(false);
+        setFocusedControl('settings');
+        return true;
+      }
+      onBack();
+      return true;
+    };
+
+    const backSubscription = handler?.addEventListener(
+      'hardwareBackPress',
+      onBackPress,
+    );
+
+    return () => {
+      if (backSubscription && typeof backSubscription.remove === 'function') {
+        backSubscription.remove();
+      } else if (handler && typeof handler.removeEventListener === 'function') {
+        handler.removeEventListener('hardwareBackPress', onBackPress);
+      }
+    };
+  }, [onBack]);
+
+  // Helper to cancel any in-flight volume ramp
+  const cancelVolumeRamp = () => {
+    if (volumeRampTimerRef.current !== null) {
+      clearInterval(volumeRampTimerRef.current);
+      volumeRampTimerRef.current = null;
+      rampTargetVolumeRef.current = null;
+    }
+  };
+
+  /**
+   * Smoothly transitions video volume towards targetVol over durationMs.
+   * Eliminates speaker clicks/pops during cue mute/reduce on Vega OS hardware.
+   */
+  const rampVolume = (
+    targetVol: number,
+    durationMs: number = rampDuration,
+    onComplete?: () => void,
+  ) => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    cancelVolumeRamp();
+
+    const startVol = Number(video.volume.toFixed(2));
+    const normalizedTarget = Number(targetVol.toFixed(2));
+    const delta = normalizedTarget - startVol;
+
+    // If already at target within epsilon or no duration requested, snap immediately
+    if (Math.abs(delta) <= 0.01 || durationMs <= 0) {
+      video.volume = normalizedTarget;
+      onComplete?.();
+      return;
+    }
+
+    rampTargetVolumeRef.current = normalizedTarget;
+    const stepMs = 25;
+    const totalSteps = Math.max(1, Math.round(durationMs / stepMs));
+    let currentStep = 0;
+
+    const intervalId = setInterval(() => {
+      // Guard: do nothing if this ramp was cancelled or replaced
+      if (volumeRampTimerRef.current !== intervalId) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      const activeVideo = videoRef.current;
+      if (!activeVideo) {
+        cancelVolumeRamp();
+        return;
+      }
+
+      currentStep++;
+      const progress = Math.min(1, currentStep / totalSteps);
+      const nextVol = Number((startVol + delta * progress).toFixed(2));
+      activeVideo.volume = nextVol;
+
+      if (progress >= 1 || currentStep >= totalSteps) {
+        cancelVolumeRamp();
+        activeVideo.volume = normalizedTarget;
+        onComplete?.();
+      }
+    }, stepMs);
+
+    volumeRampTimerRef.current = intervalId;
+  };
+
+  // Cleanup on unmount: cancel volume timers, reset engine, and restore player settings
   useEffect(() => {
     return () => {
-      const video = videoRef.current;
+      cancelVolumeRamp();
+      const video = videoRef.current ?? videoInstanceRef.current;
       if (video) {
         video.muted = false;
         video.volume = 1.0;
@@ -99,13 +234,20 @@ export const PlayerScreen = ({
    * Resolves active cues at the given timestamp and applies mute, volume reduction,
    * and visual hiding without unnecessary property churn.
    */
-  const applyTriggerActions = (time: number, isSeek = false) => {
+  const applyTriggerActions = (
+    time: number,
+    isSeek = false,
+    overrideOptions?: ViewerOptions,
+    overrideCues?: Cue[],
+  ) => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(time) || time < 0) {
       return;
     }
 
-    const actions = playbackStateRef.current.resolveAt(time, activeCues, viewerOptions);
+    const currentOptions = overrideOptions ?? viewerOptionsRef.current;
+    const currentCues = overrideCues ?? activeCues;
+    const actions = playbackStateRef.current.resolveAt(time, currentCues, currentOptions);
     effectiveActionsRef.current = actions;
 
     // 1. Audio Mute evaluation
@@ -114,7 +256,9 @@ export const PlayerScreen = ({
 
     // 2. Audio Volume Reduction evaluation
     let targetVolume = userVolumeRef.current;
-    if (!triggerWantsMute && actions.soundGain > 0 && actions.soundGain < 1) {
+    if (targetMuted) {
+      targetVolume = 0;
+    } else if (actions.soundGain > 0 && actions.soundGain < 1) {
       targetVolume = Number((userVolumeRef.current * actions.soundGain).toFixed(2));
     }
 
@@ -123,7 +267,7 @@ export const PlayerScreen = ({
 
     // Compare against current hardware/element state
     const currentMuted = video.muted;
-    const currentVolume = video.volume;
+    const currentVolume = Number(video.volume.toFixed(2));
     const currentHide = isContentHiddenRef.current;
 
     const muteChanged = currentMuted !== targetMuted;
@@ -135,21 +279,72 @@ export const PlayerScreen = ({
     const warnCueIdsKey = actions.warnCueIds.join(',');
     const warnChanged = lastWarnCueIdsRef.current !== warnCueIdsKey;
 
-    if (muteChanged) {
-      console.log(
-        `[Trigger] Mute transition: ${currentMuted} → ${targetMuted} ` +
-          `(userMuted: ${userMutedRef.current}, triggerMute: ${triggerWantsMute}, activeCues: [${activeCueIdsKey}])`,
-      );
-      video.muted = targetMuted;
-      setIsMuted(targetMuted);
-    }
-
-    if (volumeChanged) {
-      console.log(
-        `[Trigger] Volume transition: ${currentVolume.toFixed(2)} → ${targetVolume.toFixed(2)} ` +
-          `(soundGain: ${actions.soundGain}, base: ${userVolumeRef.current}, activeCues: [${activeCueIdsKey}])`,
-      );
-      video.volume = targetVolume;
+    if (isSeek) {
+      // Seek interruption: immediately cancel any active ramp timer and snap to target
+      cancelVolumeRamp();
+      if (muteChanged || volumeChanged) {
+        console.log(
+          `[Trigger] Seek audio snap: muted=${targetMuted}, vol=${targetVolume.toFixed(2)} ` +
+            `(userMuted: ${userMutedRef.current}, triggerMute: ${triggerWantsMute}, activeCues: [${activeCueIdsKey}])`,
+        );
+        video.volume = targetVolume;
+        video.muted = targetMuted;
+        setIsMuted(targetMuted);
+      }
+    } else {
+      // Normal playback with smooth volume ramp and fade-restoration
+      if (targetMuted) {
+        if (muteChanged) {
+          console.log(
+            `[Trigger] Mute transition (fade-out): ${currentMuted} → ${targetMuted} ` +
+              `(userMuted: ${userMutedRef.current}, triggerMute: ${triggerWantsMute}, activeCues: [${activeCueIdsKey}])`,
+          );
+          setIsMuted(true);
+          if (rampDuration <= 0) {
+            cancelVolumeRamp();
+            video.volume = 0;
+            video.muted = true;
+          } else {
+            rampVolume(0, rampDuration, () => {
+              const v = videoRef.current;
+              if (v) {
+                v.muted = targetMuted;
+                v.volume = 0;
+              }
+            });
+          }
+        }
+      } else {
+        // targetMuted is false (audio should play at targetVolume)
+        if (muteChanged) {
+          // Exiting mute: unmute with volume 0, then smoothly ramp up to target volume
+          console.log(
+            `[Trigger] Unmute transition (fade-in): ${currentMuted} → false ` +
+              `(targetVolume: ${targetVolume.toFixed(2)}, activeCues: [${activeCueIdsKey}])`,
+          );
+          setIsMuted(false);
+          video.muted = false;
+          video.volume = 0;
+          if (rampDuration <= 0) {
+            cancelVolumeRamp();
+            video.volume = targetVolume;
+          } else {
+            rampVolume(targetVolume, rampDuration);
+          }
+        } else if (volumeChanged && rampTargetVolumeRef.current !== targetVolume) {
+          // Volume reduction transition or return to baseline volume
+          console.log(
+            `[Trigger] Volume transition (ramp): ${currentVolume.toFixed(2)} → ${targetVolume.toFixed(2)} ` +
+              `(soundGain: ${actions.soundGain}, base: ${userVolumeRef.current}, activeCues: [${activeCueIdsKey}])`,
+          );
+          if (rampDuration <= 0) {
+            cancelVolumeRamp();
+            video.volume = targetVolume;
+          } else {
+            rampVolume(targetVolume, rampDuration);
+          }
+        }
+      }
     }
 
     if (hideChanged) {
@@ -289,9 +484,28 @@ export const PlayerScreen = ({
     const triggerWantsMute = currentActions?.soundGain === 0;
     const targetMuted = nextUserMuted || triggerWantsMute;
 
-    video.muted = targetMuted;
-    setIsMuted(targetMuted);
-    console.log('[Player] toggleMute — effective video.muted now:', targetMuted);
+    cancelVolumeRamp();
+    applyTriggerActions(video.currentTime, true);
+    console.log(
+      '[Player] toggleMute — effective video.muted now:',
+      video.muted,
+      'volume:',
+      video.volume,
+    );
+  };
+
+  const updateViewerOptions = (
+    updater: (prev: ViewerOptions) => ViewerOptions,
+  ) => {
+    setViewerOptions((prev) => {
+      const next = updater(prev);
+      viewerOptionsRef.current = next;
+      const video = videoRef.current;
+      if (video) {
+        applyTriggerActions(video.currentTime, true, next);
+      }
+      return next;
+    });
   };
 
   const toggleProfile = () => {
@@ -300,13 +514,17 @@ export const PlayerScreen = ({
     lastActiveCuesRef.current = '';
     lastWarnCueIdsRef.current = '';
     setWarningStatus('');
+    cancelVolumeRamp();
     playbackStateRef.current.reset();
     console.log(`[Player] Switched trigger profile to: ${nextProfile}`);
+
+    const nextCues =
+      customCues ?? (nextProfile === 'verification' ? verificationTestCues : sintelIndexCues);
 
     // Re-evaluate actions immediately with new cues
     const video = videoRef.current;
     if (video) {
-      applyTriggerActions(video.currentTime, true);
+      applyTriggerActions(video.currentTime, true, viewerOptionsRef.current, nextCues);
     }
   };
 
@@ -331,7 +549,12 @@ export const PlayerScreen = ({
 
       <View style={styles.videoFrame}>
         <Video
-          ref={videoRef}
+          ref={(instance) => {
+            (videoRef as any).current = instance;
+            if (instance) {
+              videoInstanceRef.current = instance;
+            }
+          }}
           style={[styles.video, isContentHidden && styles.videoHidden]}
           src={videoSource}
           autoplay={true}
@@ -495,45 +718,299 @@ export const PlayerScreen = ({
         {formatTime(currentTime)} / {formatTime(duration)}
       </Text>
 
-      <View style={styles.controls}>
-        <Control label="Back 10s" onPress={() => seekBy(-10)} />
+      <TVFocusGuideView style={styles.controls} autoFocus>
         <Control
+          id="back"
+          testID="control-back-10s"
+          label="Back 10s"
+          onPress={() => seekBy(-10)}
+          isFocused={focusedControl === 'back'}
+          onFocus={() => setFocusedControl('back')}
+        />
+        <Control
+          id="play"
+          testID="control-play-pause"
           label={isPlaying ? 'Pause' : 'Play'}
           onPress={togglePlayback}
+          isFocused={focusedControl === 'play'}
+          onFocus={() => setFocusedControl('play')}
           preferred
         />
-        <Control label="Forward 10s" onPress={() => seekBy(10)} />
         <Control
+          id="forward"
+          testID="control-forward-10s"
+          label="Forward 10s"
+          onPress={() => seekBy(10)}
+          isFocused={focusedControl === 'forward'}
+          onFocus={() => setFocusedControl('forward')}
+        />
+        <Control
+          id="mute"
+          testID="control-mute"
           label={isMuted ? 'Unmute' : 'Mute'}
           onPress={toggleMute}
+          isFocused={focusedControl === 'mute'}
+          onFocus={() => setFocusedControl('mute')}
         />
         <Control
+          id="profile"
+          testID="control-profile"
           label={profile === 'verification' ? 'Cues: Verify' : 'Cues: Index'}
           onPress={toggleProfile}
+          isFocused={focusedControl === 'profile'}
+          onFocus={() => setFocusedControl('profile')}
+          focusable={!isSettingsOpen}
         />
-        <Control label="Home" onPress={onBack} />
-      </View>
+        <Control
+          id="settings"
+          testID="control-settings"
+          label="Settings"
+          onPress={() => {
+            setIsSettingsOpen(true);
+            setFocusedDrawerItem('toggle-visual');
+          }}
+          isFocused={focusedControl === 'settings'}
+          onFocus={() => setFocusedControl('settings')}
+          focusable={!isSettingsOpen}
+        />
+        <Control
+          id="home"
+          testID="control-home"
+          label="Home"
+          onPress={onBack}
+          isFocused={focusedControl === 'home'}
+          onFocus={() => setFocusedControl('home')}
+          focusable={!isSettingsOpen}
+        />
+      </TVFocusGuideView>
+
+      {/* In-player settings drawer */}
+      {isSettingsOpen && (
+        <View style={styles.drawerBackdrop} testID="settings-drawer">
+          <TVFocusGuideView
+            style={styles.drawerPanel}
+            autoFocus
+            trapFocusUp
+            trapFocusDown
+            trapFocusLeft
+            trapFocusRight>
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Protection Settings</Text>
+              <Text style={styles.drawerSubtitle}>
+                Customize actions and active trigger categories
+              </Text>
+            </View>
+
+            <ScrollView
+              style={styles.drawerScroll}
+              contentContainerStyle={styles.drawerScrollContent}>
+              <Text style={styles.drawerSectionHeader}>ACTION PROTECTIONS</Text>
+              <DrawerToggleItem
+                testID="toggle-visual-protection"
+                label="Visual Protection (Hide)"
+                enabled={viewerOptions.hideEnabled}
+                isFocused={focusedDrawerItem === 'toggle-visual'}
+                onFocus={() => setFocusedDrawerItem('toggle-visual')}
+                onPress={() =>
+                  updateViewerOptions((prev) => ({
+                    ...prev,
+                    hideEnabled: !prev.hideEnabled,
+                  }))
+                }
+                hasTVPreferredFocus={true}
+              />
+              <DrawerToggleItem
+                testID="toggle-audio-protection"
+                label="Audio Protection (Mute)"
+                enabled={viewerOptions.muteEnabled}
+                isFocused={focusedDrawerItem === 'toggle-audio'}
+                onFocus={() => setFocusedDrawerItem('toggle-audio')}
+                onPress={() =>
+                  updateViewerOptions((prev) => ({
+                    ...prev,
+                    muteEnabled: !prev.muteEnabled,
+                  }))
+                }
+              />
+              <DrawerToggleItem
+                testID="toggle-volume-reduction"
+                label="Volume Reduction"
+                enabled={viewerOptions.reduceEnabled}
+                isFocused={focusedDrawerItem === 'toggle-reduce'}
+                onFocus={() => setFocusedDrawerItem('toggle-reduce')}
+                onPress={() =>
+                  updateViewerOptions((prev) => ({
+                    ...prev,
+                    reduceEnabled: !prev.reduceEnabled,
+                  }))
+                }
+              />
+              <DrawerToggleItem
+                testID="toggle-skip-protection"
+                label="Skip Protection"
+                enabled={viewerOptions.skipEnabled}
+                isFocused={focusedDrawerItem === 'toggle-skip'}
+                onFocus={() => setFocusedDrawerItem('toggle-skip')}
+                onPress={() =>
+                  updateViewerOptions((prev) => ({
+                    ...prev,
+                    skipEnabled: !prev.skipEnabled,
+                  }))
+                }
+              />
+
+              {activeCategories.length > 0 && (
+                <>
+                  <Text style={styles.drawerSectionHeader}>
+                    ACTIVE TRIGGER CATEGORIES
+                  </Text>
+                  {activeCategories.map((category) => {
+                    const isCategoryActive =
+                      !viewerOptions.disabledCategories?.includes(category);
+                    const itemKey = `toggle-cat-${category}`;
+                    return (
+                      <DrawerToggleItem
+                        key={category}
+                        testID={`toggle-category-${category}`}
+                        label={`Trigger: ${category}`}
+                        enabled={isCategoryActive}
+                        isFocused={focusedDrawerItem === itemKey}
+                        onFocus={() => setFocusedDrawerItem(itemKey)}
+                        onPress={() =>
+                          updateViewerOptions((prev) => {
+                            const disabled = prev.disabledCategories ?? [];
+                            const nextDisabled = disabled.includes(category)
+                              ? disabled.filter((c) => c !== category)
+                              : [...disabled, category];
+                            return {
+                              ...prev,
+                              disabledCategories: nextDisabled,
+                            };
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[
+                styles.doneButton,
+                focusedDrawerItem === 'done' && styles.doneButtonFocused,
+              ]}
+              testID="settings-done"
+              onPress={() => {
+                setIsSettingsOpen(false);
+                setFocusedControl('settings');
+              }}
+              onFocus={() => setFocusedDrawerItem('done')}
+              accessibilityRole="button"
+              accessibilityLabel="Done, close settings drawer"
+              activeOpacity={0.8}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </TVFocusGuideView>
+        </View>
+      )}
     </View>
   );
 };
 
-const Control = ({
-  label,
-  onPress,
-  preferred = false,
-}: {
+interface ControlProps {
+  id: string;
   label: string;
   onPress: () => void;
+  isFocused: boolean;
+  onFocus: () => void;
+  onBlur?: () => void;
   preferred?: boolean;
-}) => (
+  testID?: string;
+  accessibilityLabel?: string;
+  focusable?: boolean;
+}
+
+const Control = ({
+  id: _id,
+  label,
+  onPress,
+  isFocused,
+  onFocus,
+  onBlur,
+  preferred = false,
+  testID,
+  accessibilityLabel,
+  focusable = true,
+}: ControlProps) => (
   <TouchableOpacity
-    style={[styles.control, preferred && styles.preferredControl]}
+    style={[
+      styles.control,
+      preferred && styles.preferredControl,
+      isFocused && styles.focusedControl,
+    ]}
     onPress={onPress}
+    onFocus={onFocus}
+    onBlur={onBlur}
+    testID={testID}
     accessibilityRole="button"
-    accessibilityLabel={label}
+    accessibilityLabel={accessibilityLabel ?? label}
     hasTVPreferredFocus={preferred}
+    focusable={focusable}
     activeOpacity={0.8}>
-    <Text style={styles.controlText}>{label}</Text>
+    <Text style={[styles.controlText, isFocused && styles.focusedControlText]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+interface DrawerToggleItemProps {
+  label: string;
+  enabled: boolean;
+  onPress: () => void;
+  isFocused: boolean;
+  onFocus: () => void;
+  testID: string;
+  accessibilityLabel?: string;
+  hasTVPreferredFocus?: boolean;
+}
+
+const DrawerToggleItem = ({
+  label,
+  enabled,
+  onPress,
+  isFocused,
+  onFocus,
+  testID,
+  accessibilityLabel,
+  hasTVPreferredFocus,
+}: DrawerToggleItemProps) => (
+  <TouchableOpacity
+    style={[styles.drawerItem, isFocused && styles.drawerItemFocused]}
+    onPress={onPress}
+    onFocus={onFocus}
+    testID={testID}
+    accessibilityRole="switch"
+    accessibilityLabel={
+      accessibilityLabel ?? `${label}, currently ${enabled ? 'enabled' : 'disabled'}`
+    }
+    accessibilityState={{ checked: enabled }}
+    hasTVPreferredFocus={hasTVPreferredFocus}
+    activeOpacity={0.8}>
+    <Text
+      style={[
+        styles.drawerItemLabel,
+        isFocused && styles.drawerItemLabelFocused,
+      ]}>
+      {label}
+    </Text>
+    <View
+      style={[
+        styles.statusBadge,
+        enabled ? styles.statusBadgeOn : styles.statusBadgeOff,
+      ]}>
+      <Text style={styles.statusBadgeText}>{enabled ? 'ON' : 'OFF'}</Text>
+    </View>
   </TouchableOpacity>
 );
 
@@ -660,13 +1137,130 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
+    borderWidth: 3,
+    borderColor: 'transparent',
   },
   preferredControl: {
+    backgroundColor: '#1E3A8A',
+  },
+  focusedControl: {
     backgroundColor: '#2563EB',
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
+    transform: [{scale: 1.08}],
   },
   controlText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  focusedControlText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  drawerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    zIndex: 50,
+  },
+  drawerPanel: {
+    width: 480,
+    height: '100%',
+    backgroundColor: '#0F172A',
+    borderLeftWidth: 2,
+    borderLeftColor: '#334155',
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    justifyContent: 'space-between',
+  },
+  drawerHeader: {
+    marginBottom: 16,
+  },
+  drawerTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  drawerSubtitle: {
+    color: '#94A3B8',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  drawerScroll: {
+    flex: 1,
+  },
+  drawerScrollContent: {
+    paddingBottom: 16,
+  },
+  drawerSectionHeader: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  drawerItem: {
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  drawerItemFocused: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#FFFFFF',
+    transform: [{ scale: 1.02 }],
+  },
+  drawerItemLabel: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  drawerItemLabelFocused: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgeOn: {
+    backgroundColor: '#059669',
+  },
+  statusBadgeOff: {
+    backgroundColor: '#475569',
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  doneButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  doneButtonFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#1D4ED8',
+    transform: [{ scale: 1.03 }],
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

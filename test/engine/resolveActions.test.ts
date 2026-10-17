@@ -196,4 +196,69 @@ describe('resolveActions', () => {
     expect(blurResult.visualAction).toBe('blur');
     expect(blurResult.hide).toBe(false);
   });
+
+  describe('disabledCategories viewer preferences', () => {
+    const multiCategoryCues: Cue[] = [
+      {
+        id: 'cue-spike',
+        start: 10,
+        end: 15,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'loud_spike',
+      },
+      {
+        id: 'cue-flash',
+        start: 10,
+        end: 15,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      },
+      {
+        id: 'cue-profanity',
+        start: 12,
+        end: 14,
+        source: 'text',
+        action: 'mute',
+        trigger: 'profanity',
+      },
+    ];
+
+    it('filters out disabled trigger categories while keeping other triggers active', () => {
+      // Disable loud_spike: flashing (hide) and profanity (mute) should still resolve
+      const res = resolveActions(13.0, multiCategoryCues, {
+        ...DEFAULT_VIEWER_OPTIONS,
+        disabledCategories: ['loud_spike'],
+      });
+
+      expect(res.hide).toBe(true); // flashing is active
+      expect(res.soundGain).toBe(0); // profanity is active
+      expect(res.activeCueIds).toEqual(['cue-flash', 'cue-profanity']);
+      expect(res.activeCueIds).not.toContain('cue-spike');
+    });
+
+    it('disabling all active categories results in clear playback state', () => {
+      const res = resolveActions(13.0, multiCategoryCues, {
+        ...DEFAULT_VIEWER_OPTIONS,
+        disabledCategories: ['loud_spike', 'flashing', 'profanity'],
+      });
+
+      expect(res.hide).toBe(false);
+      expect(res.visualAction).toBeNull();
+      expect(res.soundGain).toBe(1);
+      expect(res.activeCueIds).toEqual([]);
+    });
+
+    it('does not filter cues when disabledCategories is empty or undefined', () => {
+      const res = resolveActions(13.0, multiCategoryCues, {
+        ...DEFAULT_VIEWER_OPTIONS,
+        disabledCategories: [],
+      });
+
+      expect(res.hide).toBe(true);
+      expect(res.soundGain).toBe(0);
+      expect(res.activeCueIds).toEqual(['cue-spike', 'cue-flash', 'cue-profanity']);
+    });
+  });
 });

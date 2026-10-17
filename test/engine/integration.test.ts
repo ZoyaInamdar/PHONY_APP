@@ -379,3 +379,61 @@ describe('Phase 0 integration — adapter error handling', () => {
     );
   });
 });
+
+describe('Phase 0 integration — processed detector index fixtures', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const smokeIndex = require('../../data/processed/smoke_test/index.json') as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const subtitleIndex = require('../../data/processed/subtitle_test/index.json') as Record<string, unknown>;
+
+  it('adapts smoke_test index (42 loud_spike cues) cleanly', () => {
+    expect(smokeIndex.film_id).toBe('smoke_test');
+    expect(smokeIndex.synthetic).toBe(false);
+    const adapted = adaptPackagedIndex(smokeIndex, POLICIES);
+    expect(adapted).toHaveLength(42);
+    for (const cue of adapted) {
+      expect(cue.source).toBe('audio');
+      expect(cue.action).toBe('mute');
+      expect(cue.trigger).toBe('loud_spike');
+      expect(cue.status).toBe('ready');
+      expect(cue.detectorSource).toBe('loudness_detector');
+    }
+  });
+
+  it('adapts subtitle_test index (2 profanity cues) cleanly', () => {
+    expect(subtitleIndex.film_id).toBe('speech_triggers_test');
+    expect(subtitleIndex.synthetic).toBe(true);
+    const adapted = adaptPackagedIndex(subtitleIndex, POLICIES);
+    expect(adapted).toHaveLength(2);
+    for (const cue of adapted) {
+      expect(cue.source).toBe('text');
+      expect(cue.action).toBe('mute');
+      expect(cue.trigger).toBe('profanity');
+      expect(cue.status).toBe('ready');
+      expect(cue.detectorSource).toBe('profanity_detector');
+    }
+  });
+
+  it('adapts multi_trigger_eval index (same-timeline loud_spike and profanity cues) cleanly', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const multiIndex = require('../../data/processed/multi_trigger_eval/index.json') as Record<string, unknown>;
+    expect(multiIndex.film_id).toBe('multi_trigger_test');
+    expect(multiIndex.synthetic).toBe(true);
+    const adapted = adaptPackagedIndex(multiIndex, POLICIES);
+    expect(adapted).toHaveLength(4);
+
+    const profanityCues = adapted.filter((c) => c.trigger === 'profanity');
+    const loudSpikeCues = adapted.filter((c) => c.trigger === 'loud_spike');
+    expect(profanityCues).toHaveLength(2);
+    expect(loudSpikeCues).toHaveLength(2);
+
+    for (const cue of profanityCues) {
+      expect(cue.source).toBe('text');
+      expect(cue.action).toBe('mute');
+    }
+    for (const cue of loudSpikeCues) {
+      expect(cue.source).toBe('audio');
+      expect(cue.action).toBe('mute');
+    }
+  });
+});

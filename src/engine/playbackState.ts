@@ -26,6 +26,14 @@ export class PlaybackState {
 
     if (actions.skipTo !== null) {
       for (const cue of availableCues) {
+        if (
+          options.disabledCategories &&
+          cue.trigger &&
+          options.disabledCategories.includes(cue.trigger)
+        ) {
+          continue;
+        }
+
         const isActive = cue.start <= time && time < cue.end;
         const reviewAllowsSkip =
           cue.status !== 'needs_review' || options.confirmReviewSkip;

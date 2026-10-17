@@ -47,6 +47,12 @@ export interface ViewerOptions {
   skipEnabled: boolean;
   reduceGain: number;
   confirmReviewSkip: boolean;
+  /**
+   * Canonical trigger identifiers (e.g. 'flashing', 'loud_spike', 'profanity')
+   * that the viewer has explicitly disabled. Cues matching a disabled trigger
+   * category will not produce playback actions (mute, hide, reduce, skip, or warn).
+   */
+  disabledCategories?: string[];
 }
 
 export interface EffectiveActions {
@@ -84,4 +90,5 @@ export const DEFAULT_VIEWER_OPTIONS: ViewerOptions = {
   skipEnabled: false,
   reduceGain: 0.3,
   confirmReviewSkip: false,
+  disabledCategories: [],
 };

@@ -2,12 +2,11 @@
   "schema_version": 1,
   "film_id": "sintel",
   "synthetic": true,
-  "description": "Packaged player cue index for testing on-device playback. Synthetic fixture for Person A's cue-sheet engine.",
+  "description": "Synthetic raw detector outputs for pipeline integration testing and validation. Not detected from real media.",
   "timeline": {
     "duration_seconds": 52.0,
     "timestamp_unit": "seconds",
-    "interval_convention": "half_open",
-    "fps": 24.0
+    "interval_convention": "half_open"
   },
   "cues": [
     {

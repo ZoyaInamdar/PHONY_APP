@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "film_id": "smoke_test",
+  "synthetic": false,
+  "description": "Packaged player cue index for smoke_test.",
+  "timeline": {
+    "duration_seconds": 634.6,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open"
+  },
+  "cues": [
+    {
+      "id": "cue_smoke_test_loud_spike_013800_018600",
+      "start": 13.8,
+      "end": 18.6,
+      "trigger": "loud_spike",
+      "score": 0.79,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_024800_024900",
+      "start": 24.8,
+      "end": 24.9,
+      "trigger": "loud_spike",
+      "score": 0.403,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_038200_041300",
+      "start": 38.2,
+      "end": 41.3,
+      "trigger": "loud_spike",
+      "score": 0.584,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_050900_055100",
+      "start": 50.9,
+      "end": 55.1,
+      "trigger": "loud_spike",
+      "score": 0.647,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_058800_063000",
+      "start": 58.8,
+      "end": 63.0,
+      "trigger": "loud_spike",
+      "score": 0.598,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_065700_067800",
+      "start": 65.7,
+      "end": 67.8,
+      "trigger": "loud_spike",
+      "score": 0.525,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_070900_071000",
+      "start": 70.9,
+      "end": 71.0,
+      "trigger": "loud_spike",
+      "score": 0.431,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_088100_088200",
+      "start": 88.1,
+      "end": 88.2,
+      "trigger": "loud_spike",
+      "score": 0.576,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_100600_100700",
+      "start": 100.6,
+      "end": 100.7,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_104900_108300",
+      "start": 104.9,
+      "end": 108.3,
+      "trigger": "loud_spike",
+      "score": 0.709,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_121100_121200",
+      "start": 121.1,
+      "end": 121.2,
+      "trigger": "loud_spike",
+      "score": 0.438,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_129000_129200",
+      "start": 129.0,
+      "end": 129.2,
+      "trigger": "loud_spike",
+      "score": 0.458,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_133400_133500",
+      "start": 133.4,
+      "end": 133.5,
+      "trigger": "loud_spike",
+      "score": 0.437,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_142100_144600",
+      "start": 142.1,
+      "end": 144.6,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_150800_153900",
+      "start": 150.8,
+      "end": 153.9,
+      "trigger": "loud_spike",
+      "score": 0.708,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_157400_157500",
+      "start": 157.4,
+      "end": 157.5,
+      "trigger": "loud_spike",
+      "score": 0.562,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_161600_162700",
+      "start": 161.6,
+      "end": 162.7,
+      "trigger": "loud_spike",
+      "score": 0.666,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_172800_175000",
+      "start": 172.8,
+      "end": 175.0,
+      "trigger": "loud_spike",
+      "score": 0.861,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_179000_186200",
+      "start": 179.0,
+      "end": 186.2,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_200000_201500",
+      "start": 200.0,
+      "end": 201.5,
+      "trigger": "loud_spike",
+      "score": 0.801,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_213200_213400",
+      "start": 213.2,
+      "end": 213.4,
+      "trigger": "loud_spike",
+      "score": 0.441,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_216700_218800",
+      "start": 216.7,
+      "end": 218.8,
+      "trigger": "loud_spike",
+      "score": 0.799,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_228100_232300",
+      "start": 228.1,
+      "end": 232.3,
+      "trigger": "loud_spike",
+      "score": 0.826,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_239400_244700",
+      "start": 239.4,
+      "end": 244.7,
+      "trigger": "loud_spike",
+      "score": 0.571,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_312700_312900",
+      "start": 312.7,
+      "end": 312.9,
+      "trigger": "loud_spike",
+      "score": 0.588,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_325900_327200",
+      "start": 325.9,
+      "end": 327.2,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_333900_334600",
+      "start": 333.9,
+      "end": 334.6,
+      "trigger": "loud_spike",
+      "score": 0.733,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_337700_341600",
+      "start": 337.7,
+      "end": 341.6,
+      "trigger": "loud_spike",
+      "score": 0.81,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_350600_352700",
+      "start": 350.6,
+      "end": 352.7,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_355800_357800",
+      "start": 355.8,
+      "end": 357.8,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_367400_367600",
+      "start": 367.4,
+      "end": 367.6,
+      "trigger": "loud_spike",
+      "score": 0.491,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_376400_377300",
+      "start": 376.4,
+      "end": 377.3,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_381700_384700",
+      "start": 381.7,
+      "end": 384.7,
+      "trigger": "loud_spike",
+      "score": 0.867,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_393000_393200",
+      "start": 393.0,
+      "end": 393.2,
+      "trigger": "loud_spike",
+      "score": 0.935,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_395400_395500",
+      "start": 395.4,
+      "end": 395.5,
+      "trigger": "loud_spike",
+      "score": 0.488,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_401600_407300",
+      "start": 401.6,
+      "end": 407.3,
+      "trigger": "loud_spike",
+      "score": 0.793,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_422900_426500",
+      "start": 422.9,
+      "end": 426.5,
+      "trigger": "loud_spike",
+      "score": 0.563,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_447500_447600",
+      "start": 447.5,
+      "end": 447.6,
+      "trigger": "loud_spike",
+      "score": 0.425,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_461200_462000",
+      "start": 461.2,
+      "end": 462.0,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_470500_474300",
+      "start": 470.5,
+      "end": 474.3,
+      "trigger": "loud_spike",
+      "score": 0.758,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_494200_494700",
+      "start": 494.2,
+      "end": 494.7,
+      "trigger": "loud_spike",
+      "score": 0.559,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_smoke_test_loud_spike_576500_576600",
+      "start": 576.5,
+      "end": 576.6,
+      "trigger": "loud_spike",
+      "score": 0.406,
+      "source": "loudness_detector"
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+[
+  {
+    "id": "c1",
+    "start": 1.0,
+    "end": 3.5,
+    "kind": "speech",
+    "text": "What the hell is going on here?",
+    "flagged_words": [
+      {
+        "word": "hell",
+        "char_start": 9,
+        "char_end": 13,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "spoken_confirmed": null
+      }
+    ],
+    "flagged": [
+      {
+        "term_id": "w19",
+        "word": "hell",
+        "char_start": 9,
+        "char_end": 13,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "start": 1.726,
+        "end": 2.048,
+        "confidence": 1.0,
+        "spoken_confirmed": null
+      }
+    ]
+  },
+  {
+    "id": "c2",
+    "start": 4.5,
+    "end": 6.0,
+    "kind": "sound_description",
+    "text": "[sighs heavily]",
+    "flagged_words": []
+  },
+  {
+    "id": "c3",
+    "start": 7.0,
+    "end": 9.5,
+    "kind": "speech",
+    "text": "Don't give me that crap again.",
+    "flagged_words": [
+      {
+        "word": "crap",
+        "char_start": 19,
+        "char_end": 23,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "spoken_confirmed": null
+      }
+    ],
+    "flagged": [
+      {
+        "term_id": "w7",
+        "word": "crap",
+        "char_start": 19,
+        "char_end": 23,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "start": 8.583,
+        "end": 8.917,
+        "confidence": 1.0,
+        "spoken_confirmed": null
+      }
+    ]
+  },
+  {
+    "id": "c4",
+    "start": 10.5,
+    "end": 12.5,
+    "kind": "speech",
+    "text": "Damn right, we are finishing this project.",
+    "flagged_words": [
+      {
+        "word": "Damn",
+        "char_start": 0,
+        "char_end": 4,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "spoken_confirmed": null
+      }
+    ],
+    "flagged": [
+      {
+        "term_id": "w9",
+        "word": "Damn",
+        "char_start": 0,
+        "char_end": 4,
+        "evidence": "subtitle_text",
+        "timing": "estimated",
+        "start": 10.5,
+        "end": 10.69,
+        "confidence": 1.0,
+        "spoken_confirmed": null
+      }
+    ]
+  },
+  {
+    "id": "c5",
+    "start": 13.5,
+    "end": 16.0,
+    "kind": "speech",
+    "text": "This is a completely clean sentence without triggers.",
+    "flagged_words": []
+  }
+]

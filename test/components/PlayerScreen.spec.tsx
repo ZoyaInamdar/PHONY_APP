@@ -905,4 +905,216 @@ describe('PlayerScreen Component Tests', () => {
       expect(videoComp.instance.muted).toBe(false);
     });
   });
+
+  describe('Skip playback actions and protection guardrails', () => {
+    const skipTestCues: Cue[] = [
+      {
+        id: 'cue-skip-visual',
+        start: 10.0,
+        end: 15.0,
+        source: 'visual',
+        action: 'skip',
+        trigger: 'flashing',
+        status: 'ready',
+      },
+      {
+        id: 'cue-post-skip-mute',
+        start: 15.0,
+        end: 18.0,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'loud_spike',
+        status: 'ready',
+      },
+      {
+        id: 'cue-review-skip-visual',
+        start: 22.0,
+        end: 27.0,
+        source: 'visual',
+        action: 'skip',
+        trigger: 'flashing',
+        status: 'needs_review',
+      },
+      {
+        id: 'cue-review-skip-audio',
+        start: 30.0,
+        end: 35.0,
+        source: 'audio',
+        action: 'skip',
+        trigger: 'loud_spike',
+        status: 'needs_review',
+      },
+    ];
+
+    it('successfully seeks past an active skip cue, synchronizes destination actions, and prevents repeated seek loops', () => {
+      const onBack = jest.fn();
+      const { getByText, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.instance.currentTime).toBe(0);
+
+      // Playback reaches skip cue at t=10.0s
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Player sought forward to cue.end (15.0s)
+      expect(videoComp.instance.currentTime).toBe(15.0);
+      expect(getByText('00:15 / 00:52')).toBeTruthy();
+
+      // At destination t=15.0s, cue-post-skip-mute [15.0, 18.0) is active -> destination audio is muted
+      expect(videoComp.instance.muted).toBe(true);
+      expect(getByText(/🔇 Audio Muted/)).toBeTruthy();
+
+      // Subsequent time update at the destination (t=15.0s) must NOT re-trigger skip or enter infinite loop
+      act(() => {
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(15.0);
+    });
+
+    it('does not seek when Skip Protection is disabled in settings drawer', () => {
+      const onBack = jest.fn();
+      const { getByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Open settings drawer and disable Skip Protection (from true -> false)
+      fireEvent.press(getByTestId('control-settings'));
+      fireEvent.press(getByTestId('toggle-skip-protection'));
+      fireEvent.press(getByTestId('settings-done'));
+
+      // Advance into skip cue interval at t=10.0s
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Player must NOT seek because skip is disabled
+      expect(videoComp.instance.currentTime).toBe(10.0);
+    });
+
+    it('does not seek when skipEnabled is false by default in viewer options', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      expect(videoComp.instance.currentTime).toBe(10.0);
+    });
+
+    it('never skips an unconfirmed needs_review visual cue and applies safe hide fallback instead', () => {
+      const onBack = jest.fn();
+      const { queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Advance into review-required visual skip cue at t=22.0s
+      act(() => {
+        videoComp.instance.currentTime = 22.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Must NOT seek
+      expect(videoComp.instance.currentTime).toBe(22.0);
+
+      // Must apply safe fallback: hide overlay is displayed
+      expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(videoComp.instance.muted).toBe(false);
+    });
+
+    it('never skips an unconfirmed needs_review audio cue and applies safe mute fallback instead', () => {
+      const onBack = jest.fn();
+      const { queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Advance into review-required audio skip cue at t=30.0s
+      act(() => {
+        videoComp.instance.currentTime = 30.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Must NOT seek
+      expect(videoComp.instance.currentTime).toBe(30.0);
+
+      // Must apply safe fallback: audio is muted
+      expect(videoComp.instance.muted).toBe(true);
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+    });
+
+    it('guards against invalid, backward, or in-seek destinations', () => {
+      const invalidCues: Cue[] = [
+        {
+          id: 'cue-skip-backward',
+          start: 10.0,
+          end: 8.0,
+          source: 'visual',
+          action: 'skip',
+          status: 'ready',
+        },
+      ];
+
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={invalidCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      expect(() => {
+        act(() => {
+          videoComp.instance.currentTime = 10.0;
+          videoComp.props.onTimeUpdate();
+        });
+      }).toThrow(/invalid cue/i);
+
+      expect(videoComp.instance.currentTime).toBe(10.0);
+    });
+
+    it('re-arms skip cue after rewinding before cue start and skips again on next forward pass', () => {
+      const onBack = jest.fn();
+      const { getByText, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={skipTestCues} options={{ skipEnabled: true }} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. First pass: advance to 10.0s -> skips to 15.0s
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(15.0);
+
+      // 2. Rewind using "Back 10s" control (from 15.0s to 5.0s, which is < cue.start of 10.0s)
+      act(() => {
+        fireEvent.press(getByText('Back 10s'));
+      });
+      expect(videoComp.instance.currentTime).toBe(5.0);
+
+      // 3. Second pass: advance to 10.0s again -> skip cue fires again to 15.0s!
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(15.0);
+    });
+  });
 });

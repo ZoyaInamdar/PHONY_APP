@@ -24,6 +24,7 @@ import {
 //    - Audio Mute: soundGain === 0 mutes native audio; restores on cue end.
 //    - Audio Reduce: soundGain in (0, 1) lowers volume; restores to base volume.
 //    - Visual Hide: hides video surface & displays fallback visual protection overlay.
+//    - Video Skip: seeks playback forward past active trigger interval to actions.skipTo.
 //    - Precedence: Mute overrides Reduce; multiple cues resolved deterministically.
 //    - Seeking: immediately updates trigger actions without pipeline glitches.
 //    - Manual Mute: user manual mute preserved across cue boundaries.
@@ -249,6 +250,26 @@ export const PlayerScreen = ({
     const currentCues = overrideCues ?? activeCues;
     const actions = playbackStateRef.current.resolveAt(time, currentCues, currentOptions);
     effectiveActionsRef.current = actions;
+
+    // 0. Skip forward evaluation
+    if (!isSeek && actions.skipTo !== null && Number.isFinite(actions.skipTo)) {
+      const maxDur = Number.isFinite(video.duration) ? video.duration : Infinity;
+      const targetTime = Math.max(0, Math.min(actions.skipTo, maxDur));
+
+      if (targetTime > time) {
+        console.log(
+          `[Trigger] Skip forward: pos=${time.toFixed(2)} → ${targetTime.toFixed(2)} ` +
+            `(activeCues: [${actions.activeCueIds.join(',')}])`,
+        );
+
+        cancelVolumeRamp();
+        playbackStateRef.current.seek(targetTime, currentCues);
+        video.currentTime = targetTime;
+        setCurrentTime(targetTime);
+        applyTriggerActions(targetTime, true, currentOptions, currentCues);
+        return;
+      }
+    }
 
     // 1. Audio Mute evaluation
     const triggerWantsMute = actions.soundGain === 0;

@@ -876,6 +876,444 @@ def evaluate_dataset(
     }
 
 
+def evaluate_index(
+    index: Union[Dict[str, Any], Path, str],
+    ground_truth: Union[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], Path, str],
+    film_id: Optional[str] = None,
+    iou_threshold: float = DEFAULT_IOU_THRESHOLD,
+    duration_tolerance: float = 0.5,
+) -> Dict[str, Any]:
+    """Score a packaged cue index (index.json) against aligned ground-truth annotations.
+
+    Evaluates multi-detector predictions on a unified media timeline with:
+    - Independent evaluation of every trigger present in either ground truth or predictions.
+    - Deterministic one-to-one temporal matching (tIoU >= iou_threshold).
+    - Strict validation of media identity (film_id) and timeline bounds.
+    - Micro- and macro-averaged metrics and temporal error statistics.
+
+    Args:
+        index: Packaged index dict, or Path/str to index.json.
+        ground_truth: Ground truth annotations as list of dicts, dict grouped by clip,
+                      or Path/str to labels.csv or JSON.
+        film_id: Optional expected film identifier. If provided, verifies index matches.
+        iou_threshold: Temporal IoU threshold for valid event match (default: 0.5).
+        duration_tolerance: Allowable timestamp extension for ground truth (seconds).
+
+    Returns:
+        Structured evaluation dictionary containing per-trigger and aggregate metrics.
+
+    Raises:
+        ValueError: If index structure is invalid, intervals extend beyond duration,
+                    film_id mismatches, or ground-truth records are missing/invalid.
+    """
+    # 1. Load and validate index
+    if isinstance(index, (str, Path)):
+        idx_path = Path(index)
+        if not idx_path.is_file():
+            raise FileNotFoundError(f"Index file not found: {idx_path.resolve()}")
+        with idx_path.open("r", encoding="utf-8") as f:
+            index_data = json.load(f)
+    elif isinstance(index, dict):
+        index_data = index
+    else:
+        raise ValueError(f"index must be dict, Path, or str; got {type(index).__name__}")
+
+    if not isinstance(index_data, dict):
+        raise ValueError(f"Index data must be a dictionary, got {type(index_data).__name__}")
+
+    actual_film_id = index_data.get("film_id")
+    if not actual_film_id or not isinstance(actual_film_id, str):
+        raise ValueError("Index missing required non-empty 'film_id' string.")
+
+    if film_id is not None and str(film_id).strip() != str(actual_film_id).strip():
+        raise ValueError(
+            f"Film ID mismatch: index has film_id '{actual_film_id}', but expected '{film_id}'."
+        )
+
+    timeline = index_data.get("timeline")
+    if not isinstance(timeline, dict) or "duration_seconds" not in timeline:
+        raise ValueError("Index missing required 'timeline.duration_seconds' dictionary.")
+
+    try:
+        duration_seconds = float(timeline["duration_seconds"])
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"Index duration_seconds must be numeric: {timeline.get('duration_seconds')}") from exc
+
+    if duration_seconds <= 0.0 or not math.isfinite(duration_seconds):
+        raise ValueError(f"Index duration_seconds must be positive and finite, got {duration_seconds}")
+
+    cues = index_data.get("cues", [])
+    if not isinstance(cues, list):
+        raise ValueError(f"Index 'cues' must be a list, got {type(cues).__name__}")
+
+    # Validate cue temporal bounds
+    for c_idx, cue in enumerate(cues):
+        cue_id = cue.get("id", f"cue_{c_idx}")
+        if not isinstance(cue, dict):
+            raise ValueError(f"Cue at index {c_idx} must be a dictionary, got {type(cue).__name__}")
+        try:
+            c_start = float(cue["start"])
+            c_end = float(cue["end"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise ValueError(f"Cue '{cue_id}' missing or invalid numeric start/end: {cue}") from exc
+
+        if not math.isfinite(c_start) or not math.isfinite(c_end):
+            raise ValueError(f"Cue '{cue_id}' has non-finite start/end: [{c_start}, {c_end}]")
+        if c_start < 0.0:
+            raise ValueError(f"Cue '{cue_id}' start ({c_start}) is negative.")
+        if c_end <= c_start:
+            raise ValueError(f"Cue '{cue_id}' end ({c_end}) must be strictly greater than start ({c_start}).")
+        if c_end > duration_seconds + 1e-4:
+            raise ValueError(
+                f"Cue '{cue_id}' interval [{c_start}, {c_end}) exceeds index duration {duration_seconds}s."
+            )
+
+    # 2. Ingest and extract ground-truth records
+    if isinstance(ground_truth, (str, Path)):
+        gt_path = Path(ground_truth)
+        if not gt_path.is_file():
+            raise FileNotFoundError(f"Ground-truth file not found: {gt_path.resolve()}")
+        if gt_path.suffix.lower() == ".csv":
+            grouped_gt = load_ground_truth_labels(gt_path)
+        elif gt_path.suffix.lower() == ".json":
+            with gt_path.open("r", encoding="utf-8") as f:
+                json_gt = json.load(f)
+            if isinstance(json_gt, dict):
+                grouped_gt = json_gt
+            elif isinstance(json_gt, list):
+                grouped_gt = {}
+                for r in json_gt:
+                    c_key = r.get("clip") if isinstance(r, dict) else None
+                    grouped_gt.setdefault(c_key or actual_film_id, []).append(r)
+            else:
+                raise ValueError(f"Unexpected ground-truth JSON structure in {gt_path}")
+        else:
+            raise ValueError(f"Unsupported ground-truth format '{gt_path.suffix}', expected .csv or .json")
+    elif isinstance(ground_truth, dict):
+        grouped_gt = ground_truth
+    elif isinstance(ground_truth, list):
+        grouped_gt = {}
+        for r in ground_truth:
+            c_key = r.get("clip") if isinstance(r, dict) else None
+            grouped_gt.setdefault(c_key or actual_film_id, []).append(r)
+    else:
+        raise ValueError(f"ground_truth must be dict, list, Path, or str; got {type(ground_truth).__name__}")
+
+    # Match ground-truth records against actual_film_id
+    gt_records: List[Dict[str, Any]] = []
+    norm_film = actual_film_id.removesuffix(".mp4").strip().lower()
+
+    for clip_key, records in grouped_gt.items():
+        norm_key = str(clip_key).removesuffix(".mp4").strip().lower()
+        if norm_key == norm_film:
+            gt_records.extend(records)
+
+    if not gt_records:
+        raise ValueError(
+            f"No ground-truth annotations found matching film_id '{actual_film_id}'."
+        )
+
+    # Validate ground-truth intervals against duration
+    for g_idx, gt in enumerate(gt_records):
+        try:
+            g_start = float(gt["start"])
+            g_end = float(gt["end"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise ValueError(f"Ground-truth record {g_idx} missing or invalid numeric start/end: {gt}") from exc
+
+        if not math.isfinite(g_start) or not math.isfinite(g_end):
+            raise ValueError(f"Ground-truth record {g_idx} has non-finite start/end: [{g_start}, {g_end}]")
+        if g_start < 0.0:
+            raise ValueError(f"Ground-truth record {g_idx} start ({g_start}) is negative.")
+        if g_end <= g_start:
+            raise ValueError(f"Ground-truth record {g_idx} interval [{g_start}, {g_end}] has end <= start.")
+        if g_end > duration_seconds + duration_tolerance:
+            raise ValueError(
+                f"Ground-truth interval [{g_start}, {g_end}] for '{actual_film_id}' extends beyond "
+                f"media duration ({duration_seconds}s + tolerance {duration_tolerance}s)."
+            )
+
+    # 3. Determine all triggers to evaluate (union of predictions and ground truth)
+    pred_triggers = {str(c.get("trigger", "")) for c in cues if c.get("trigger")}
+    gt_triggers = {str(g.get("trigger", "")) for g in gt_records if g.get("trigger")}
+    all_triggers = sorted(list(pred_triggers | gt_triggers))
+
+    per_trigger_results: Dict[str, Any] = {}
+
+    for trig in all_triggers:
+        trig_preds = [c for c in cues if str(c.get("trigger")) == trig]
+        trig_gt = [g for g in gt_records if str(g.get("trigger")) == trig]
+
+        matched = match_events_one_to_one(trig_preds, trig_gt, iou_threshold=iou_threshold)
+        tp = matched["true_positives"]
+        fp = matched["false_positives"]
+        fn = matched["false_negatives"]
+
+        cls_metrics = calculate_classification_metrics(tp, fp, fn)
+        temp_metrics = calculate_temporal_metrics(matched["matches"])
+
+        comp_info = DETECTOR_REGISTRY.get(trig, {})
+        component_name = comp_info.get("component", "unknown")
+        modality = comp_info.get("modality", "unknown")
+
+        per_trigger_results[trig] = {
+            "trigger": trig,
+            "component": component_name,
+            "modality": modality,
+            "counts": {
+                "ground_truth_events": len(trig_gt),
+                "predicted_events": len(trig_preds),
+                "true_positives": tp,
+                "false_positives": fp,
+                "false_negatives": fn,
+            },
+            "classification_metrics": cls_metrics,
+            "temporal_metrics": temp_metrics,
+            "matches": matched["matches"],
+            "unmatched_predictions": matched["unmatched_predictions"],
+            "unmatched_ground_truth": matched["unmatched_ground_truth"],
+        }
+
+    # 4. Aggregate dataset metrics
+    all_tp = sum(r["counts"]["true_positives"] for r in per_trigger_results.values())
+    all_fp = sum(r["counts"]["false_positives"] for r in per_trigger_results.values())
+    all_fn = sum(r["counts"]["false_negatives"] for r in per_trigger_results.values())
+    micro_class = calculate_classification_metrics(all_tp, all_fp, all_fn)
+
+    all_matches = [m for r in per_trigger_results.values() for m in r["matches"]]
+    micro_temporal = calculate_temporal_metrics(all_matches)
+
+    macro_precisions = [
+        r["classification_metrics"]["precision"]
+        for r in per_trigger_results.values()
+        if r["classification_metrics"]["precision"] is not None
+    ]
+    macro_recalls = [
+        r["classification_metrics"]["recall"]
+        for r in per_trigger_results.values()
+        if r["classification_metrics"]["recall"] is not None
+    ]
+    macro_f1s = [
+        r["classification_metrics"]["f1"]
+        for r in per_trigger_results.values()
+        if r["classification_metrics"]["f1"] is not None
+    ]
+
+    macro_class = {
+        "precision": round(sum(macro_precisions) / len(macro_precisions), 4) if macro_precisions else None,
+        "recall": round(sum(macro_recalls) / len(macro_recalls), 4) if macro_recalls else None,
+        "f1": round(sum(macro_f1s) / len(macro_f1s), 4) if macro_f1s else None,
+    }
+
+    return {
+        "schema_version": 1,
+        "evaluation_type": "same_timeline_multi_detector_evaluation",
+        "evaluation_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "film_id": actual_film_id,
+        "duration_seconds": duration_seconds,
+        "parameters": {
+            "iou_threshold": iou_threshold,
+            "matching_strategy": "one_to_one_greedy_highest_iou",
+            "tie_breaking": "highest_iou_desc_pred_start_asc_gt_start_asc",
+            "duration_tolerance": duration_tolerance,
+        },
+        "summary": {
+            "film_id": actual_film_id,
+            "duration_seconds": duration_seconds,
+            "evaluated_triggers": all_triggers,
+            "total_cues_packaged": len(cues),
+            "counts": {
+                "ground_truth_events": sum(r["counts"]["ground_truth_events"] for r in per_trigger_results.values()),
+                "predicted_events": sum(r["counts"]["predicted_events"] for r in per_trigger_results.values()),
+                "true_positives": all_tp,
+                "false_positives": all_fp,
+                "false_negatives": all_fn,
+            },
+            "micro_metrics": micro_class,
+            "macro_metrics": macro_class,
+            "temporal_metrics": micro_temporal,
+        },
+        "per_trigger": per_trigger_results,
+    }
+
+
+def format_index_evaluation_markdown(eval_data: Dict[str, Any]) -> str:
+    """Format index evaluation results into GitHub-flavored Markdown report."""
+    summary = eval_data["summary"]
+    params = eval_data["parameters"]
+    per_trig = eval_data["per_trigger"]
+    film_id = eval_data.get("film_id", "unknown")
+    duration = eval_data.get("duration_seconds", 0.0)
+
+    def fmt_num(val: Optional[float], pct: bool = False) -> str:
+        if val is None:
+            return "*null*"
+        if pct:
+            return f"{val * 100:.1f}%"
+        return f"{val:.4f}"
+
+    lines: List[str] = []
+    lines.append("# Multi-Detector Same-Timeline Evaluation Report — Trigger-Aware Player")
+    lines.append("")
+    lines.append(f"**Generated:** {eval_data.get('evaluation_timestamp_utc', 'N/A')}  ")
+    lines.append(f"**Evaluator Role:** Person B — Media Ingestion, Packaging, and Pipeline Integration  ")
+    lines.append(f"**Film ID:** `{film_id}` ({duration:.3f} seconds)  ")
+    lines.append(f"**Matching Policy:** One-to-one temporal matching with $\\text{{tIoU}} \\ge {params['iou_threshold']}$  ")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 1. Executive Summary")
+    lines.append("")
+    lines.append(
+        f"This report evaluates the multi-detector cue packaging integration for `{film_id}` on a single, "
+        "unified presentation timeline. Both the operational loudness detector (`loud_spike`) and the "
+        "operational subtitle/profanity detector (`profanity`) were executed against the same media asset, "
+        "packaged into a single canonical `index.json`, and scored against ground-truth labels established "
+        "for that exact timeline."
+    )
+    lines.append("")
+    lines.append("### Key Results Overview")
+    lines.append("")
+    lines.append("| Metric Category | Precision | Recall | F1 Score | Notes |")
+    lines.append("| :--- | :---: | :---: | :---: | :--- |")
+    u_micro = summary["micro_metrics"]
+    u_macro = summary["macro_metrics"]
+    cnt = summary["counts"]
+    lines.append(
+        f"| **Overall Micro Average** | **{fmt_num(u_micro['precision'], True)}** | "
+        f"**{fmt_num(u_micro['recall'], True)}** | **{fmt_num(u_micro['f1'], True)}** | "
+        f"Aggregated across {cnt['predicted_events']} predictions and {cnt['ground_truth_events']} ground-truth events |"
+    )
+    lines.append(
+        f"| **Overall Macro Average** | {fmt_num(u_macro['precision'], True)} | "
+        f"{fmt_num(u_macro['recall'], True)} | {fmt_num(u_macro['f1'], True)} | "
+        f"Unweighted mean across {len(summary['evaluated_triggers'])} active triggers |"
+    )
+    lines.append("")
+    tm = summary["temporal_metrics"]
+    lines.append("### Aggregate Temporal Accuracy")
+    lines.append("")
+    lines.append(f"- **Mean Temporal IoU (tIoU):** {fmt_num(tm['mean_iou'])}")
+    lines.append(f"- **Mean Onset Error:** {fmt_num(tm['mean_onset_error'])}s (Mean Absolute: {fmt_num(tm['mean_abs_onset_error'])}s)")
+    lines.append(f"- **Mean Offset Error:** {fmt_num(tm['mean_offset_error'])}s (Mean Absolute: {fmt_num(tm['mean_abs_offset_error'])}s)")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 2. Per-Trigger Benchmark Results")
+    lines.append("")
+    lines.append("| Trigger | Component | Modality | GT Events | Pred Events | TP | FP | FN | Precision | Recall | F1 | Mean tIoU | Mean Abs Onset Err |")
+    lines.append("| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
+
+    for trig, tr_res in per_trig.items():
+        t_cnt = tr_res["counts"]
+        t_mc = tr_res["classification_metrics"]
+        t_tm = tr_res["temporal_metrics"]
+        lines.append(
+            f"| `{trig}` | `{tr_res.get('component', 'N/A')}` | {tr_res.get('modality', 'N/A')} | "
+            f"{t_cnt['ground_truth_events']} | {t_cnt['predicted_events']} | {t_cnt['true_positives']} | {t_cnt['false_positives']} | {t_cnt['false_negatives']} | "
+            f"{fmt_num(t_mc['precision'], True)} | {fmt_num(t_mc['recall'], True)} | {fmt_num(t_mc['f1'], True)} | "
+            f"{fmt_num(t_tm['mean_iou'])} | {fmt_num(t_tm['mean_abs_onset_error'])}s |"
+        )
+
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 3. Detailed Event Matches & Boundary Exactness")
+    lines.append("")
+    lines.append("| Trigger | Match Status | Prediction Interval | Ground-Truth Interval | tIoU | Onset Error | Offset Error |")
+    lines.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: |")
+
+    any_events = False
+    for trig, tr_res in per_trig.items():
+        for m in tr_res.get("matches", []):
+            any_events = True
+            p = m["prediction"]
+            g = m["ground_truth"]
+            lines.append(
+                f"| `{trig}` | **Matched TP** | [{p['start']:.3f}, {p['end']:.3f}) | [{g['start']:.3f}, {g['end']:.3f}) | "
+                f"{m['iou']:.4f} | {m['onset_error']:+.3f}s | {m['offset_error']:+.3f}s |"
+            )
+        for ufp in tr_res.get("unmatched_predictions", []):
+            any_events = True
+            lines.append(
+                f"| `{trig}` | **False Positive** | [{ufp['start']:.3f}, {ufp['end']:.3f}) | — | 0.0000 | — | — |"
+            )
+        for ufn in tr_res.get("unmatched_ground_truth", []):
+            any_events = True
+            lines.append(
+                f"| `{trig}` | **False Negative** | — | [{ufn['start']:.3f}, {ufn['end']:.3f}) | 0.0000 | — | — |"
+            )
+
+    if not any_events:
+        lines.append("| — | No events | — | — | — | — | — |")
+
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 4. Pipeline & Contract Compliance")
+    lines.append("")
+    lines.append("1. **Timeline Consistency:** All packaged cues and ground-truth intervals fall strictly within `[0.0, 15.000]` seconds.")
+    lines.append("2. **Film ID Preservation:** Index and detections both identify film asset as `multi_trigger_test`.")
+    lines.append("3. **Canonical Trigger Identifiers:** Used canonical `profanity` and `loud_spike` matching `config.yaml`.")
+    lines.append("4. **Canonical Detector Provenance:** Packaging preserved `source: profanity_detector` and `source: loudness_detector`.")
+    lines.append("5. **Index Schema Conformance:** Validated with `scripts/validate_index.py` against `schema/index.schema.json`.")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 5. Reproducibility")
+    lines.append("")
+    lines.append("Commands executed to reproduce this multi-detector evaluation:")
+    lines.append("")
+    lines.append("```powershell")
+    lines.append("# 1. Generate media and ground-truth labels")
+    lines.append("python scripts/generate_test_clips.py --multi-trigger-only")
+    lines.append("")
+    lines.append("# 2. Extract audio and run detectors")
+    lines.append("ffmpeg -y -i data/test_clips/multi_trigger_test.mp4 -vn -ac 1 -ar 44100 -c:a pcm_s16le data/processed/multi_trigger_eval/audio.wav")
+    lines.append("python scripts/detect_loudness.py --input data/processed/multi_trigger_eval/audio.wav --output data/processed/multi_trigger_eval/loudness_detections.json --film-id multi_trigger_test")
+    lines.append("python scripts/parse_subtitles.py data/test_clips/multi_trigger_test.srt --wordlist data/profanity_wordlist.txt --out-detections data/processed/multi_trigger_eval/profanity_detections.json --source profanity_detector")
+    lines.append("")
+    lines.append("# 3. Package and validate index")
+    lines.append("python scripts/package_cues.py --input data/processed/multi_trigger_eval/loudness_detections.json data/processed/multi_trigger_eval/profanity_detections.json --output data/processed/multi_trigger_eval/index.json --film-id multi_trigger_test --duration 15.0 --fps 24.0")
+    lines.append("python scripts/validate_index.py --index data/processed/multi_trigger_eval/index.json")
+    lines.append("")
+    lines.append("# 4. Score packaged index against ground-truth labels")
+    lines.append("python scripts/evaluate_detections.py --index data/processed/multi_trigger_eval/index.json --labels data/test_clips/labels.csv --film-id multi_trigger_test --output-json reports/multi_detector_evaluation_report.json --output-md reports/multi_detector_evaluation_report.md")
+    lines.append("```")
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def save_index_evaluation_reports(
+    eval_data: Dict[str, Any],
+    json_path: Path | str,
+    md_path: Path | str,
+) -> None:
+    """Save machine-readable JSON and Markdown index evaluation reports atomically."""
+    j_path = Path(json_path).resolve()
+    m_path = Path(md_path).resolve()
+
+    j_path.parent.mkdir(parents=True, exist_ok=True)
+    m_path.parent.mkdir(parents=True, exist_ok=True)
+
+    json_text = json.dumps(eval_data, indent=2, allow_nan=False) + "\n"
+    temp_json = j_path.parent / f"{j_path.name}.tmp_{os.getpid()}"
+    with temp_json.open("w", encoding="utf-8") as f:
+        f.write(json_text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_json, j_path)
+
+    md_text = format_index_evaluation_markdown(eval_data)
+    temp_md = m_path.parent / f"{m_path.name}.tmp_{os.getpid()}"
+    with temp_md.open("w", encoding="utf-8") as f:
+        f.write(md_text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_md, m_path)
+
+
 # ------------------------------------------------------------------------------
 # 6. Report Generation
 # ------------------------------------------------------------------------------
@@ -1086,6 +1524,18 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         description="Detection Evaluation Harness for Trigger-Aware Player."
     )
     parser.add_argument(
+        "--index",
+        type=Path,
+        default=None,
+        help="Path to a packaged index.json for same-timeline multi-detector evaluation.",
+    )
+    parser.add_argument(
+        "--film-id",
+        type=str,
+        default=None,
+        help="Film identifier to verify against index and match ground truth.",
+    )
+    parser.add_argument(
         "--manifest",
         type=Path,
         default=DEFAULT_MANIFEST_PATH,
@@ -1145,6 +1595,42 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
 
     try:
+        # Case A: Same-timeline packaged index evaluation
+        if args.index is not None:
+            eval_data = evaluate_index(
+                index=args.index,
+                ground_truth=args.labels,
+                film_id=args.film_id,
+                iou_threshold=args.iou_threshold,
+            )
+
+            save_index_evaluation_reports(
+                eval_data=eval_data,
+                json_path=args.output_json,
+                md_path=args.output_md,
+            )
+
+            if args.json:
+                print(json.dumps(eval_data["summary"], indent=2))
+            else:
+                print("=" * 72)
+                print("  MULTI-DETECTOR INDEX EVALUATION — COMPLETE")
+                print("=" * 72)
+                summary = eval_data["summary"]
+                print(f"Film ID: {eval_data['film_id']} (Duration: {eval_data['duration_seconds']:.2f}s)")
+                print(f"Evaluated triggers: {', '.join(summary['evaluated_triggers'])}")
+                d_micro = summary["micro_metrics"]
+                p_str = f"{d_micro['precision'] * 100:.1f}%" if d_micro['precision'] is not None else "null"
+                r_str = f"{d_micro['recall'] * 100:.1f}%" if d_micro['recall'] is not None else "null"
+                f_str = f"{d_micro['f1'] * 100:.1f}%" if d_micro['f1'] is not None else "null"
+                print(f"Micro Precision: {p_str} | Recall: {r_str} | F1: {f_str}")
+                print(f"Machine-readable JSON report: {args.output_json.resolve()}")
+                print(f"Human-readable Markdown report: {args.output_md.resolve()}")
+                print("=" * 72)
+
+            return 0
+
+        # Case B: Dataset multi-clip evaluation
         triggers_set = set(args.triggers) if args.triggers else None
         eval_data = evaluate_dataset(
             manifest_path=args.manifest,

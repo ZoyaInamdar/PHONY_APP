@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "film_id": "multi_trigger_test",
+  "synthetic": true,
+  "description": "Packaged player cue index for multi_trigger_test.",
+  "timeline": {
+    "duration_seconds": 15.0,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 24.0
+  },
+  "cues": [
+    {
+      "id": "cue_multi_trigger_test_profanity_001000_003500",
+      "start": 1.0,
+      "end": 3.5,
+      "trigger": "profanity",
+      "score": 1.0,
+      "source": "profanity_detector"
+    },
+    {
+      "id": "cue_multi_trigger_test_loud_spike_005000_005400",
+      "start": 5.0,
+      "end": 5.4,
+      "trigger": "loud_spike",
+      "score": 0.883,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_multi_trigger_test_profanity_007000_009500",
+      "start": 7.0,
+      "end": 9.5,
+      "trigger": "profanity",
+      "score": 1.0,
+      "source": "profanity_detector"
+    },
+    {
+      "id": "cue_multi_trigger_test_loud_spike_011000_011300",
+      "start": 11.0,
+      "end": 11.3,
+      "trigger": "loud_spike",
+      "score": 0.918,
+      "source": "loudness_detector"
+    }
+  ]
+}

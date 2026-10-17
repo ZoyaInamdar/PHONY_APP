@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "evaluation_type": "same_timeline_multi_detector_evaluation",
+  "evaluation_timestamp_utc": "2026-10-17T06:54:33.208966+00:00",
+  "film_id": "multi_trigger_test",
+  "duration_seconds": 15.0,
+  "parameters": {
+    "iou_threshold": 0.5,
+    "matching_strategy": "one_to_one_greedy_highest_iou",
+    "tie_breaking": "highest_iou_desc_pred_start_asc_gt_start_asc",
+    "duration_tolerance": 0.5
+  },
+  "summary": {
+    "film_id": "multi_trigger_test",
+    "duration_seconds": 15.0,
+    "evaluated_triggers": [
+      "loud_spike",
+      "profanity"
+    ],
+    "total_cues_packaged": 4,
+    "counts": {
+      "ground_truth_events": 4,
+      "predicted_events": 4,
+      "true_positives": 4,
+      "false_positives": 0,
+      "false_negatives": 0
+    },
+    "micro_metrics": {
+      "true_positives": 4,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "macro_metrics": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "temporal_metrics": {
+      "mean_iou": 1.0,
+      "mean_onset_error": 0.0,
+      "mean_offset_error": 0.0,
+      "mean_abs_onset_error": 0.0,
+      "mean_abs_offset_error": 0.0
+    }
+  },
+  "per_trigger": {
+    "loud_spike": {
+      "trigger": "loud_spike",
+      "component": "loudness_detector",
+      "modality": "audio",
+      "counts": {
+        "ground_truth_events": 2,
+        "predicted_events": 2,
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0
+      },
+      "classification_metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "temporal_metrics": {
+        "mean_iou": 1.0,
+        "mean_onset_error": 0.0,
+        "mean_offset_error": 0.0,
+        "mean_abs_onset_error": 0.0,
+        "mean_abs_offset_error": 0.0
+      },
+      "matches": [
+        {
+          "prediction": {
+            "id": "cue_multi_trigger_test_loud_spike_005000_005400",
+            "start": 5.0,
+            "end": 5.4,
+            "trigger": "loud_spike",
+            "score": 0.883,
+            "source": "loudness_detector"
+          },
+          "ground_truth": {
+            "clip": "multi_trigger_test.mp4",
+            "trigger": "loud_spike",
+            "start": 5.0,
+            "end": 5.4,
+            "labeller": "synthetic_generator",
+            "actual_rate": null
+          },
+          "trigger": "loud_spike",
+          "iou": 1.0,
+          "onset_error": 0.0,
+          "offset_error": 0.0,
+          "abs_onset_error": 0.0,
+          "abs_offset_error": 0.0
+        },
+        {
+          "prediction": {
+            "id": "cue_multi_trigger_test_loud_spike_011000_011300",
+            "start": 11.0,
+            "end": 11.3,
+            "trigger": "loud_spike",
+            "score": 0.918,
+            "source": "loudness_detector"
+          },
+          "ground_truth": {
+            "clip": "multi_trigger_test.mp4",
+            "trigger": "loud_spike",
+            "start": 11.0,
+            "end": 11.3,
+            "labeller": "synthetic_generator",
+            "actual_rate": null
+          },
+          "trigger": "loud_spike",
+          "iou": 1.0,
+          "onset_error": 0.0,
+          "offset_error": 0.0,
+          "abs_onset_error": 0.0,
+          "abs_offset_error": 0.0
+        }
+      ],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": []
+    },
+    "profanity": {
+      "trigger": "profanity",
+      "component": "profanity_detector",
+      "modality": "subtitles",
+      "counts": {
+        "ground_truth_events": 2,
+        "predicted_events": 2,
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0
+      },
+      "classification_metrics": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "temporal_metrics": {
+        "mean_iou": 1.0,
+        "mean_onset_error": 0.0,
+        "mean_offset_error": 0.0,
+        "mean_abs_onset_error": 0.0,
+        "mean_abs_offset_error": 0.0
+      },
+      "matches": [
+        {
+          "prediction": {
+            "id": "cue_multi_trigger_test_profanity_001000_003500",
+            "start": 1.0,
+            "end": 3.5,
+            "trigger": "profanity",
+            "score": 1.0,
+            "source": "profanity_detector"
+          },
+          "ground_truth": {
+            "clip": "multi_trigger_test.mp4",
+            "trigger": "profanity",
+            "start": 1.0,
+            "end": 3.5,
+            "labeller": "synthetic_generator",
+            "actual_rate": null
+          },
+          "trigger": "profanity",
+          "iou": 1.0,
+          "onset_error": 0.0,
+          "offset_error": 0.0,
+          "abs_onset_error": 0.0,
+          "abs_offset_error": 0.0
+        },
+        {
+          "prediction": {
+            "id": "cue_multi_trigger_test_profanity_007000_009500",
+            "start": 7.0,
+            "end": 9.5,
+            "trigger": "profanity",
+            "score": 1.0,
+            "source": "profanity_detector"
+          },
+          "ground_truth": {
+            "clip": "multi_trigger_test.mp4",
+            "trigger": "profanity",
+            "start": 7.0,
+            "end": 9.5,
+            "labeller": "synthetic_generator",
+            "actual_rate": null
+          },
+          "trigger": "profanity",
+          "iou": 1.0,
+          "onset_error": 0.0,
+          "offset_error": 0.0,
+          "abs_onset_error": 0.0,
+          "abs_offset_error": 0.0
+        }
+      ],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": []
+    }
+  }
+}

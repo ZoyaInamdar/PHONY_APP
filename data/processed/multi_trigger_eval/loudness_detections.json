@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "record_type": "raw_detections",
+  "film_id": "multi_trigger_test",
+  "synthetic": false,
+  "total_detections": 2,
+  "detections": [
+    {
+      "start": 5.0,
+      "end": 5.4,
+      "trigger": "loud_spike",
+      "score": 0.883,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 11.0,
+      "end": 11.3,
+      "trigger": "loud_spike",
+      "score": 0.918,
+      "source": "loudness_detector"
+    }
+  ]
+}

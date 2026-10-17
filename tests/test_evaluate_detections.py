@@ -34,10 +34,13 @@ from scripts.evaluate_detections import (
     compute_temporal_iou,
     evaluate_clip,
     evaluate_dataset,
+    evaluate_index,
+    format_index_evaluation_markdown,
     format_markdown_report,
     load_clips_manifest,
     load_ground_truth_labels,
     match_events_one_to_one,
+    save_index_evaluation_reports,
 )
 
 
@@ -512,6 +515,297 @@ class TestCLIExecution:
         assert "Detection Evaluation Harness for Trigger-Aware Player" in res.stdout
         assert "--manifest" in res.stdout
         assert "--labels" in res.stdout
+        assert "--index" in res.stdout
+        assert "--film-id" in res.stdout
         assert "--iou-threshold" in res.stdout
         assert "--output-json" in res.stdout
         assert "--output-md" in res.stdout
+
+
+# ==============================================================================
+# 7. Same-Timeline Index Evaluation Tests (Person B)
+# ==============================================================================
+
+class TestEvaluateIndex:
+    @pytest.fixture
+    def sample_multi_trigger_gt(self) -> List[Dict[str, Any]]:
+        return [
+            {"clip": "multi_trigger_test.mp4", "trigger": "profanity", "start": 1.0, "end": 3.5},
+            {"clip": "multi_trigger_test.mp4", "trigger": "loud_spike", "start": 5.0, "end": 5.4},
+            {"clip": "multi_trigger_test.mp4", "trigger": "profanity", "start": 7.0, "end": 9.5},
+            {"clip": "multi_trigger_test.mp4", "trigger": "loud_spike", "start": 11.0, "end": 11.3},
+        ]
+
+    @pytest.fixture
+    def sample_packaged_index(self) -> Dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "film_id": "multi_trigger_test",
+            "synthetic": True,
+            "timeline": {
+                "duration_seconds": 15.0,
+                "timestamp_unit": "seconds",
+                "interval_convention": "half_open",
+                "fps": 24.0,
+            },
+            "cues": [
+                {
+                    "id": "cue_001",
+                    "start": 1.0,
+                    "end": 3.5,
+                    "trigger": "profanity",
+                    "score": 1.0,
+                    "source": "profanity_detector",
+                },
+                {
+                    "id": "cue_002",
+                    "start": 5.0,
+                    "end": 5.4,
+                    "trigger": "loud_spike",
+                    "score": 0.88,
+                    "source": "loudness_detector",
+                },
+                {
+                    "id": "cue_003",
+                    "start": 7.0,
+                    "end": 9.5,
+                    "trigger": "profanity",
+                    "score": 1.0,
+                    "source": "profanity_detector",
+                },
+                {
+                    "id": "cue_004",
+                    "start": 11.0,
+                    "end": 11.3,
+                    "trigger": "loud_spike",
+                    "score": 0.92,
+                    "source": "loudness_detector",
+                },
+            ],
+        }
+
+    def test_both_trigger_evaluation_clean_matches(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Clean multi-trigger index matching GT achieves 100% precision, recall, and F1."""
+        res = evaluate_index(
+            index=sample_packaged_index,
+            ground_truth=sample_multi_trigger_gt,
+            film_id="multi_trigger_test",
+        )
+        assert res["film_id"] == "multi_trigger_test"
+        assert res["duration_seconds"] == 15.0
+        assert res["summary"]["evaluated_triggers"] == ["loud_spike", "profanity"]
+
+        micro = res["summary"]["micro_metrics"]
+        assert micro["true_positives"] == 4
+        assert micro["false_positives"] == 0
+        assert micro["false_negatives"] == 0
+        assert micro["precision"] == 1.0
+        assert micro["recall"] == 1.0
+        assert micro["f1"] == 1.0
+
+        macro = res["summary"]["macro_metrics"]
+        assert macro["precision"] == 1.0
+        assert macro["recall"] == 1.0
+        assert macro["f1"] == 1.0
+
+        temp = res["summary"]["temporal_metrics"]
+        assert temp["mean_iou"] == 1.0
+        assert temp["mean_onset_error"] == 0.0
+        assert temp["mean_offset_error"] == 0.0
+
+        # Per-trigger counts
+        assert res["per_trigger"]["loud_spike"]["counts"]["true_positives"] == 2
+        assert res["per_trigger"]["profanity"]["counts"]["true_positives"] == 2
+
+    def test_evaluation_missing_detections_false_negatives(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Missing detections are accurately counted as false negatives and reduce recall."""
+        # Remove loud_spike cues, keep only 1 profanity cue
+        partial_index = dict(sample_packaged_index)
+        partial_index["cues"] = [sample_packaged_index["cues"][0]]  # only cue_001 [1.0, 3.5)
+
+        res = evaluate_index(
+            index=partial_index,
+            ground_truth=sample_multi_trigger_gt,
+            film_id="multi_trigger_test",
+        )
+
+        counts = res["summary"]["counts"]
+        assert counts["ground_truth_events"] == 4
+        assert counts["predicted_events"] == 1
+        assert counts["true_positives"] == 1
+        assert counts["false_positives"] == 0
+        assert counts["false_negatives"] == 3
+
+        # loud_spike had 2 GT, 0 Pred -> TP=0, FP=0, FN=2
+        ls_res = res["per_trigger"]["loud_spike"]
+        assert ls_res["counts"]["true_positives"] == 0
+        assert ls_res["counts"]["false_negatives"] == 2
+        assert ls_res["classification_metrics"]["recall"] == 0.0
+        assert ls_res["classification_metrics"]["precision"] is None
+
+        # profanity had 2 GT, 1 Pred -> TP=1, FP=0, FN=1
+        pr_res = res["per_trigger"]["profanity"]
+        assert pr_res["counts"]["true_positives"] == 1
+        assert pr_res["counts"]["false_negatives"] == 1
+        assert pr_res["classification_metrics"]["precision"] == 1.0
+        assert pr_res["classification_metrics"]["recall"] == 0.5
+        assert pr_res["classification_metrics"]["f1"] == pytest.approx(0.6667, abs=1e-3)
+
+        # Micro recall = 1/4 = 0.25
+        assert res["summary"]["micro_metrics"]["recall"] == 0.25
+        assert res["summary"]["micro_metrics"]["precision"] == 1.0
+
+    def test_evaluation_false_positives(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Spurious predictions are accurately captured as false positives and reduce precision."""
+        extra_index = dict(sample_packaged_index)
+        extra_cues = list(sample_packaged_index["cues"])
+        # Add spurious loud_spike and spurious profanity
+        extra_cues.append({
+            "id": "cue_extra_ls",
+            "start": 2.0,
+            "end": 2.5,
+            "trigger": "loud_spike",
+            "score": 0.75,
+            "source": "loudness_detector",
+        })
+        extra_cues.append({
+            "id": "cue_extra_pr",
+            "start": 12.0,
+            "end": 13.0,
+            "trigger": "profanity",
+            "score": 0.90,
+            "source": "profanity_detector",
+        })
+        extra_index["cues"] = extra_cues
+
+        res = evaluate_index(
+            index=extra_index,
+            ground_truth=sample_multi_trigger_gt,
+            film_id="multi_trigger_test",
+        )
+
+        counts = res["summary"]["counts"]
+        assert counts["ground_truth_events"] == 4
+        assert counts["predicted_events"] == 6
+        assert counts["true_positives"] == 4
+        assert counts["false_positives"] == 2
+        assert counts["false_negatives"] == 0
+
+        # Micro precision = 4 / 6 = 0.6667
+        assert res["summary"]["micro_metrics"]["precision"] == pytest.approx(4 / 6, abs=1e-3)
+        assert res["summary"]["micro_metrics"]["recall"] == 1.0
+
+        # Verify unmatched predictions list
+        assert len(res["per_trigger"]["loud_spike"]["unmatched_predictions"]) == 1
+        assert res["per_trigger"]["loud_spike"]["unmatched_predictions"][0]["id"] == "cue_extra_ls"
+
+    def test_evaluation_incompatible_timeline_cue_past_duration(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Cues exceeding index duration must be rejected."""
+        invalid_index = dict(sample_packaged_index)
+        invalid_index["cues"] = list(sample_packaged_index["cues"]) + [{
+            "id": "cue_overflow",
+            "start": 14.5,
+            "end": 16.0,  # exceeds 15.0s
+            "trigger": "loud_spike",
+            "score": 0.8,
+            "source": "loudness_detector",
+        }]
+
+        with pytest.raises(ValueError, match="exceeds index duration 15.0s"):
+            evaluate_index(
+                index=invalid_index,
+                ground_truth=sample_multi_trigger_gt,
+                film_id="multi_trigger_test",
+            )
+
+    def test_evaluation_incompatible_timeline_gt_past_duration(self, sample_packaged_index):
+        """Ground-truth intervals extending beyond media duration must be rejected."""
+        overflow_gt = [
+            {"clip": "multi_trigger_test.mp4", "trigger": "profanity", "start": 1.0, "end": 18.0},
+        ]
+
+        with pytest.raises(ValueError, match="extends beyond media duration"):
+            evaluate_index(
+                index=sample_packaged_index,
+                ground_truth=overflow_gt,
+                film_id="multi_trigger_test",
+            )
+
+    def test_evaluation_film_id_mismatch(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Mismatched film_id parameter must be rejected."""
+        with pytest.raises(ValueError, match="Film ID mismatch"):
+            evaluate_index(
+                index=sample_packaged_index,
+                ground_truth=sample_multi_trigger_gt,
+                film_id="wrong_film_id",
+            )
+
+    def test_evaluation_no_ground_truth_for_film(self, sample_packaged_index):
+        """Ground-truth records with no matching film_id must raise ValueError."""
+        other_gt = [
+            {"clip": "other_movie.mp4", "trigger": "loud_spike", "start": 1.0, "end": 2.0},
+        ]
+        with pytest.raises(ValueError, match="No ground-truth annotations found matching film_id"):
+            evaluate_index(
+                index=sample_packaged_index,
+                ground_truth=other_gt,
+                film_id="multi_trigger_test",
+            )
+
+    def test_evaluation_determinism(self, sample_packaged_index, sample_multi_trigger_gt):
+        """Evaluation produces identical deterministic metrics regardless of cue input order."""
+        import copy
+        import random
+
+        idx1 = copy.deepcopy(sample_packaged_index)
+        gt1 = copy.deepcopy(sample_multi_trigger_gt)
+
+        idx2 = copy.deepcopy(sample_packaged_index)
+        gt2 = copy.deepcopy(sample_multi_trigger_gt)
+
+        random.seed(42)
+        random.shuffle(idx2["cues"])
+        random.shuffle(gt2)
+
+        res1 = evaluate_index(index=idx1, ground_truth=gt1)
+        res2 = evaluate_index(index=idx2, ground_truth=gt2)
+
+        assert res1["summary"]["counts"] == res2["summary"]["counts"]
+        assert res1["summary"]["micro_metrics"] == res2["summary"]["micro_metrics"]
+        assert res1["summary"]["macro_metrics"] == res2["summary"]["macro_metrics"]
+        assert res1["summary"]["temporal_metrics"] == res2["summary"]["temporal_metrics"]
+
+    def test_cli_index_evaluation(self, tmp_path):
+        """CLI evaluates packaged index and generates report artifacts."""
+        index_path = Path("data/processed/multi_trigger_eval/index.json")
+        labels_path = Path("data/test_clips/labels.csv")
+
+        out_json = tmp_path / "eval_out.json"
+        out_md = tmp_path / "eval_out.md"
+
+        cmd = [
+            sys.executable,
+            "scripts/evaluate_detections.py",
+            "--index", str(index_path),
+            "--labels", str(labels_path),
+            "--film-id", "multi_trigger_test",
+            "--output-json", str(out_json),
+            "--output-md", str(out_md),
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        assert "MULTI-DETECTOR INDEX EVALUATION" in res.stdout
+        assert "Micro Precision: 100.0%" in res.stdout
+
+        assert out_json.is_file()
+        assert out_md.is_file()
+
+        with out_json.open("r", encoding="utf-8") as f:
+            j_data = json.load(f)
+        assert j_data["film_id"] == "multi_trigger_test"
+        assert j_data["summary"]["micro_metrics"]["f1"] == 1.0
+
+        md_content = out_md.read_text(encoding="utf-8")
+        assert "# Multi-Detector Same-Timeline Evaluation Report" in md_content
+        assert "loud_spike" in md_content
+        assert "profanity" in md_content
+

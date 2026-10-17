@@ -1841,6 +1841,263 @@ def generate_speech_test_clip(
     return mp4_path, srt_path, specs
 
 
+DEFAULT_MULTI_TRIGGER_CUES: List[Dict[str, Any]] = [
+    {
+        "index": 1,
+        "start": 1.0,
+        "end": 3.5,
+        "text": "What the hell is going on here?",
+        "kind": "speech",
+        "expected_flagged": ["hell"],
+        "trigger": "profanity",
+    },
+    {
+        "index": 2,
+        "start": 4.0,
+        "end": 4.8,
+        "text": "[footsteps approaching]",
+        "kind": "sound_description",
+        "expected_flagged": [],
+        "trigger": None,
+    },
+    {
+        "index": 3,
+        "start": 7.0,
+        "end": 9.5,
+        "text": "Don't give me that crap again.",
+        "kind": "speech",
+        "expected_flagged": ["crap"],
+        "trigger": "profanity",
+    },
+    {
+        "index": 4,
+        "start": 12.5,
+        "end": 14.5,
+        "text": "Everything is calm now.",
+        "kind": "speech",
+        "expected_flagged": [],
+        "trigger": None,
+    },
+]
+
+
+def generate_multi_trigger_test_clip(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+    mp4_filename: str = "multi_trigger_test.mp4",
+    srt_filename: str = "multi_trigger_test.srt",
+    cues: Optional[List[Dict[str, Any]]] = None,
+    fps: float = 24.0,
+    width: int = 640,
+    height: int = 360,
+    sample_rate: int = 44100,
+    duration: float = 15.0,
+) -> Tuple[Path, Path, List[ClipSpec]]:
+    """Generate synthesized multi-trigger MP4 clip with aligned loud spikes and truth SRT.
+
+    Timeline allocation (15.0s total duration):
+    - [1.0, 3.5): Speech cue with profanity ('hell')
+    - [4.0, 4.8): Sound description cue ('[footsteps approaching]')
+    - [5.0, 5.4): Calibrated acoustic loudness spike (+20 dB abrupt transient)
+    - [7.0, 9.5): Speech cue with profanity ('crap')
+    - [11.0, 11.3): Calibrated acoustic loudness spike (+20 dB abrupt transient)
+    - [12.5, 14.5): Clean speech dialogue ('Everything is calm now.')
+
+    Args:
+        output_dir: Destination directory.
+        mp4_filename: Target MP4 filename.
+        srt_filename: Target SRT filename.
+        cues: Subtitle cues list (defaults to DEFAULT_MULTI_TRIGGER_CUES).
+        fps: Video frame rate.
+        width: Video width.
+        height: Video height.
+        sample_rate: Audio sample rate.
+        duration: Total clip duration in seconds.
+
+    Returns:
+        Tuple of (mp4_path, srt_path, positive ClipSpecs).
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp4_path = out_dir / mp4_filename
+    srt_path = out_dir / srt_filename
+
+    used_cues = cues or DEFAULT_MULTI_TRIGGER_CUES
+
+    # 1. Write matching truth .srt file
+    write_srt_file(used_cues, srt_path)
+
+    # 2. Synthesize audio with calibrated loud spikes and smooth dialogue
+    import numpy as np
+    import wave
+    import tempfile
+
+    total_samples = int(duration * sample_rate)
+    rng = np.random.default_rng(DEFAULT_RANDOM_SEED)
+    # Ambient baseline at ~ -34 dBFS
+    master_audio = rng.normal(0, 0.02, total_samples).astype(np.float32)
+
+    def add_smooth_dialogue(audio: np.ndarray, st_sec: float, en_sec: float, text_level: float = 0.08) -> None:
+        st = int(st_sec * sample_rate)
+        en = int(en_sec * sample_rate)
+        length = en - st
+        t = np.linspace(0, en_sec - st_sec, length, endpoint=False)
+        f0 = 150 + 25 * np.sin(2 * np.pi * 2 * t)
+        ramp = min(int(0.2 * sample_rate), length // 4)
+        env = np.ones(length, dtype=np.float32)
+        if ramp > 0:
+            env[:ramp] = np.linspace(0, 1, ramp)
+            env[-ramp:] = np.linspace(1, 0, ramp)
+        cadence = 0.5 * (1 + np.sin(2 * np.pi * 1.5 * t))
+        dialogue = text_level * cadence * env * (np.sin(2 * np.pi * f0 * t) + 0.5 * np.sin(2 * np.pi * 2 * f0 * t))
+        audio[st:en] += dialogue
+
+    # Speech 1: [1.0, 3.5)
+    add_smooth_dialogue(master_audio, 1.0, 3.5)
+
+    # Spike 1: [5.0, 5.4)
+    st_sp1 = int(5.0 * sample_rate)
+    t_sp1 = np.linspace(0, 0.4, int(0.4 * sample_rate), endpoint=False)
+    sp1 = 0.70 * np.sin(2 * np.pi * 400 * t_sp1) * np.exp(-t_sp1 / 0.3)
+    master_audio[st_sp1 : st_sp1 + len(sp1)] += sp1
+
+    # Speech 2: [7.0, 9.5)
+    add_smooth_dialogue(master_audio, 7.0, 9.5)
+
+    # Spike 2: [11.0, 11.3)
+    st_sp2 = int(11.0 * sample_rate)
+    t_sp2 = np.linspace(0, 0.3, int(0.3 * sample_rate), endpoint=False)
+    sp2 = 0.80 * np.sin(2 * np.pi * 500 * t_sp2) * np.exp(-t_sp2 / 0.25)
+    master_audio[st_sp2 : st_sp2 + len(sp2)] += sp2
+
+    # Clean dialogue: [12.5, 14.5)
+    add_smooth_dialogue(master_audio, 12.5, 14.5)
+
+    # Prevent clipping and convert to 16-bit PCM
+    peak = np.max(np.abs(master_audio))
+    if peak > 0.95:
+        master_audio = (master_audio / peak) * 0.95
+    int_samples = (master_audio * 32767).astype(np.int16)
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+        temp_wav_path = Path(tf.name)
+
+    ffmpeg_bin = find_tool("ffmpeg")
+    try:
+        with wave.open(str(temp_wav_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(int_samples.tobytes())
+
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-f", "lavfi",
+            "-i", f"color=c=black:s={width}x{height}:r={fps}:d={duration}",
+            "-i", str(temp_wav_path),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-t", f"{duration:.3f}",
+            str(mp4_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg failed to generate multi-trigger clip:\n{proc.stderr}")
+    finally:
+        if temp_wav_path.exists():
+            temp_wav_path.unlink()
+
+    # Define positive ground-truth ClipSpecs for both triggers
+    specs: List[ClipSpec] = [
+        ClipSpec(
+            clip_name=mp4_filename,
+            duration=duration,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger="profanity",
+            start=1.0,
+            end=3.5,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Speech profanity cue: 'What the hell is going on here?'",
+                "modality": "speech_subtitles",
+                "flagged_words": ["hell"],
+            },
+        ),
+        ClipSpec(
+            clip_name=mp4_filename,
+            duration=duration,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger="loud_spike",
+            start=5.0,
+            end=5.4,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Calibrated acoustic loudness spike (+20 dB burst)",
+                "modality": "audio",
+            },
+        ),
+        ClipSpec(
+            clip_name=mp4_filename,
+            duration=duration,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger="profanity",
+            start=7.0,
+            end=9.5,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Speech profanity cue: 'Don\'t give me that crap again.'",
+                "modality": "speech_subtitles",
+                "flagged_words": ["crap"],
+            },
+        ),
+        ClipSpec(
+            clip_name=mp4_filename,
+            duration=duration,
+            fps=fps,
+            width=width,
+            height=height,
+            trigger="loud_spike",
+            start=11.0,
+            end=11.3,
+            labeller="synthetic_generator",
+            metadata={
+                "description": "Calibrated acoustic loudness spike (+20 dB burst)",
+                "modality": "audio",
+            },
+        ),
+    ]
+
+    # Append to labels.csv
+    labels_csv_path = out_dir / "labels.csv"
+    existing_records: List[Dict[str, Any]] = []
+    if labels_csv_path.is_file():
+        existing_records = read_labels_csv(labels_csv_path)
+
+    new_positive_rows = [sp.to_label_dict() for sp in specs if sp.to_label_dict() is not None]
+    seen = {}
+    for idx, r in enumerate(existing_records):
+        key = (r["clip"], round(float(r["start"]), 3), r["trigger"])
+        seen[key] = idx
+    merged_rows = list(existing_records)
+    for row in new_positive_rows:
+        key = (row["clip"], round(float(row["start"]), 3), row["trigger"])
+        if key not in seen:
+            seen[key] = len(merged_rows)
+            merged_rows.append(row)
+
+    write_labels_csv(merged_rows, labels_csv_path)
+
+    return mp4_path, srt_path, specs
+
+
 def generate_negative_video_clips(
     output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
     width: int = 640,
@@ -1996,6 +2253,11 @@ def main() -> None:
         help="Generate only the speech triggers test clip, matching .srt, and parser verification.",
     )
     parser.add_argument(
+        "--multi-trigger-only",
+        action="store_true",
+        help="Generate only the multi-trigger (loud_spike + profanity) test clip and matching .srt.",
+    )
+    parser.add_argument(
         "--negatives-only",
         action="store_true",
         help="Generate only negative video and audio clips (gradients, slow fades, ambient, dialogue).",
@@ -2047,6 +2309,13 @@ def main() -> None:
         print(f"Generated speech MP4: {sp_mp4}")
         print(f"Generated matching SRT: {sp_srt}")
         print(f"Verified subtitle parser caught {len(sp_specs)} profanity triggers.")
+        print(f"Updated labels in: {out_dir / 'labels.csv'}")
+    elif args.multi_trigger_only:
+        print("[1/1] Generating multi-trigger test clip and matching .srt...")
+        mt_mp4, mt_srt, mt_specs = generate_multi_trigger_test_clip(out_dir)
+        print(f"Generated multi-trigger MP4: {mt_mp4}")
+        print(f"Generated matching SRT: {mt_srt}")
+        print(f"Generated {len(mt_specs)} ground-truth cues (profanity + loud_spike).")
         print(f"Updated labels in: {out_dir / 'labels.csv'}")
     elif args.negatives_only:
         print("[1/2] Generating negative video clips (gradients, slow fades, static)...")

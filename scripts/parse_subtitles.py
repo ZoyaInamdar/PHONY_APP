@@ -122,7 +122,7 @@ def load_wordlist(file_path: Union[str, Path]) -> List[str]:
 def match_profanity_in_cues(
     sub_file: pysrt.SubRipFile,
     word_list: List[str],
-    source: str = "subtitles",
+    source: str = "profanity_detector",
 ) -> List[Dict[str, Any]]:
     """Match profanity terms against speech cues in a parsed SRT file.
 
@@ -144,7 +144,7 @@ def match_profanity_in_cues(
     Args:
         sub_file: Parsed SubRipFile whose cues already have .kind set.
         word_list: List of profanity strings to search for.
-        source: Component identifier for raw detections (default: 'subtitles').
+        source: Component identifier for raw detections (default: 'profanity_detector').
 
     Returns:
         List of raw detection records adhering to the shared detection contract.
@@ -224,6 +224,7 @@ def parse_srt_file(
     file_path: Union[str, Path],
     encoding: Optional[str] = None,
     wordlist_path: Optional[Union[str, Path]] = None,
+    source: str = "profanity_detector",
 ) -> pysrt.SubRipFile:
     """Parse an .srt file using pysrt, classify cues, and optionally match profanity.
 
@@ -231,6 +232,7 @@ def parse_srt_file(
         file_path: Path to the .srt file.
         encoding: Text encoding. If None, auto-detects with fallback.
         wordlist_path: Optional path to external profanity word list.
+        source: Stable component identifier for detections (default: 'profanity_detector').
 
     Returns:
         pysrt.SubRipFile containing SubRipItem objects, each with a .kind attribute
@@ -299,7 +301,7 @@ def parse_srt_file(
     # 5. Optional profanity detection if wordlist_path is supplied
     if wordlist_path is not None:
         words = load_wordlist(wordlist_path)
-        match_profanity_in_cues(sub_file, words)
+        match_profanity_in_cues(sub_file, words, source=source)
 
     return sub_file
 
@@ -398,7 +400,7 @@ def generate_subtitles_provenance(
 def export_detections_json(
     sub_file: pysrt.SubRipFile,
     output_path: Union[str, Path],
-    source: str = "subtitles",
+    source: str = "profanity_detector",
     source_file: Optional[str] = None,
     wordlist_path: Optional[Union[str, Path]] = None,
     indent: int = 2,
@@ -406,13 +408,13 @@ def export_detections_json(
     """Export flagged intervals to detections/subtitles.json with a provenance block.
 
     Each detection adheres to the shared detector contract:
-    { "start": float, "end": float, "trigger": "profanity", "score": 1.0, "source": "subtitles" }
+    { "start": float, "end": float, "trigger": "profanity", "score": 1.0, "source": "profanity_detector" }
     Because timing is estimated, start/end cover the entire cue duration.
 
     Args:
         sub_file: Parsed SubRipFile with flagged speech cues.
         output_path: Destination path for detections/subtitles.json.
-        source: Stable component identifier (default: 'subtitles').
+        source: Stable component identifier (default: 'profanity_detector').
         source_file: Optional original SRT filename for provenance.
         wordlist_path: Optional wordlist path for provenance.
         indent: JSON indentation level (default: 2).
@@ -485,6 +487,12 @@ def main() -> None:
         help="Path to export detections/subtitles.json (default: None).",
     )
     parser.add_argument(
+        "--source",
+        type=str,
+        default="profanity_detector",
+        help="Stable component identifier for detections (default: profanity_detector).",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output parsed cues as formatted JSON to stdout.",
@@ -493,11 +501,11 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        sub_file = parse_srt_file(args.srt_file, encoding=args.encoding)
+        sub_file = parse_srt_file(args.srt_file, encoding=args.encoding, source=args.source)
 
         if args.wordlist:
             words = load_wordlist(args.wordlist)
-            match_profanity_in_cues(sub_file, words)
+            match_profanity_in_cues(sub_file, words, source=args.source)
 
         if args.out_cues:
             export_cues_json(sub_file, args.out_cues)
@@ -507,6 +515,7 @@ def main() -> None:
             export_detections_json(
                 sub_file,
                 args.out_detections,
+                source=args.source,
                 source_file=args.srt_file,
                 wordlist_path=args.wordlist,
             )

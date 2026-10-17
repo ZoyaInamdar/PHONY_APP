@@ -576,6 +576,7 @@ def detect_loudness(
             "schema_version": 1,
             "record_type": "raw_detections",
             "film_id": film_id,
+            "synthetic": False,
             "total_detections": len(detections),
             "detections": detections,
         }

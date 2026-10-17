@@ -663,3 +663,702 @@ def test_package_cues_cli_with_subtitles(tmp_path):
     assert len(data["cues"]) == 2
     triggers = [c["trigger"] for c in data["cues"]]
     assert triggers == ["profanity", "loud_spike"]
+
+
+# ------------------------------------------------------------------------------
+# 8. Multi-Detector Packaging, Provenance, & Synthetic Guardrails (Person B)
+# ------------------------------------------------------------------------------
+
+def test_multi_detector_packaging_preserves_provenance_and_intervals(tmp_path: Path):
+    """Verify packaging multiple detector outputs preserves canonical triggers, seconds, half-open intervals, scores, and source provenance."""
+    multi_detector_raw = {
+        "film_id": "synthetic_multi_film",
+        "synthetic": True,
+        "description": "Explicitly synthetic multi-detector test fixture.",
+        "timeline": {"duration_seconds": 30.0, "fps": 24.0},
+        "detections": [
+            {"start": 1.0, "end": 2.5, "trigger": "loud_spike", "score": 0.85, "source": "loudness_detector"},
+            {"start": 2.0, "end": 4.0, "trigger": "flashing", "score": 0.95, "source": "flash_detector"},
+            {"start": 5.0, "end": 6.0, "trigger": "gunshot", "score": 0.88, "source": "audio_event_classifier"},
+            {"start": 5.5, "end": 7.0, "trigger": "scream", "score": 0.75, "source": "audio_event_classifier"},
+        ],
+    }
+
+    subtitles_raw = [
+        {
+            "id": "c1",
+            "start": 10.0,
+            "end": 12.0,
+            "kind": "speech",
+            "text": "What the hell!",
+            "flagged_words": [{"word": "hell", "char_start": 9, "char_end": 13}],
+        }
+    ]
+
+    index_data = package_cues(
+        raw_data=multi_detector_raw,
+        subtitles=subtitles_raw,
+        film_id="synthetic_multi_film",
+        duration_seconds=30.0,
+        fps=24.0,
+        synthetic=True,
+    )
+
+    # 1. Structural properties
+    assert index_data["synthetic"] is True
+    assert index_data["film_id"] == "synthetic_multi_film"
+    assert index_data["timeline"]["duration_seconds"] == 30.0
+    assert index_data["timeline"]["timestamp_unit"] == "seconds"
+    assert index_data["timeline"]["interval_convention"] == "half_open"
+
+    cues = index_data["cues"]
+    assert len(cues) == 5
+
+    # 2. Check each cue adheres to the contract and preserves provenance
+    expected_cues = [
+        {"start": 1.0, "end": 2.5, "trigger": "loud_spike", "source": "loudness_detector", "score": 0.85},
+        {"start": 2.0, "end": 4.0, "trigger": "flashing", "source": "flash_detector", "score": 0.95},
+        {"start": 5.0, "end": 6.0, "trigger": "gunshot", "source": "audio_event_classifier", "score": 0.88},
+        {"start": 5.5, "end": 7.0, "trigger": "scream", "source": "audio_event_classifier", "score": 0.75},
+        {"start": 10.0, "end": 12.0, "trigger": "profanity", "source": "profanity_detector", "score": 1.0},
+    ]
+
+    for cue, exp in zip(cues, expected_cues):
+        assert cue["start"] == exp["start"]
+        assert cue["end"] == exp["end"]
+        assert cue["end"] > cue["start"]
+        assert cue["trigger"] == exp["trigger"]
+        assert cue["trigger"] in CANONICAL_TRIGGER_IDS
+        assert cue["source"] == exp["source"]
+        assert cue["score"] == pytest.approx(exp["score"])
+        expected_id = generate_cue_id("synthetic_multi_film", exp["trigger"], exp["start"], exp["end"])
+        assert cue["id"] == expected_id
+
+    # 3. Chronological sorting verified
+    starts = [c["start"] for c in cues]
+    assert starts == sorted(starts)
+
+    # 4. Overlapping intervals of different triggers/sources were NOT cross-merged
+    # loud_spike [1.0, 2.5) overlaps with flashing [2.0, 4.0), both remain distinct
+    assert cues[0]["trigger"] == "loud_spike"
+    assert cues[1]["trigger"] == "flashing"
+
+    # gunshot [5.0, 6.0) overlaps with scream [5.5, 7.0), both remain distinct
+    assert cues[2]["trigger"] == "gunshot"
+    assert cues[3]["trigger"] == "scream"
+
+    # 5. Schema and domain validation
+    out_file = tmp_path / "multi_detector_index.json"
+    atomic_write_json(index_data, out_file)
+    is_valid, errors = validate_index(out_file, SCHEMA_PATH, CONFIG_PATH)
+    assert is_valid, f"Validation errors: {errors}"
+
+
+def test_multi_detector_same_trigger_different_sources_preserves_both(tmp_path: Path):
+    """Verify when multiple detectors produce the same trigger with different sources, both are preserved with distinct source provenance."""
+    raw_detections = {
+        "film_id": "source_provenance_test",
+        "synthetic": True,
+        "timeline": {"duration_seconds": 20.0},
+        "detections": [
+            {"start": 2.0, "end": 4.0, "trigger": "loud_spike", "score": 1.0, "source": "loudness_detector"},
+            {"start": 2.5, "end": 4.5, "trigger": "loud_spike", "score": 0.9, "source": "external_sensor"},
+        ],
+    }
+
+    index_data = package_cues(
+        raw_data=raw_detections,
+        film_id="source_provenance_test",
+        duration_seconds=20.0,
+        synthetic=True,
+    )
+
+    cues = index_data["cues"]
+    assert len(cues) == 2
+    sources = {c["source"] for c in cues}
+    assert sources == {"loudness_detector", "external_sensor"}
+
+    # Verify unique deterministic IDs despite overlapping time
+    ids = [c["id"] for c in cues]
+    assert len(set(ids)) == 2
+
+
+def test_legacy_subtitles_source_normalized_to_canonical_profanity_detector():
+    """Verify legacy 'subtitles' source is explicitly normalized to canonical 'profanity_detector'."""
+    raw_detections = {
+        "film_id": "norm_test",
+        "synthetic": True,
+        "timeline": {"duration_seconds": 10.0},
+        "detections": [
+            {"start": 1.0, "end": 3.0, "trigger": "profanity", "score": 0.95, "source": "subtitles"},
+        ],
+    }
+    index_data = package_cues(
+        raw_data=raw_detections,
+        film_id="norm_test",
+        duration_seconds=10.0,
+        synthetic=True,
+    )
+    assert len(index_data["cues"]) == 1
+    assert index_data["cues"][0]["source"] == "profanity_detector"
+
+
+def test_multi_detector_synthetic_flag_explicit():
+    """Verify synthetic fixtures are explicitly marked synthetic=True, avoiding mislabeling as real detections."""
+    raw_synthetic = {
+        "film_id": "test_synth",
+        "synthetic": True,
+        "timeline": {"duration_seconds": 10.0},
+        "detections": [
+            {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"}
+        ],
+    }
+    index_data = package_cues(raw_synthetic, film_id="test_synth", duration_seconds=10.0, synthetic=True)
+    assert index_data["synthetic"] is True
+
+    # Real smoke test raw detections have synthetic: false
+    smoke_raw_path = Path("data/processed/smoke_test/raw_detections.json")
+    if smoke_raw_path.is_file():
+        with smoke_raw_path.open("r", encoding="utf-8") as f:
+            smoke_raw = json.load(f)
+        assert smoke_raw.get("synthetic") is False
+
+
+def test_multi_detector_timeline_duration_bounds_rejected():
+    """Verify detector cues extending beyond the media duration are strictly rejected."""
+    raw_out_of_bounds = {
+        "film_id": "out_of_bounds_test",
+        "synthetic": True,
+        "timeline": {"duration_seconds": 10.0},
+        "detections": [
+            {"start": 8.0, "end": 12.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"}
+        ],
+    }
+    with pytest.raises(ValueError, match="Packaged index failed domain business rules"):
+        package_cues(raw_out_of_bounds, film_id="out_of_bounds_test", duration_seconds=10.0, synthetic=True)
+
+
+def test_multi_detector_cli_multiple_inputs_combines_loudness_and_profanity(tmp_path: Path):
+    """Verify CLI accepts multiple raw detector JSON files via --input and packages both loudness and profanity."""
+    loudness_file = tmp_path / "loudness_detections.json"
+    loudness_file.write_text(
+        json.dumps({
+            "film_id": "unified_test_film",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 25.0, "fps": 24.0},
+            "detections": [
+                {"start": 3.0, "end": 5.0, "trigger": "loud_spike", "score": 0.88, "source": "loudness_detector"},
+                {"start": 12.0, "end": 14.0, "trigger": "loud_spike", "score": 0.92, "source": "loudness_detector"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    profanity_file = tmp_path / "profanity_detections.json"
+    profanity_file.write_text(
+        json.dumps({
+            "film_id": "unified_test_film",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 25.0, "fps": 24.0},
+            "detections": [
+                {"start": 4.0, "end": 6.5, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    output_file = tmp_path / "combined_index.json"
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/package_cues.py",
+            "--input",
+            str(loudness_file),
+            str(profanity_file),
+            "--output",
+            str(output_file),
+            "--film-id",
+            "unified_test_film",
+            "--duration",
+            "25.0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0, f"CLI error: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+    assert output_file.is_file()
+
+    with output_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    cues = data["cues"]
+    assert len(cues) == 3
+    # Check distinct triggers and sources preserved
+    triggers = [c["trigger"] for c in cues]
+    assert "loud_spike" in triggers
+    assert "profanity" in triggers
+    sources = {c["source"] for c in cues}
+    assert sources == {"loudness_detector", "profanity_detector"}
+
+    # Validate schema and domain rules
+    is_valid, errors = validate_index(output_file, SCHEMA_PATH, CONFIG_PATH)
+    assert is_valid, f"Combined index validation failed: {errors}"
+
+
+def test_multi_detector_incompatible_film_id_rejected(tmp_path: Path):
+    """Verify input files identifying different films are rejected to prevent cross-film contamination."""
+    file_a = tmp_path / "film_a.json"
+    file_a.write_text(
+        json.dumps({
+            "film_id": "film_alpha",
+            "detections": [{"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"}],
+        }),
+        encoding="utf-8",
+    )
+    file_b = tmp_path / "film_b.json"
+    file_b.write_text(
+        json.dumps({
+            "film_id": "film_beta",
+            "detections": [{"start": 3.0, "end": 4.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"}],
+        }),
+        encoding="utf-8",
+    )
+    output_file = tmp_path / "index.json"
+
+    with pytest.raises(ValueError, match="Incompatible film metadata"):
+        package_and_save_index(input_path=[file_a, file_b], output_path=output_file)
+
+
+def test_multi_detector_incompatible_timeline_duration_rejected(tmp_path: Path):
+    """Verify input files declaring conflicting timeline durations are rejected."""
+    file_a = tmp_path / "dur_10.json"
+    file_a.write_text(
+        json.dumps({
+            "film_id": "timeline_test",
+            "timeline": {"duration_seconds": 10.0},
+            "detections": [{"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"}],
+        }),
+        encoding="utf-8",
+    )
+    file_b = tmp_path / "dur_25.json"
+    file_b.write_text(
+        json.dumps({
+            "film_id": "timeline_test",
+            "timeline": {"duration_seconds": 25.0},
+            "detections": [{"start": 3.0, "end": 4.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"}],
+        }),
+        encoding="utf-8",
+    )
+    output_file = tmp_path / "index.json"
+
+    with pytest.raises(ValueError, match="Incompatible timeline metadata"):
+        package_and_save_index(input_path=[file_a, file_b], output_path=output_file)
+
+
+def test_multi_detector_synthetic_guardrail_rejects_real_flag_on_synthetic_data(tmp_path: Path):
+    """Verify package_cues rejects marking output as real (synthetic=False) when input data contains synthetic cues."""
+    synthetic_file = tmp_path / "synthetic_cues.json"
+    synthetic_file.write_text(
+        json.dumps({
+            "film_id": "synth_guard_film",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 15.0},
+            "detections": [{"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"}],
+        }),
+        encoding="utf-8",
+    )
+    output_file = tmp_path / "index.json"
+
+    with pytest.raises(ValueError, match="Cannot mark index as real"):
+        package_and_save_index(
+            input_path=synthetic_file,
+            output_path=output_file,
+            synthetic=False,
+        )
+
+
+def test_multi_detector_duplicate_subtitle_input_deduplicated(tmp_path: Path):
+    """Verify supplying subtitle detections through both --input and --subtitles does not duplicate cues."""
+    sub_file = tmp_path / "subtitles.json"
+    sub_file.write_text(
+        json.dumps({
+            "film_id": "dedup_test",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 20.0},
+            "detections": [
+                {"start": 2.0, "end": 4.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"}
+            ],
+        }),
+        encoding="utf-8",
+    )
+    output_file = tmp_path / "index.json"
+
+    index_data = package_and_save_index(
+        input_path=[sub_file],
+        subtitles_path=sub_file,
+        output_path=output_file,
+        film_id="dedup_test",
+        duration_seconds=20.0,
+        synthetic=True,
+    )
+    assert len(index_data["cues"]) == 1
+    assert index_data["cues"][0]["id"] == "cue_dedup_test_profanity_002000_004000"
+
+
+def test_multi_detector_deterministic_byte_identical_output(tmp_path: Path):
+    """Verify repeated packaging runs on identical multi-detector inputs produce byte-identical output files."""
+    det1 = tmp_path / "det1.json"
+    det1.write_text(
+        json.dumps({
+            "film_id": "determ_film",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 30.0},
+            "detections": [
+                {"start": 5.0, "end": 7.0, "trigger": "loud_spike", "score": 0.85, "source": "loudness_detector"},
+                {"start": 1.0, "end": 3.0, "trigger": "gunshot", "score": 0.90, "source": "audio_event_classifier"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    det2 = tmp_path / "det2.json"
+    det2.write_text(
+        json.dumps({
+            "film_id": "determ_film",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 30.0},
+            "detections": [
+                {"start": 2.0, "end": 4.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    out1 = tmp_path / "out1.json"
+    out2 = tmp_path / "out2.json"
+
+    package_and_save_index(input_path=[det1, det2], output_path=out1, film_id="determ_film", duration_seconds=30.0, synthetic=True)
+    package_and_save_index(input_path=[det1, det2], output_path=out2, film_id="determ_film", duration_seconds=30.0, synthetic=True)
+
+    bytes1 = out1.read_bytes()
+    bytes2 = out2.read_bytes()
+    assert bytes1 == bytes2, "Repeated packaging runs produced non-identical output bytes."
+
+
+def test_multi_detector_invalid_intervals_and_non_finite_scores_rejected():
+    """Verify invalid intervals (start >= end, negative) and non-finite scores are rejected."""
+    # start >= end
+    with pytest.raises(ValueError, match="strictly greater than 'start'"):
+        package_cues(
+            raw_data={"detections": [{"start": 5.0, "end": 5.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}]},
+            film_id="inv_test",
+            duration_seconds=10.0,
+            synthetic=True,
+        )
+
+    # negative start
+    with pytest.raises(ValueError, match="must be >= 0.0"):
+        package_cues(
+            raw_data={"detections": [{"start": -1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}]},
+            film_id="inv_test",
+            duration_seconds=10.0,
+            synthetic=True,
+        )
+
+    # non-finite score (inf)
+    with pytest.raises(ValueError, match="must be a finite number"):
+        package_cues(
+            raw_data={"detections": [{"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": float("inf"), "source": "src"}]},
+            film_id="inv_test",
+            duration_seconds=10.0,
+            synthetic=True,
+        )
+
+
+def test_multi_detector_cue_id_collision_detected():
+    """Verify distinct cues producing identical cue IDs are detected and raise CueIdCollisionError."""
+    # Two distinct cues (different source) with same start, end, trigger will collide on ID format cue_{film}_{trigger}_{start}_{end}
+    detections = [
+        {"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"},
+        {"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.9, "source": "external_sensor"},
+    ]
+    with pytest.raises(CueIdCollisionError, match="Cue ID collision detected"):
+        package_cues(
+            raw_data={"detections": detections},
+            film_id="collision_test",
+            duration_seconds=10.0,
+            synthetic=True,
+        )
+
+
+def test_subtitle_parser_cli_compatibility_and_canonical_source(tmp_path: Path):
+    """Verify scripts/parse_subtitles.py CLI runs and emits detections with canonical 'profanity_detector' source."""
+    srt_file = Path("data/test_clips/speech_triggers_truth.srt")
+    wordlist_file = Path("data/profanity_wordlist.txt")
+    out_dir = tmp_path / "sub_out"
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/parse_subtitles.py",
+            str(srt_file),
+            "--wordlist",
+            str(wordlist_file),
+            "--out-detections",
+            str(out_dir / "detections.json"),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0, f"Subtitle parser CLI failed: {res.stderr}\n{res.stdout}"
+    detections_file = out_dir / "detections.json"
+    assert detections_file.is_file()
+
+    with detections_file.open("r", encoding="utf-8") as f:
+        det_data = json.load(f)
+
+    assert len(det_data["detections"]) == 3
+    for d in det_data["detections"]:
+        assert d["trigger"] == "profanity"
+        assert d["source"] == "profanity_detector"
+
+
+# ------------------------------------------------------------------------------
+# 9. True CLI Integration Tests – Multi-Detector Packaging (Person B regression)
+# ------------------------------------------------------------------------------
+
+def test_cli_multi_detector_end_to_end(tmp_path: Path):
+    """End-to-end CLI regression: two separate detector JSON files in one invocation.
+
+    Exercises CLI wiring, argument parsing, file loading, aggregation, source
+    preservation, and output generation. Uses the actual subprocess interface:
+
+        python scripts/package_cues.py \\
+            --input <detector_a.json> <detector_b.json> \\
+            --output <combined_index.json> \\
+            --film-id cli_e2e_film \\
+            --duration 30.0 \\
+            --no-synthetic
+
+    Input A: loud_spike  from loudness_detector
+    Input B: profanity   from profanity_detector
+    """
+    # --- Build input A: loudness detector ---
+    detector_a = tmp_path / "loudness_detections.json"
+    detector_a_start = 5.0
+    detector_a_end = 8.0
+    detector_a_score = 0.87
+    detector_a.write_text(
+        json.dumps({
+            "film_id": "cli_e2e_film",
+            "synthetic": False,
+            "timeline": {"duration_seconds": 30.0, "fps": 24.0},
+            "detections": [
+                {
+                    "start": detector_a_start,
+                    "end": detector_a_end,
+                    "trigger": "loud_spike",
+                    "score": detector_a_score,
+                    "source": "loudness_detector",
+                },
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    # --- Build input B: profanity detector ---
+    detector_b = tmp_path / "profanity_detections.json"
+    detector_b_start = 15.0
+    detector_b_end = 17.5
+    detector_b_score = 1.0
+    detector_b.write_text(
+        json.dumps({
+            "film_id": "cli_e2e_film",
+            "synthetic": False,
+            "timeline": {"duration_seconds": 30.0, "fps": 24.0},
+            "detections": [
+                {
+                    "start": detector_b_start,
+                    "end": detector_b_end,
+                    "trigger": "profanity",
+                    "score": detector_b_score,
+                    "source": "profanity_detector",
+                },
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    output_file = tmp_path / "combined_index.json"
+
+    # --- Invoke real CLI ---
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/package_cues.py",
+            "--input",
+            str(detector_a),
+            str(detector_b),
+            "--output",
+            str(output_file),
+            "--film-id",
+            "cli_e2e_film",
+            "--duration",
+            "30.0",
+            "--no-synthetic",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # 1. CLI must succeed; include captured output for diagnosis on failure
+    assert res.returncode == 0, (
+        f"CLI packaging failed (exit {res.returncode}).\n"
+        f"STDOUT:\n{res.stdout}\n"
+        f"STDERR:\n{res.stderr}"
+    )
+    assert "SUCCESS" in res.stdout, (
+        f"Expected 'SUCCESS' in stdout, got:\n{res.stdout}"
+    )
+
+    # 2. Output file must exist
+    assert output_file.is_file(), "CLI did not create the output file."
+
+    # 3. Load and inspect the generated index
+    with output_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # 4. Top-level metadata
+    assert data["film_id"] == "cli_e2e_film"
+    assert data["synthetic"] is False, "Expected synthetic=false for real detector inputs."
+    assert data["schema_version"] == 1
+    assert data["timeline"]["duration_seconds"] == 30.0
+
+    cues = data["cues"]
+
+    # 5. Both triggers must be present
+    triggers = {c["trigger"] for c in cues}
+    assert "loud_spike" in triggers, f"loud_spike missing from triggers: {triggers}"
+    assert "profanity" in triggers, f"profanity missing from triggers: {triggers}"
+
+    # 6. Both sources must be preserved
+    sources = {c["source"] for c in cues}
+    assert "loudness_detector" in sources, f"loudness_detector missing from sources: {sources}"
+    assert "profanity_detector" in sources, f"profanity_detector missing from sources: {sources}"
+
+    # 7. Verify cues from both input files appear in output
+    loud_cues = [c for c in cues if c["trigger"] == "loud_spike"]
+    prof_cues = [c for c in cues if c["trigger"] == "profanity"]
+    assert len(loud_cues) >= 1, "No loud_spike cues in combined output."
+    assert len(prof_cues) >= 1, "No profanity cues in combined output."
+
+    # 8. Timestamps and scores are preserved (no value corruption)
+    loud_cue = loud_cues[0]
+    assert loud_cue["start"] == pytest.approx(detector_a_start)
+    assert loud_cue["end"] == pytest.approx(detector_a_end)
+    assert loud_cue["score"] == pytest.approx(detector_a_score)
+    assert loud_cue["source"] == "loudness_detector"
+
+    prof_cue = prof_cues[0]
+    assert prof_cue["start"] == pytest.approx(detector_b_start)
+    assert prof_cue["end"] == pytest.approx(detector_b_end)
+    assert prof_cue["score"] == pytest.approx(detector_b_score)
+    assert prof_cue["source"] == "profanity_detector"
+
+    # 9. Every cue is within the shared timeline bounds [0, 30.0)
+    duration = data["timeline"]["duration_seconds"]
+    for cue in cues:
+        assert cue["start"] >= 0.0, f"Cue starts before 0: {cue}"
+        assert cue["end"] <= duration, f"Cue end {cue['end']} exceeds duration {duration}: {cue}"
+        assert cue["end"] > cue["start"], f"Cue end not > start: {cue}"
+
+    # 10. Cue IDs are unique
+    ids = [c["id"] for c in cues]
+    assert len(ids) == len(set(ids)), f"Duplicate cue IDs detected: {ids}"
+
+    # 11. Cue IDs match the deterministic generation rule
+    expected_loud_id = generate_cue_id("cli_e2e_film", "loud_spike", detector_a_start, detector_a_end)
+    assert loud_cue["id"] == expected_loud_id, (
+        f"loud_spike cue ID mismatch: expected {expected_loud_id!r}, got {loud_cue['id']!r}"
+    )
+    expected_prof_id = generate_cue_id("cli_e2e_film", "profanity", detector_b_start, detector_b_end)
+    assert prof_cue["id"] == expected_prof_id, (
+        f"profanity cue ID mismatch: expected {expected_prof_id!r}, got {prof_cue['id']!r}"
+    )
+
+    # 12. Validate generated index using the existing schema/domain validation mechanism
+    is_valid, errors = validate_index(output_file, SCHEMA_PATH, CONFIG_PATH)
+    assert is_valid, f"Schema/domain validation failed for CLI-generated index: {errors}"
+
+
+def test_cli_multi_detector_conflicting_film_id_rejected(tmp_path: Path):
+    """Negative CLI test: conflicting film IDs across two input files must produce a non-zero exit code.
+
+    Verifies that the CLI rejects inputs from different films and emits a
+    diagnostic error message identifying the conflicting film_id.
+    """
+    file_alpha = tmp_path / "film_alpha.json"
+    file_alpha.write_text(
+        json.dumps({
+            "film_id": "film_alpha",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 20.0},
+            "detections": [
+                {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    file_beta = tmp_path / "film_beta.json"
+    file_beta.write_text(
+        json.dumps({
+            "film_id": "film_beta",
+            "synthetic": True,
+            "timeline": {"duration_seconds": 20.0},
+            "detections": [
+                {"start": 3.0, "end": 4.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    output_file = tmp_path / "should_not_be_created.json"
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "scripts/package_cues.py",
+            "--input",
+            str(file_alpha),
+            str(file_beta),
+            "--output",
+            str(output_file),
+            "--duration",
+            "20.0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # Must exit non-zero
+    assert res.returncode != 0, (
+        f"Expected non-zero exit for conflicting film IDs, but got exit code 0.\n"
+        f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+    )
+
+    # Error output must identify the conflict clearly enough to diagnose
+    combined_output = res.stdout + res.stderr
+    assert "film" in combined_output.lower(), (
+        f"Expected 'film' in CLI error output to identify the conflict, got:\n{combined_output}"
+    )
+    # The implementation emits "film_alpha" or "film_beta" or "Incompatible film"
+    assert any(token in combined_output for token in ("film_alpha", "film_beta", "Incompatible", "incompatible")), (
+        f"Expected conflicting film ID name or 'Incompatible' in error output, got:\n{combined_output}"
+    )
+
+    # Output file must not have been created
+    assert not output_file.exists(), "CLI created an output file despite conflicting film IDs."

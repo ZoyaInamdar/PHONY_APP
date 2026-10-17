@@ -24,7 +24,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 # Ensure repository root is on sys.path for direct CLI script execution
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -284,9 +284,30 @@ def merge_detections(
     return all_merged
 
 
+CANONICAL_PROFANITY_SOURCE = "profanity_detector"
+LEGACY_PROFANITY_SOURCES = frozenset({"subtitles"})
+
+
+def normalize_detection_source(
+    det: Dict[str, Any],
+    default_profanity_source: str = CANONICAL_PROFANITY_SOURCE,
+) -> Dict[str, Any]:
+    """Explicitly normalize detection source identifiers to canonical forms.
+
+    Ensures profanity detections use the canonical 'profanity_detector' identifier
+    prescribed in config.yaml and Person A's fixtures, mapping legacy 'subtitles'
+    or unspecified sources while leaving other triggers untouched.
+    """
+    if det.get("trigger") == "profanity":
+        source = det.get("source")
+        if not source or source in LEGACY_PROFANITY_SOURCES:
+            det["source"] = default_profanity_source
+    return det
+
+
 def adapt_subtitle_cues_to_raw_detections(
     subtitle_data: Union[Dict[str, Any], List[Dict[str, Any]]],
-    default_source: str = "subtitles",
+    default_source: str = CANONICAL_PROFANITY_SOURCE,
 ) -> List[Dict[str, Any]]:
     """Adapt Person C subtitle cues or detection records into raw detection dictionaries.
 
@@ -296,14 +317,15 @@ def adapt_subtitle_cues_to_raw_detections(
     2. A dictionary containing a "cues" list: {"cues": [...]}
     3. A dictionary containing a "detections" list: {"provenance": ..., "detections": [...]}
     4. A raw list of detection dictionaries already matching the detector contract:
-       [{"start": 1.0, "end": 3.5, "trigger": "profanity", "score": 1.0, "source": "subtitles"}]
+       [{"start": 1.0, "end": 3.5, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"}]
 
     Rules:
     - Filters out ordinary speech or sound descriptions without flagged words.
     - If a cue dictionary contains non-empty "flagged_words" or "flagged", it is converted
       to a canonical profanity raw detection:
       {"start": round(start, 3), "end": round(end, 3), "trigger": "profanity", "score": 1.0, "source": default_source}.
-    - Existing raw detections (having "trigger") are validated and preserved without alteration.
+    - Existing raw detections (having "trigger") are validated, normalized to canonical profanity_detector source,
+      and preserved.
     - Does not mutate input objects.
     - Returns a list of standardized raw detection dictionaries.
     """
@@ -348,6 +370,10 @@ def adapt_subtitle_cues_to_raw_detections(
             score_f = float(item.get("score", 1.0))
             source_str = str(item.get("source", default_source))
             trigger_str = str(item["trigger"])
+
+            # Normalize profanity source to canonical source if legacy or missing
+            if trigger_str == "profanity" and (source_str in LEGACY_PROFANITY_SOURCES or not source_str):
+                source_str = default_source
 
             adapted_detections.append({
                 "start": round(start_f, 3),
@@ -409,11 +435,17 @@ def package_cues(
     """
     # 1. Extract raw detections list and metadata
     if isinstance(raw_data, dict):
-        detections = list(raw_data.get("detections", []))
+        detections = [normalize_detection_source(dict(d)) for d in raw_data.get("detections", [])]
         if film_id is None:
             film_id = raw_data.get("film_id")
+        raw_synthetic = raw_data.get("synthetic")
         if synthetic is None:
-            synthetic = raw_data.get("synthetic", True)
+            synthetic = raw_synthetic if raw_synthetic is not None else True
+        elif synthetic is False and raw_synthetic is True:
+            raise ValueError(
+                "Cannot mark index as real (synthetic=False): input detector data explicitly marks detections as synthetic. "
+                "Fabricated cues must never be marked as real."
+            )
         if description is None:
             description = raw_data.get("description")
         if duration_seconds is None and "timeline" in raw_data and isinstance(raw_data["timeline"], dict):
@@ -421,14 +453,76 @@ def package_cues(
         if subtitles is None and "subtitles" in raw_data:
             subtitles = raw_data.get("subtitles")
     elif isinstance(raw_data, list):
-        detections = list(raw_data)
+        if raw_data and isinstance(raw_data[0], dict) and ("detections" in raw_data[0] or ("film_id" in raw_data[0] and "cues" in raw_data[0])):
+            detections = []
+            seen_sigs = set()
+            any_synth = False
+            all_real = True
+            for file_data in raw_data:
+                f_film = file_data.get("film_id")
+                f_dur = file_data.get("timeline", {}).get("duration_seconds") if isinstance(file_data.get("timeline"), dict) else None
+                f_synth = file_data.get("synthetic")
+
+                if f_film is not None:
+                    if film_id is not None and str(f_film).strip().lower() != str(film_id).strip().lower():
+                        raise ValueError(
+                            f"Incompatible film metadata: input specifies film_id='{f_film}', "
+                            f"conflicting with established film_id='{film_id}'."
+                        )
+                    film_id = f_film
+
+                if f_dur is not None:
+                    f_dur_f = float(f_dur)
+                    if duration_seconds is not None and abs(f_dur_f - float(duration_seconds)) > 0.05:
+                        raise ValueError(
+                            f"Incompatible timeline metadata: input declares duration_seconds={f_dur_f}, "
+                            f"conflicting with established duration_seconds={duration_seconds}."
+                        )
+                    duration_seconds = f_dur_f
+
+                if f_synth is True:
+                    any_synth = True
+                    all_real = False
+                elif f_synth is False:
+                    pass
+                else:
+                    any_synth = True
+                    all_real = False
+
+                cues_in_data = file_data.get("detections", file_data.get("cues", []))
+                for c in cues_in_data:
+                    norm_c = normalize_detection_source(dict(c))
+                    sig = (round(float(norm_c["start"]), 3), round(float(norm_c["end"]), 3), str(norm_c["trigger"]), str(norm_c["source"]))
+                    if sig not in seen_sigs:
+                        seen_sigs.add(sig)
+                        detections.append(norm_c)
+
+            if synthetic is not None:
+                if synthetic is False and any_synth:
+                    raise ValueError(
+                        "Cannot mark index as real (synthetic=False): input detector data contains synthetic detections. "
+                        "Fabricated cues must never be marked as real."
+                    )
+            else:
+                synthetic = False if (all_real and not any_synth) else True
+        else:
+            detections = [normalize_detection_source(dict(d)) for d in raw_data if isinstance(d, dict)]
     else:
         raise ValueError(f"raw_data must be a dictionary or list, got {type(raw_data)}")
 
-    # Integrate subtitle profanity cues if provided
+    # Integrate subtitle profanity cues if provided (deduplicating against already loaded cues)
     if subtitles is not None:
         sub_dets = adapt_subtitle_cues_to_raw_detections(subtitles)
-        detections.extend(sub_dets)
+        seen_sigs = {
+            (round(float(d["start"]), 3), round(float(d["end"]), 3), str(d["trigger"]), str(d["source"]))
+            for d in detections
+            if isinstance(d, dict) and "start" in d and "end" in d and "trigger" in d and "source" in d
+        }
+        for sd in sub_dets:
+            sig = (round(float(sd["start"]), 3), round(float(sd["end"]), 3), str(sd["trigger"]), str(sd["source"]))
+            if sig not in seen_sigs:
+                seen_sigs.add(sig)
+                detections.append(sd)
 
     # Resolve film_id default
     if not film_id:
@@ -571,8 +665,218 @@ def atomic_write_json(data: Dict[str, Any], output_path: Path | str, indent: int
         raise
 
 
+def load_and_aggregate_detector_inputs(
+    input_paths: Union[Path, str, Sequence[Union[Path, str]]],
+    subtitles_path: Optional[Union[Path, str]] = None,
+    film_id: Optional[str] = None,
+    duration_seconds: Optional[float] = None,
+    fps: Optional[float] = None,
+    synthetic: Optional[bool] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Load, validate, and aggregate multiple raw detector files into unified detections.
+
+    Enforces:
+    - Consistent film metadata: all files must belong to the same film asset (rejecting conflicts).
+    - Timeline alignment: all files must share the same timeline duration (rejecting conflicts).
+    - Deduplication: redundant input files or identical detections are deduplicated.
+    - Subtitle deduplication: if the subtitle path is already in input_paths, it is not re-ingested.
+    - Synthetic guardrail: if any input contains synthetic data, the output cannot be marked as real.
+    - Source normalization: profanity detections are normalized to 'profanity_detector'.
+
+    Returns:
+        (aggregated_detections, resolved_metadata)
+    """
+    if isinstance(input_paths, (str, Path)):
+        raw_paths = [Path(input_paths)]
+    elif isinstance(input_paths, collections.abc.Sequence) and not isinstance(input_paths, (str, bytes)):
+        raw_paths = [Path(p) for p in input_paths]
+    else:
+        raise TypeError(f"input_paths must be a Path, str, or sequence of paths, got {type(input_paths).__name__}")
+
+    if not raw_paths:
+        raise ValueError("At least one input detector file path must be specified.")
+
+    # Deduplicate input paths preserving order
+    unique_paths: List[Path] = []
+    seen_paths: Set[Path] = set()
+    for p in raw_paths:
+        rp = p.resolve()
+        if rp not in seen_paths:
+            seen_paths.add(rp)
+            unique_paths.append(p)
+
+    for p in unique_paths:
+        if not p.is_file():
+            raise FileNotFoundError(f"Raw cues input file not found: {p.resolve()}")
+
+    # Determine whether subtitles_path should be loaded separately
+    should_load_subtitles = False
+    sub_data = None
+    if subtitles_path is not None:
+        sub_p = Path(subtitles_path)
+        if not sub_p.is_file():
+            raise FileNotFoundError(f"Subtitles file not found: {sub_p.resolve()}")
+        if sub_p.resolve() in seen_paths:
+            # Subtitle file already supplied via --input; avoid duplicate file ingestion
+            should_load_subtitles = False
+        else:
+            should_load_subtitles = True
+            with sub_p.open("r", encoding="utf-8") as f:
+                sub_data = json.load(f)
+
+    established_film_id = film_id
+    established_duration = duration_seconds
+    established_fps = fps
+    any_file_synthetic = False
+    all_files_real = True
+
+    all_detections: List[Dict[str, Any]] = []
+    seen_detection_signatures: Set[Tuple[float, float, str, str]] = set()
+
+    for p in unique_paths:
+        with p.open("r", encoding="utf-8") as f:
+            file_data = json.load(f)
+
+        file_film_id = None
+        file_duration = None
+        file_fps = None
+        file_synthetic = None
+        file_cues: List[Any] = []
+
+        if isinstance(file_data, dict):
+            file_film_id = file_data.get("film_id")
+            file_synthetic = file_data.get("synthetic")
+            if "timeline" in file_data and isinstance(file_data["timeline"], dict):
+                file_duration = file_data["timeline"].get("duration_seconds")
+                file_fps = file_data["timeline"].get("fps") or file_data["timeline"].get("frame_rate")
+
+            if "detections" in file_data:
+                if not isinstance(file_data["detections"], list):
+                    raise ValueError(
+                        f"Input file '{p.name}' contains invalid 'detections' field: expected a list, got {type(file_data['detections']).__name__}"
+                    )
+                file_cues = file_data["detections"]
+            elif "cues" in file_data:
+                if not isinstance(file_data["cues"], list):
+                    raise ValueError(
+                        f"Input file '{p.name}' contains invalid 'cues' field: expected a list, got {type(file_data['cues']).__name__}"
+                    )
+                # Subtitle cues.json or packaged index cues
+                if any("kind" in c or "flagged_words" in c or "flagged" in c for c in file_data["cues"] if isinstance(c, dict)):
+                    file_cues = adapt_subtitle_cues_to_raw_detections(file_data["cues"])
+                else:
+                    file_cues = file_data["cues"]
+            else:
+                raise ValueError(
+                    f"Input file '{p.name}' is missing expected 'detections' or 'cues' list."
+                )
+        elif isinstance(file_data, list):
+            if any("kind" in c or "flagged_words" in c or "flagged" in c for c in file_data if isinstance(c, dict)):
+                file_cues = adapt_subtitle_cues_to_raw_detections(file_data)
+            else:
+                file_cues = file_data
+        else:
+            raise ValueError(f"Input file '{p.name}' must contain a JSON object or array, got {type(file_data).__name__}")
+
+        # Film ID validation
+        if file_film_id is not None:
+            clean_file_film = str(file_film_id).strip().lower()
+            if established_film_id is not None:
+                clean_established = str(established_film_id).strip().lower()
+                if clean_file_film != clean_established:
+                    raise ValueError(
+                        f"Incompatible film metadata: input '{p.name}' specifies film_id='{file_film_id}', "
+                        f"which conflicts with established film_id='{established_film_id}'. "
+                        f"All detector inputs must belong to the same film."
+                    )
+            else:
+                established_film_id = file_film_id
+
+        # Timeline duration validation
+        if file_duration is not None:
+            file_dur_f = float(file_duration)
+            if established_duration is not None:
+                if abs(file_dur_f - float(established_duration)) > 0.05:
+                    raise ValueError(
+                        f"Incompatible timeline metadata: input '{p.name}' declares duration_seconds={file_dur_f}, "
+                        f"which conflicts with established duration_seconds={established_duration}. "
+                        f"All detector inputs must share the same presentation timeline."
+                    )
+            else:
+                established_duration = file_dur_f
+
+        # FPS extraction
+        if file_fps is not None and established_fps is None:
+            established_fps = float(file_fps)
+
+        # Synthetic tracking
+        if file_synthetic is True:
+            any_file_synthetic = True
+            all_files_real = False
+        elif file_synthetic is False:
+            pass  # real
+        else:
+            # Unspecified synthetic flag defaults to treating as synthetic fixture
+            any_file_synthetic = True
+            all_files_real = False
+
+        # Add detections with source normalization and exact duplicate deduplication
+        for cue in file_cues:
+            if not isinstance(cue, dict):
+                raise ValueError(f"Detection entry in '{p.name}' must be a dictionary, got {type(cue).__name__}")
+            if "trigger" not in cue and ("kind" in cue or "flagged_words" in cue or "flagged" in cue):
+                sub_dets = adapt_subtitle_cues_to_raw_detections([cue])
+                for d in sub_dets:
+                    sig = (round(float(d["start"]), 3), round(float(d["end"]), 3), str(d["trigger"]), str(d["source"]))
+                    if sig not in seen_detection_signatures:
+                        seen_detection_signatures.add(sig)
+                        all_detections.append(d)
+            elif "trigger" in cue:
+                normalized = normalize_detection_source(dict(cue))
+                sig = (
+                    round(float(normalized["start"]), 3),
+                    round(float(normalized["end"]), 3),
+                    str(normalized["trigger"]),
+                    str(normalized["source"]),
+                )
+                if sig not in seen_detection_signatures:
+                    seen_detection_signatures.add(sig)
+                    all_detections.append(normalized)
+
+    # Ingest separately provided subtitles if not already in input
+    if should_load_subtitles and sub_data is not None:
+        sub_dets = adapt_subtitle_cues_to_raw_detections(sub_data)
+        for d in sub_dets:
+            sig = (round(float(d["start"]), 3), round(float(d["end"]), 3), str(d["trigger"]), str(d["source"]))
+            if sig not in seen_detection_signatures:
+                seen_detection_signatures.add(sig)
+                all_detections.append(d)
+
+    # Synthetic flag resolution & guardrail
+    if synthetic is not None:
+        if synthetic is False and any_file_synthetic:
+            raise ValueError(
+                "Cannot mark index as real (synthetic=False): input detector data contains synthetic detections. "
+                "Fabricated cues must never be marked as real."
+            )
+        resolved_synthetic = bool(synthetic)
+    else:
+        if all_files_real and not any_file_synthetic and len(unique_paths) > 0:
+            resolved_synthetic = False
+        else:
+            resolved_synthetic = True
+
+    resolved_metadata = {
+        "film_id": established_film_id,
+        "duration_seconds": established_duration,
+        "fps": established_fps,
+        "synthetic": resolved_synthetic,
+    }
+    return all_detections, resolved_metadata
+
+
 def package_and_save_index(
-    input_path: Path | str = DEFAULT_CUES_INPUT_PATH,
+    input_path: Union[Path, str, Sequence[Union[Path, str]]] = DEFAULT_CUES_INPUT_PATH,
     output_path: Path | str = DEFAULT_INDEX_OUTPUT_PATH,
     config_path: Path | str = DEFAULT_CONFIG_PATH,
     schema_path: Path | str = DEFAULT_SCHEMA_PATH,
@@ -580,34 +884,30 @@ def package_and_save_index(
     duration_seconds: Optional[float] = None,
     fps: Optional[float] = None,
     subtitles_path: Optional[Path | str] = None,
+    synthetic: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """Load raw cues, apply merge and packaging, validate, and write atomically to output_path."""
-    in_path = Path(input_path)
-    if not in_path.is_file():
-        raise FileNotFoundError(f"Raw cues input file not found: {in_path.resolve()}")
-
-    with in_path.open("r", encoding="utf-8") as f:
-        raw_data = json.load(f)
-
-    subtitles_data = None
-    if subtitles_path is not None:
-        sub_p = Path(subtitles_path)
-        if not sub_p.is_file():
-            raise FileNotFoundError(f"Subtitles file not found: {sub_p.resolve()}")
-        with sub_p.open("r", encoding="utf-8") as f:
-            subtitles_data = json.load(f)
-
     config_data = load_config_data(config_path)
     schema_data = load_schema(schema_path)
 
-    index_data = package_cues(
-        raw_data=raw_data,
+    aggregated_detections, meta = load_and_aggregate_detector_inputs(
+        input_paths=input_path,
+        subtitles_path=subtitles_path,
         film_id=film_id,
         duration_seconds=duration_seconds,
         fps=fps,
+        synthetic=synthetic,
+    )
+
+    index_data = package_cues(
+        raw_data=aggregated_detections,
+        film_id=meta["film_id"],
+        duration_seconds=meta["duration_seconds"],
+        fps=meta["fps"],
         config=config_data,
+        synthetic=meta["synthetic"],
         schema=schema_data,
-        subtitles=subtitles_data,
+        subtitles=None,
     )
 
     atomic_write_json(index_data, output_path)
@@ -617,13 +917,17 @@ def package_and_save_index(
 def main() -> int:
     """CLI entrypoint for cues packaging."""
     parser = argparse.ArgumentParser(
-        description="Package raw detection records into a Trigger-Aware Player cue index (index.json)."
+        description="Package raw detection records from one or more detectors into a Trigger-Aware Player cue index (index.json)."
     )
     parser.add_argument(
         "--input",
         type=Path,
-        default=DEFAULT_CUES_INPUT_PATH,
-        help="Path to raw detections JSON (default: data/cues.json)",
+        nargs="+",
+        default=[DEFAULT_CUES_INPUT_PATH],
+        help=(
+            "One or more paths to raw detector JSON files (default: data/cues.json). "
+            "All input files must belong to the same film and media timeline."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -647,7 +951,11 @@ def main() -> int:
         "--film-id",
         type=str,
         default=None,
-        help="Film identifier (e.g. 'sintel'). Defaults to metadata in input or config.",
+        help=(
+            "Film identifier (e.g. 'sintel'). Defaults to metadata in input or config. "
+            "If specified, all input files with embedded film_id must match this identifier; "
+            "conflicting media will be rejected to prevent accidental cross-film packaging."
+        ),
     )
     parser.add_argument(
         "--duration",
@@ -667,9 +975,19 @@ def main() -> int:
         default=None,
         help="Optional path to subtitle cues or detections JSON (e.g. data/cues.json or detections/subtitles.json).",
     )
+    parser.add_argument(
+        "--synthetic",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Explicitly mark index as synthetic or real (defaults to metadata in input raw detections).",
+    )
     args = parser.parse_args()
 
-    print(f"Packaging cues from: {args.input.resolve()}")
+    if isinstance(args.input, list):
+        inputs_desc = ", ".join(str(p.resolve()) for p in args.input)
+    else:
+        inputs_desc = str(args.input.resolve())
+    print(f"Packaging cues from: {inputs_desc}")
     if args.subtitles:
         print(f"Integrating subtitles from: {args.subtitles.resolve()}")
     print(f"Target output index: {args.output.resolve()}")
@@ -684,6 +1002,7 @@ def main() -> int:
             duration_seconds=args.duration,
             fps=args.fps,
             subtitles_path=args.subtitles,
+            synthetic=args.synthetic,
         )
         cues_count = len(index_data.get("cues", []))
         print(f"\nSUCCESS: Packaged {cues_count} cue(s) into {args.output.resolve()} cleanly.")

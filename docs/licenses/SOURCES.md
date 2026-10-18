@@ -69,3 +69,18 @@ All samples and synthesis procedures are released under permissive or public-dom
    All test clips can be generated entirely offline using deterministic numerical synthesis in `scripts/generate_test_clips.py`. No external API keys or proprietary sound libraries are required.
 2. **Third-Party File Fetching (Optional)**:
    For external real-world recordings, `scripts/download_audio_samples.py` provides an authenticated, checksum-verified download mechanism for CC0-licensed files without polluting the git repository with large binary blobs.
+
+---
+
+## 4. Visual Preview Assets
+
+### 4.1 Blur Preview Image (`blur_preview`)
+- **Asset ID**: `blur_preview`
+- **Path**: `src/assets/blur_preview.png`
+- **Purpose**: Step 5 blur preview image for user settings and blur intensity calibration.
+- **Description**: High-detail organic photographic image featuring fine detail (pores, stem structure, skin striations) with zero trigger imagery (no spiders, violence, or strobe patterns).
+- **Label**: `"sample: real films vary"`
+- **License**: **CC0 1.0 Universal (Public Domain Dedication)**
+- **Verification Hash (SHA-256)**: `0cbdd98a62bf94f5f28dbac85a70bacc4fe0c407c8919765c6ec2d7df193ecdf`
+- **Documentation**: See [`docs/licenses/blur_preview_license.md`](blur_preview_license.md) and [`docs/licenses/media_rights.json`](media_rights.json).
+

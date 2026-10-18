@@ -47,5 +47,18 @@
         }
       ]
     }
+  ],
+  "preview_assets": [
+    {
+      "asset_id": "blur_preview",
+      "path": "src/assets/blur_preview.png",
+      "description": "High-detail photographic asset for testing on-device visual blur intensity previews without trigger imagery.",
+      "label": "sample: real films vary",
+      "license_name": "CC0 1.0 Universal / Permissive Public Domain",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Public Domain / Creative Commons CC0",
+      "verification_date": "2026-10-18",
+      "sha256": "0cbdd98a62bf94f5f28dbac85a70bacc4fe0c407c8919765c6ec2d7df193ecdf"
+    }
   ]
 }

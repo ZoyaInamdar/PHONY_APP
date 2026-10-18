@@ -2406,10 +2406,16 @@ describe('PlayerScreen Component Tests', () => {
       });
       expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
 
-      // 4. At 10.00s (cue start: window closes and trigger actions activate) -> dialog disappears
+      // 4. At 10.00s (cue start: window boundary passed, but dialog remains visible until user action)
       act(() => {
         videoComp.instance.currentTime = 10.00;
         videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 5. Dismiss explicitly via Continue button
+      act(() => {
+        fireEvent.press(getByTestId('prompt-continue'));
       });
       expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
     });
@@ -2806,6 +2812,508 @@ describe('PlayerScreen Component Tests', () => {
         fireEvent.press(getByTestId('harness-close'));
       });
       expect(queryByTestId('prompt-harness-panel')).toBeNull();
+    });
+
+    it('proves the prompt remains open across subsequent playback time updates without disappearing', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Enter prompt window at 6.0s via onTimeUpdate -> prompt appears
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 2. Subsequent ordinary playback time updates must NOT dismiss the prompt
+      act(() => {
+        videoComp.instance.currentTime = 7.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      act(() => {
+        videoComp.instance.currentTime = 8.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Even when playback time reaches and passes cue start (10.0s)
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      act(() => {
+        videoComp.instance.currentTime = 11.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 3. Prompt is only dismissed when the user explicitly chooses Continue
+      act(() => {
+        fireEvent.press(getByTestId('prompt-continue'));
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // 4. Further time updates after cues finish do not re-prompt
+      act(() => {
+        videoComp.instance.currentTime = 25.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('ensures harness scenario cues take priority only in harness mode and prevent production cues from colliding', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, queryByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          devHarnessMode={true}
+          initialHarnessScenario={0}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Verify harness is open
+      expect(getByTestId('prompt-harness-panel')).toBeTruthy();
+
+      // In production cues, 3.0s is inside [1.0s, 6.0s) for cue-verify-mute (loud_spike at 6.0s)
+      act(() => {
+        videoComp.instance.currentTime = 3.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // In harness mode, scenario 1 has only gunshot at 10.0s (window [5.0s, 10.0s)), so no prompt at 3.0s
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(queryByText(/loud_spike/i)).toBeNull();
+
+      // Press Seek Into Window for Scenario 1 (seeks to 6.0s)
+      act(() => {
+        fireEvent.press(getByTestId('harness-seek-window'));
+      });
+
+      // Scenario 1 prompt appears with gunshot at 00:10
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/gunshot/i)).toBeTruthy();
+      expect(getByText(/00:10/)).toBeTruthy();
+      expect(queryByText(/loud_spike/i)).toBeNull();
+
+      // Prompt persists across subsequent playback time updates
+      act(() => {
+        videoComp.instance.currentTime = 7.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/gunshot/i)).toBeTruthy();
+    });
+
+    it('preserves normal production cue prompt behavior when dev harness is disabled', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          devHarnessMode={false}
+          options={{
+            ...defaultPlaybackOptions,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Dev harness is closed
+      expect(queryByTestId('prompt-harness-panel')).toBeNull();
+
+      // In default verification profile, cue-verify-mute has start 6.0s (loud_spike)
+      // Advance to 3.0s (in advance window [1.0s, 6.0s))
+      act(() => {
+        videoComp.instance.currentTime = 3.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Production cue prompt appears as expected
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/loud_spike/i)).toBeTruthy();
+      expect(getByText(/00:06/)).toBeTruthy();
+    });
+
+    it('proves that a production cue such as the loud_spike cue at 30 seconds cannot replace or interfere with Scenario 1 while harness mode is active', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, queryByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          devHarnessMode={true}
+          initialHarnessScenario={0}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Advance to 26.0s (which is lead time window [25.0s, 30.0s) for production loud_spike at 30.0s)
+      act(() => {
+        videoComp.instance.currentTime = 26.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Must NOT show prompt for production loud_spike cue at 30.0s
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(queryByText(/loud_spike/i)).toBeNull();
+      expect(queryByText(/00:30/)).toBeNull();
+
+      // 2. Advance to 29.5s
+      act(() => {
+        videoComp.instance.currentTime = 29.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(queryByText(/loud_spike/i)).toBeNull();
+
+      // 3. Seek to Scenario 1 window at 6.0s
+      act(() => {
+        fireEvent.press(getByTestId('harness-seek-window'));
+      });
+
+      // Exclusive cue is gunshot at 00:10
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/gunshot/i)).toBeTruthy();
+      expect(getByText(/00:10/)).toBeTruthy();
+      expect(queryByText(/loud_spike/i)).toBeNull();
+    });
+
+    it('ensures an open prompt is not bypassed by automatic skip handling', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Trigger prompt at 6.0s for cue prompt-cue-skip-1 [10.0s, 15.0s)
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-skip')).toBeTruthy();
+
+      // 2. Playback advances to 10.0s (the exact start of the skip cue)
+      // Normal auto-skip would seek forward to 15.0s, but because prompt is open,
+      // it must NOT auto-skip or dismiss the prompt.
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Video must NOT have auto-skipped to 15.0s
+      expect(videoComp.instance.currentTime).toBe(10.0);
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 3. Playback advances to 10.5s while user still has dialog open
+      act(() => {
+        videoComp.instance.currentTime = 10.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(10.5);
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 4. User explicitly clicks Skip Scene -> now it skips forward past chained skip cues to 20.0s
+      act(() => {
+        fireEvent.press(getByTestId('prompt-skip'));
+      });
+      expect(videoComp.instance.currentTime).toBe(20.0);
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('ensures scenario changes and seek actions do not use stale cue selections', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, queryByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          devHarnessMode={true}
+          initialHarnessScenario={0}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Switch to Scenario 2 (Review Unconfirmed: spider at 20.0s, confirmReviewSkip: false)
+      act(() => {
+        fireEvent.press(getByTestId('harness-scenario-1'));
+      });
+
+      // Video seeks to scenario 2 before-window (13.0s) immediately
+      expect(videoComp.instance.currentTime).toBe(13.0);
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // Press Seek Into Window (16.0s)
+      act(() => {
+        fireEvent.press(getByTestId('harness-seek-window'));
+      });
+      expect(videoComp.instance.currentTime).toBe(16.0);
+
+      // Scenario 2 prompt appears immediately without stale Scenario 1 gunshot cue
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/spider/i)).toBeTruthy();
+      expect(getByText(/00:20/)).toBeTruthy();
+      expect(queryByText(/gunshot/i)).toBeNull();
+
+      // Unconfirmed review cue never exposes Skip Scene button
+      expect(queryByTestId('prompt-skip')).toBeNull();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+    });
+
+    it('proves clicking Continue does not seek to the cue end and allows playback through cue', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          devHarnessMode={true}
+          initialHarnessScenario={0} // Scenario 1: Gunshot at 10.0s to 13.0s
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Seek to 6.0s (into prompt window [5.0s, 10.0s))
+      act(() => {
+        fireEvent.press(getByTestId('harness-seek-window'));
+      });
+      expect(videoComp.instance.currentTime).toBe(6.0);
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+      expect(getByTestId('prompt-skip')).toBeTruthy();
+
+      // 2. Playback advances while prompt is open into the cue at 10.5s
+      act(() => {
+        videoComp.instance.currentTime = 10.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(10.5);
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 3. User clicks Continue -> prompt must dismiss and must NOT seek to cue end (13.0s)
+      act(() => {
+        fireEvent.press(getByTestId('prompt-continue'));
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(videoComp.instance.currentTime).toBe(10.5); // Still at 10.5s!
+
+      // 4. Playback continues inside the cue at 11.0s, 11.5s, 12.0s -> no delayed skip!
+      act(() => {
+        videoComp.instance.currentTime = 11.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(11.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 12.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(12.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 13.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(13.0);
+    });
+
+    it('proves clicking Continue does not trigger a delayed or queued skip on subsequent time updates', () => {
+      const onBack = jest.fn();
+      const skipCues: Cue[] = [
+        {
+          id: 'test-skip-cue-continue',
+          start: 10.0,
+          end: 14.0,
+          source: 'visual',
+          action: 'skip',
+          trigger: 'jump_scare',
+        },
+      ];
+
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={skipCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Enter prompt window at 7.0s (before cue start 10.0s)
+      act(() => {
+        videoComp.instance.currentTime = 7.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 2. User clicks Continue at 7.0s
+      act(() => {
+        fireEvent.press(getByTestId('prompt-continue'));
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(videoComp.instance.currentTime).toBe(7.0);
+
+      // 3. Normal forward playback advances to 8.0s, 9.0s, 10.0s (cue start), 11.0s, 12.0s
+      // None of these must jump to 14.0s!
+      act(() => {
+        videoComp.instance.currentTime = 8.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(8.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 9.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(9.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+      // At 10.0s (the cue start), playback must NOT auto-skip to 14.0s because Continue was selected
+      expect(videoComp.instance.currentTime).toBe(10.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 11.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(11.0);
+
+      act(() => {
+        videoComp.instance.currentTime = 14.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(14.0);
+    });
+
+    it('proves explicit Skip Scene still works for eligible cues while prompt is active', () => {
+      const onBack = jest.fn();
+      const skipCues: Cue[] = [
+        {
+          id: 'test-explicit-skip-cue',
+          start: 10.0,
+          end: 15.0,
+          source: 'visual',
+          action: 'skip',
+          trigger: 'gunshot',
+        },
+      ];
+
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={skipCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Seek into prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-skip')).toBeTruthy();
+
+      // Click Skip Scene -> seeks to 15.0s
+      act(() => {
+        fireEvent.press(getByTestId('prompt-skip'));
+      });
+      expect(videoComp.instance.currentTime).toBe(15.0);
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('proves non-eligible and unconfirmed needs_review cues cannot be skipped and fall back safely', () => {
+      const onBack = jest.fn();
+      const reviewCues: Cue[] = [
+        {
+          id: 'test-unconfirmed-review-skip',
+          start: 20.0,
+          end: 25.0,
+          source: 'visual',
+          action: 'skip',
+          trigger: 'spider',
+          status: 'needs_review',
+        },
+      ];
+
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={reviewCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            confirmReviewSkip: false, // Unconfirmed!
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Enter window at 16.0s (window [15.0s, 20.0s))
+      act(() => {
+        videoComp.instance.currentTime = 16.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Skip Scene button must NOT be present
+      expect(queryByTestId('prompt-skip')).toBeNull();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+
+      // Click Continue
+      act(() => {
+        fireEvent.press(getByTestId('prompt-continue'));
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(videoComp.instance.currentTime).toBe(16.0);
+
+      // Enter cue at 20.0s: must NOT skip, and must safely apply blackout fallback overlay
+      act(() => {
+        videoComp.instance.currentTime = 20.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(20.0); // Not skipped!
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy(); // Safe visual hide fallback applied!
     });
   });
 });

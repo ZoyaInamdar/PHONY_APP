@@ -234,9 +234,32 @@ export const PlayerScreen = ({
     }
   };
 
-  const activeCues: Cue[] = isDevHarnessOpen
-    ? PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex]?.cues ?? (customCues ?? getProfileCues(profile))
-    : customCues ?? getProfileCues(profile);
+  const computeActiveCues = (
+    harnessOpen: boolean,
+    scenarioIndex: number,
+    currentProfile: PlayerProfile,
+  ): Cue[] => {
+    if (harnessOpen) {
+      const scenario = PROMPT_HARNESS_SCENARIOS[scenarioIndex];
+      return scenario ? scenario.cues : [];
+    }
+    return customCues ?? getProfileCues(currentProfile);
+  };
+
+  const activeCues: Cue[] = computeActiveCues(
+    isDevHarnessOpen,
+    selectedHarnessScenarioIndex,
+    profile,
+  );
+
+  const activeCuesRef = useRef<Cue[]>(activeCues);
+  activeCuesRef.current = activeCues;
+
+  const isDevHarnessOpenRef = useRef<boolean>(isDevHarnessOpen);
+  isDevHarnessOpenRef.current = isDevHarnessOpen;
+
+  const selectedHarnessScenarioIndexRef = useRef<number>(selectedHarnessScenarioIndex);
+  selectedHarnessScenarioIndexRef.current = selectedHarnessScenarioIndex;
 
   // User protection preferences state
   const initialHarness = devHarnessMode ? PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex] : null;
@@ -315,6 +338,7 @@ export const PlayerScreen = ({
   const [activePromptCue, setActivePromptCue] = useState<Cue | null>(null);
   const activePromptCueRef = useRef<Cue | null>(null);
   activePromptCueRef.current = activePromptCue;
+  const dismissedPromptCueIdsRef = useRef<Set<string>>(new Set());
   const [focusedPromptButton, setFocusedPromptButton] = useState<'continue' | 'skip'>('continue');
   const handlePromptContinueRef = useRef<() => void>(() => {});
 
@@ -323,13 +347,15 @@ export const PlayerScreen = ({
     if (!activePromptCue) {
       return false;
     }
-    const policyCues = applyReviewPolicy(activeCues, viewerOptions);
+    const currentCues = activeCuesRef.current;
+    const currentOptions = viewerOptionsRef.current;
+    const policyCues = applyReviewPolicy(currentCues, currentOptions);
     const effectiveCue =
       policyCues.find((c) => c.id === activePromptCue.id) ?? activePromptCue;
     return (
       playbackStateRef.current.isCueEligibleForSkip(
         effectiveCue,
-        viewerOptions,
+        currentOptions,
       ) && effectiveCue.action === 'skip'
     );
   })();
@@ -814,8 +840,29 @@ export const PlayerScreen = ({
     }
 
     const currentOptions = overrideOptions ?? viewerOptionsRef.current;
-    const currentCues = overrideCues ?? activeCues;
-    const actions = playbackStateRef.current.resolveAt(time, currentCues, currentOptions);
+    const currentCues = overrideCues ?? activeCuesRef.current;
+
+    // Filter out skip cues whose prompts have been dismissed via Continue
+    // (preserving non-skip cues and unconfirmed needs_review cues that fall back to hide/mute)
+    const cuesToResolve = currentCues.filter((cue) => {
+      if (!dismissedPromptCueIdsRef.current.has(cue.id)) {
+        return true;
+      }
+      if (cue.action !== 'skip') {
+        return true;
+      }
+      const reviewAllowsSkip =
+        cue.status !== 'needs_review' || currentOptions.confirmReviewSkip;
+      if (!reviewAllowsSkip) {
+        return true;
+      }
+      return false;
+    });
+
+    const resolveOptions = activePromptCueRef.current
+      ? { ...currentOptions, skipEnabled: false }
+      : currentOptions;
+    const actions = playbackStateRef.current.resolveAt(time, cuesToResolve, resolveOptions);
     effectiveActionsRef.current = actions;
 
     applyTriggerActionsRef.current = applyTriggerActions;
@@ -825,7 +872,11 @@ export const PlayerScreen = ({
       const maxDur = Number.isFinite(video.duration) ? video.duration : Infinity;
       const targetTime = Math.max(0, Math.min(actions.skipTo, maxDur));
 
-      if (targetTime > time) {
+      const isDismissedPromptSkip = actions.activeCueIds.some((id) =>
+        dismissedPromptCueIdsRef.current.has(id),
+      );
+
+      if (targetTime > time && !activePromptCueRef.current && !isDismissedPromptSkip) {
         console.log(
           `[Trigger] Skip forward: pos=${time.toFixed(2)} → ${targetTime.toFixed(2)} ` +
             `(activeCues: [${actions.activeCueIds.join(',')}])`,
@@ -1006,7 +1057,7 @@ export const PlayerScreen = ({
       if (actions.warnCueIds.length === 0) {
         setWarningStatus('');
       } else {
-        const warnCues = activeCues.filter((c) =>
+        const warnCues = currentCues.filter((c) =>
           actions.warnCueIds.includes(c.id),
         );
         const warnTriggers = warnCues
@@ -1018,10 +1069,35 @@ export const PlayerScreen = ({
 
     // 5. Advance heads-up prompt dialog evaluation
     const promptCue = actions.promptCue ?? null;
-    if (promptCue && !activePromptCueRef.current) {
+    if (activePromptCueRef.current) {
+      // Requirement 4: Keep the prompt visible until the user explicitly chooses
+      // Continue, Skip Scene, or an intentional Back/dismiss action.
+      // Do not let ordinary playback-time updates automatically dismiss an already-open prompt.
+      if (!isSeek) {
+        // Ordinary playback time update: preserve currently open prompt dialog without dismissing
+      } else {
+        // Intentional seek operation:
+        if (promptCue) {
+          if (promptCue.id !== activePromptCueRef.current.id) {
+            activePromptCueRef.current = promptCue;
+            setActivePromptCue(promptCue);
+            setFocusedPromptButton('continue');
+          }
+        } else {
+          // If seeking strictly before the prompt lead-time window or past cue end, dismiss prompt
+          const leadTime = currentOptions.headsUpPrompts?.leadTimeSeconds ?? 5.0;
+          const windowStart = Math.max(0, activePromptCueRef.current.start - leadTime);
+          if (time < windowStart || time >= activePromptCueRef.current.end) {
+            activePromptCueRef.current = null;
+            setActivePromptCue(null);
+          }
+        }
+      }
+    } else if (promptCue) {
+      activePromptCueRef.current = promptCue;
+      setActivePromptCue(promptCue);
       setFocusedPromptButton('continue');
     }
-    setActivePromptCue(promptCue);
 
     if (cuesChanged || muteChanged || volumeChanged || hideChanged || blurChanged || warnChanged || isSeek) {
       lastActiveCuesRef.current = activeCueIdsKey;
@@ -1030,7 +1106,7 @@ export const PlayerScreen = ({
       if (actions.activeCueIds.length === 0) {
         setActiveActionStatus('');
       } else {
-        const activeCueList = activeCues.filter((c) =>
+        const activeCueList = currentCues.filter((c) =>
           actions.activeCueIds.includes(c.id),
         );
         const triggerNames = activeCueList
@@ -1108,13 +1184,19 @@ export const PlayerScreen = ({
     );
 
     // Notify playback engine of seek (for skip-invalidation and prompt re-arming on rewind)
-    playbackStateRef.current.seek(newTime, activeCues, viewerOptionsRef.current);
+    const cuesToUse = activeCuesRef.current;
+    playbackStateRef.current.seek(newTime, cuesToUse, viewerOptionsRef.current);
     if (newTime < currentPos) {
       blurFallbackActiveRef.current = false;
-      for (const cue of activeCues) {
+      const leadTime = viewerOptionsRef.current.headsUpPrompts?.leadTimeSeconds ?? 5.0;
+      for (const cue of cuesToUse) {
         if (cue.start > newTime) {
           recordedFallbackCueIdsRef.current.delete(`blur_${cue.id}`);
           recordedFallbackCueIdsRef.current.delete(`blur_fallback_${cue.id}`);
+        }
+        const windowStart = Math.max(0, cue.start - leadTime);
+        if (newTime < windowStart) {
+          dismissedPromptCueIdsRef.current.delete(cue.id);
         }
       }
     }
@@ -1124,10 +1206,10 @@ export const PlayerScreen = ({
     setCurrentTime(newTime);
 
     // Immediately resolve and apply trigger actions for the new seek destination
-    applyTriggerActions(newTime, true);
+    applyTriggerActions(newTime, true, viewerOptionsRef.current, cuesToUse);
   };
 
-  const seekTo = (targetTime: number) => {
+  const seekTo = (targetTime: number, overrideCues?: Cue[]) => {
     const video = videoRef.current;
     if (!video) {
       return;
@@ -1141,20 +1223,27 @@ export const PlayerScreen = ({
       `[Player] seekTo: currentTime=${currentPos.toFixed(2)} → ${newTime.toFixed(2)}`,
     );
 
-    playbackStateRef.current.seek(newTime, activeCues, viewerOptionsRef.current);
+    const cuesToUse = overrideCues ?? activeCuesRef.current;
+
+    playbackStateRef.current.seek(newTime, cuesToUse, viewerOptionsRef.current);
     if (newTime < currentPos) {
       blurFallbackActiveRef.current = false;
-      for (const cue of activeCues) {
+      const leadTime = viewerOptionsRef.current.headsUpPrompts?.leadTimeSeconds ?? 5.0;
+      for (const cue of cuesToUse) {
         if (cue.start > newTime) {
           recordedFallbackCueIdsRef.current.delete(`blur_${cue.id}`);
           recordedFallbackCueIdsRef.current.delete(`blur_fallback_${cue.id}`);
+        }
+        const windowStart = Math.max(0, cue.start - leadTime);
+        if (newTime < windowStart) {
+          dismissedPromptCueIdsRef.current.delete(cue.id);
         }
       }
     }
 
     video.currentTime = newTime;
     setCurrentTime(newTime);
-    applyTriggerActions(newTime, true);
+    applyTriggerActions(newTime, true, viewerOptionsRef.current, cuesToUse);
   };
 
   const selectHarnessScenario = (index: number) => {
@@ -1162,15 +1251,23 @@ export const PlayerScreen = ({
     if (!scenario) return;
 
     setSelectedHarnessScenarioIndex(index);
-    updateViewerOptions((prev) => ({
-      ...prev,
+    selectedHarnessScenarioIndexRef.current = index;
+
+    const nextCues = scenario.cues ?? [];
+    activeCuesRef.current = nextCues;
+
+    const nextOptions: ViewerOptions = {
+      ...viewerOptionsRef.current,
       ...scenario.options,
       headsUpPrompts: {
         enabled: scenario.options.headsUpPrompts?.enabled ?? true,
         leadTimeSeconds:
           scenario.options.headsUpPrompts?.leadTimeSeconds ?? scenario.leadTimeSeconds,
       },
-    }));
+    };
+
+    viewerOptionsRef.current = nextOptions;
+    setViewerOptions(nextOptions);
 
     playbackStateRef.current = new PlaybackState();
     recordedFallbackCueIdsRef.current.clear();
@@ -1178,8 +1275,10 @@ export const PlayerScreen = ({
     lastWarnCueIdsRef.current = '';
     activePromptCueRef.current = null;
     setActivePromptCue(null);
+    dismissedPromptCueIdsRef.current.clear();
 
-    seekTo(scenario.seekBeforeWindow);
+    seekTo(scenario.seekBeforeWindow, nextCues);
+    persistViewerOptions(nextOptions);
   };
 
   const resetHarnessEngineState = () => {
@@ -1189,9 +1288,10 @@ export const PlayerScreen = ({
     lastWarnCueIdsRef.current = '';
     activePromptCueRef.current = null;
     setActivePromptCue(null);
+    dismissedPromptCueIdsRef.current.clear();
     const video = videoRef.current;
     const pos = video ? video.currentTime : currentTime;
-    applyTriggerActions(pos, true);
+    applyTriggerActions(pos, true, viewerOptionsRef.current, activeCuesRef.current);
   };
 
   const toggleMute = () => {
@@ -1219,15 +1319,72 @@ export const PlayerScreen = ({
     );
   };
 
+  const getChainedSkipCueIds = (
+    cue: Cue,
+    cues: Cue[],
+    options: ViewerOptions,
+  ): string[] => {
+    if (cue.action !== 'skip') {
+      return [cue.id];
+    }
+    const policyCues = applyReviewPolicy(cues, options);
+    const chained = new Set<string>([cue.id]);
+    let destination = cue.end;
+    let extended = true;
+    while (extended) {
+      extended = false;
+      for (const other of policyCues) {
+        if (
+          !chained.has(other.id) &&
+          other.action === 'skip' &&
+          other.start <= destination &&
+          other.end > destination &&
+          playbackStateRef.current.isCueEligibleForSkip(other, options)
+        ) {
+          destination = other.end;
+          chained.add(other.id);
+          extended = true;
+        }
+      }
+    }
+    for (const nested of policyCues) {
+      if (
+        !chained.has(nested.id) &&
+        nested.action === 'skip' &&
+        nested.start >= cue.start &&
+        nested.end <= destination &&
+        playbackStateRef.current.isCueEligibleForSkip(nested, options)
+      ) {
+        chained.add(nested.id);
+      }
+    }
+    return Array.from(chained);
+  };
+
   const handlePromptContinue = () => {
     const cue = activePromptCueRef.current;
     if (!cue) {
       return;
     }
+    const currentOptions = viewerOptionsRef.current;
+    const currentCues = activeCuesRef.current;
+
     playbackStateRef.current.acknowledgePrompt(cue.id);
+    dismissedPromptCueIdsRef.current.add(cue.id);
+
+    const chainedIds = getChainedSkipCueIds(cue, currentCues, currentOptions);
+    for (const id of chainedIds) {
+      playbackStateRef.current.acknowledgePrompt(id);
+      dismissedPromptCueIdsRef.current.add(id);
+    }
+
     activePromptCueRef.current = null;
     setActivePromptCue(null);
     setFocusedControl('play');
+
+    const video = videoRef.current;
+    const pos = video ? video.currentTime : currentTime;
+    applyTriggerActions(pos, false, currentOptions, currentCues);
   };
   handlePromptContinueRef.current = handlePromptContinue;
 
@@ -1251,7 +1408,7 @@ export const PlayerScreen = ({
 
     const targetTime = playbackStateRef.current.handlePromptSkip(
       cue,
-      activeCues,
+      activeCuesRef.current,
       mediaDuration,
       viewerOptionsRef.current,
     );
@@ -1261,9 +1418,9 @@ export const PlayerScreen = ({
         cancelVolumeRamp();
         video.currentTime = targetTime;
         setCurrentTime(targetTime);
-        applyTriggerActions(targetTime, true);
+        applyTriggerActions(targetTime, true, viewerOptionsRef.current, activeCuesRef.current);
       } else {
-        applyTriggerActions(video.currentTime, true);
+        applyTriggerActions(video.currentTime, true, viewerOptionsRef.current, activeCuesRef.current);
       }
     }
   };
@@ -1362,8 +1519,12 @@ export const PlayerScreen = ({
     recordedFallbackCueIdsRef.current.clear();
     console.log(`[Player] Switched trigger profile to: ${nextProfile}`);
 
-    const nextCues =
-      customCues ?? getProfileCues(nextProfile);
+    const nextCues = computeActiveCues(
+      isDevHarnessOpenRef.current,
+      selectedHarnessScenarioIndexRef.current,
+      nextProfile,
+    );
+    activeCuesRef.current = nextCues;
 
     // Re-evaluate actions immediately with new cues
     const video = videoRef.current;
@@ -1694,7 +1855,26 @@ export const PlayerScreen = ({
             <TouchableOpacity
               style={styles.harnessCloseButton}
               testID="harness-close"
-              onPress={() => setIsDevHarnessOpen(false)}
+              onPress={() => {
+                setIsDevHarnessOpen(false);
+                isDevHarnessOpenRef.current = false;
+                const nextCues = computeActiveCues(
+                  false,
+                  selectedHarnessScenarioIndexRef.current,
+                  profile,
+                );
+                activeCuesRef.current = nextCues;
+                playbackStateRef.current = new PlaybackState();
+                recordedFallbackCueIdsRef.current.clear();
+                lastActiveCuesRef.current = '';
+                lastWarnCueIdsRef.current = '';
+                activePromptCueRef.current = null;
+                setActivePromptCue(null);
+                const video = videoRef.current;
+                const pos = video ? video.currentTime : currentTime;
+                applyTriggerActions(pos, true, viewerOptionsRef.current, nextCues);
+              }}
+              focusable={!isSettingsOpen && !activePromptCue}
               accessibilityRole="button"
               accessibilityLabel="Close prompt test harness">
               <Text style={styles.harnessCloseText}>✕ Exit Harness</Text>
@@ -2086,12 +2266,28 @@ export const PlayerScreen = ({
                 onPress={() => {
                   const nextHarnessOpen = !isDevHarnessOpen;
                   setIsDevHarnessOpen(nextHarnessOpen);
+                  isDevHarnessOpenRef.current = nextHarnessOpen;
+
+                  const nextCues = computeActiveCues(
+                    nextHarnessOpen,
+                    selectedHarnessScenarioIndexRef.current,
+                    profile,
+                  );
+                  activeCuesRef.current = nextCues;
+
+                  playbackStateRef.current = new PlaybackState();
+                  recordedFallbackCueIdsRef.current.clear();
+                  lastActiveCuesRef.current = '';
+                  lastWarnCueIdsRef.current = '';
+                  activePromptCueRef.current = null;
+                  setActivePromptCue(null);
+
                   if (nextHarnessOpen) {
                     const scenario =
-                      PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex];
+                      PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndexRef.current];
                     if (scenario) {
-                      updateViewerOptions((prev) => ({
-                        ...prev,
+                      const nextOptions: ViewerOptions = {
+                        ...viewerOptionsRef.current,
                         ...scenario.options,
                         headsUpPrompts: {
                           enabled: scenario.options.headsUpPrompts?.enabled ?? true,
@@ -2099,14 +2295,19 @@ export const PlayerScreen = ({
                             scenario.options.headsUpPrompts?.leadTimeSeconds ??
                             scenario.leadTimeSeconds,
                         },
-                      }));
-                      playbackStateRef.current = new PlaybackState();
-                      recordedFallbackCueIdsRef.current.clear();
-                      lastActiveCuesRef.current = '';
-                      lastWarnCueIdsRef.current = '';
-                      activePromptCueRef.current = null;
-                      setActivePromptCue(null);
+                      };
+                      viewerOptionsRef.current = nextOptions;
+                      setViewerOptions(nextOptions);
+
+                      const video = videoRef.current;
+                      const pos = video ? video.currentTime : currentTime;
+                      applyTriggerActions(pos, true, nextOptions, nextCues);
+                      persistViewerOptions(nextOptions);
                     }
+                  } else {
+                    const video = videoRef.current;
+                    const pos = video ? video.currentTime : currentTime;
+                    applyTriggerActions(pos, true, viewerOptionsRef.current, nextCues);
                   }
                 }}
               />

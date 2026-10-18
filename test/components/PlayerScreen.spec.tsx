@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { BackHandler } from '@amazon-devices/react-native-kepler';
-import { Video } from '@amazon-devices/react-native-w3cmedia';
+import { Video, VideoPlayer } from '@amazon-devices/react-native-w3cmedia';
 import Ajv2020 from 'ajv/dist/2020';
 import cueSchema from '../../schema/cue.schema.json';
 import {
@@ -22,6 +22,7 @@ import { STORAGE_KEYS } from '../../src/storage';
 describe('PlayerScreen Component Tests', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    (VideoPlayer as any).clearInstances();
   });
   const testCues: Cue[] = [
     {
@@ -1788,6 +1789,991 @@ describe('PlayerScreen Component Tests', () => {
       expect(sanitizeViewerOptions([1, 2, 3], defaultPlaybackOptions)).toEqual(
         defaultPlaybackOptions,
       );
+    });
+  });
+
+  describe('Dual-Video Blur Switching and Fallback in PlayerScreen', () => {
+    const blurTestCues: Cue[] = [
+      {
+        id: 'cue-spider-blur-test',
+        start: 20.0,
+        end: 25.0,
+        source: 'visual',
+        action: 'blur',
+        trigger: 'spider',
+      },
+    ];
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      (VideoPlayer as any).clearInstances();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('mounts KeplerShareableSurfaceView and initializes alternate VideoPlayer when alternateBlurredVideoUrl is provided', async () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.instance).toBeTruthy();
+      expect(getByTestId('blurred-shareable-surface')).toBeTruthy();
+
+      expect((VideoPlayer as any).instances.length).toBe(1);
+      const altPlayer = (VideoPlayer as any).instances[0];
+      expect(altPlayer.src).toBe('data/test_clips/sintel_blurred.mp4');
+      expect(altPlayer.muted).toBe(true);
+      expect(altPlayer.volume).toBe(0.0);
+      expect(videoComp.instance.muted).toBe(false);
+      expect(videoComp.instance.volume).toBe(1.0);
+    });
+
+    it('switches to blurred alternate video on seeked completion and lifts blackout overlay', async () => {
+      const onBack = jest.fn();
+      const { getByText, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // 1. Before cue at t=19.5s: clean playback, no overlay
+      act(() => {
+        videoComp.instance.currentTime = 19.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // 2. Enter cue at t=21.0s: seeked completes synchronously in mock
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Surface attached to alternate player, blackout overlay is lifted
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+
+      // Clean video remains sole audio master
+      expect(videoComp.instance.muted).toBe(false);
+      expect(videoComp.instance.volume).toBe(1.0);
+      expect(altPlayer.muted).toBe(true);
+      expect(altPlayer.volume).toBe(0.0);
+
+      // 3. Exit cue at t=26.0s: clean video restored, alternate player detached
+      act(() => {
+        videoComp.instance.currentTime = 26.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(altPlayer.surfaceHandle).toBeNull();
+      expect(altPlayer.paused).toBe(true);
+
+      // 4. Verify recap recording
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blurred/)).toBeTruthy();
+    });
+
+    it('shields screen with blackout handover mask while alternate player is seeking', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Gate seeked completion: do not auto-emit seeked
+      altPlayer.autoEmitSeeked = false;
+
+      // Enter cue at t=21.5s
+      act(() => {
+        videoComp.instance.currentTime = 21.5;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // While seeking: blackout handover mask protects the viewer
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // When asynchronous seek finishes: surface transfers and overlay lifts
+      act(() => {
+        altPlayer.triggerSeeked();
+      });
+
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+    });
+
+    it('falls back to honest blackout if alternate seek times out', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+          blurSwitchTimeoutMs={400}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+      altPlayer.autoEmitSeeked = false;
+
+      // Enter cue at t=21.0s
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+      // Advance timers past timeout threshold (400ms)
+      act(() => {
+        jest.advanceTimersByTime(450);
+      });
+
+      // Still blacked out
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // Late seeked event does NOT switch to blur
+      act(() => {
+        altPlayer.triggerSeeked();
+      });
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // Verify recap records honest blacked_out appliedEffect
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+    });
+
+    it('falls back to blackout overlay when alternate player emits error', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Gate seeked completion: do not auto-emit seeked
+      altPlayer.autoEmitSeeked = false;
+
+      // Enter cue at t=21.0s under handover mask
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+      // Trigger error on alternate player
+      act(() => {
+        altPlayer.triggerError(new Error('Hardware decoder failure'));
+      });
+
+      // Immediate fallback to blackout overlay
+      expect(altPlayer.surfaceHandle).toBeNull();
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+
+      // Verify recap records honest blacked_out
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+    });
+
+    it('prioritizes visual hide cues over blur cues during overlap', async () => {
+      const overlappingCues: Cue[] = [
+        {
+          id: 'cue-spider-blur',
+          start: 20.0,
+          end: 30.0,
+          source: 'visual',
+          action: 'blur',
+          trigger: 'spider',
+        },
+        {
+          id: 'cue-flash-hide',
+          start: 22.0,
+          end: 25.0,
+          source: 'visual',
+          action: 'hide',
+          trigger: 'flashing',
+        },
+      ];
+
+      const onBack = jest.fn();
+      const { getByText, getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={overlappingCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // 1. t=21.0s: Blur only
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+
+      // 2. t=23.0s: Hide cue overlaps blur cue -> hide takes precedence (blackout overlay shown)
+      act(() => {
+        videoComp.instance.currentTime = 23.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // 3. t=26.0s: Hide cue ended, blur cue still active -> transitions back to blur
+      act(() => {
+        videoComp.instance.currentTime = 26.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+    });
+
+    it('synchronizes seeking into, within, and out of a blur cue', async () => {
+      const onBack = jest.fn();
+      const { getByText, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // 1. Seek into blur cue from t=0 to t=22.0s
+      act(() => {
+        videoComp.instance.currentTime = 22.0;
+        videoComp.props.onSeeked();
+      });
+      expect(altPlayer.currentTime).toBe(22.0);
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+
+      // 2. Seek within blur cue from t=22.0s to t=24.0s
+      act(() => {
+        videoComp.instance.currentTime = 24.0;
+        videoComp.props.onSeeked();
+      });
+      expect(altPlayer.currentTime).toBe(24.0);
+      expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+
+      // 3. Seek out of blur cue to t=5.0s
+      act(() => {
+        videoComp.instance.currentTime = 5.0;
+        videoComp.props.onSeeked();
+      });
+      expect(altPlayer.surfaceHandle).toBeNull();
+      expect(altPlayer.paused).toBe(true);
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+    });
+
+    it('re-arms blur cue recording on rewind prior to cue start time', async () => {
+      const onBack = jest.fn();
+      const { getByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Play through cue
+      act(() => {
+        videoComp.instance.currentTime = 22.0;
+        videoComp.props.onTimeUpdate();
+        videoComp.instance.currentTime = 26.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Rewind to before cue start
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onSeeked();
+      });
+
+      // Play through cue again
+      act(() => {
+        videoComp.instance.currentTime = 22.0;
+        videoComp.props.onTimeUpdate();
+        videoComp.props.onEnded();
+      });
+
+      // Recap correctly counts the re-armed cue
+      expect(getByText(/1 spider scene blurred/)).toBeTruthy();
+    });
+
+    it('falls back safely to blackout overlay when setSurfaceHandle throws an exception', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Mock setSurfaceHandle to throw native exception
+      jest.spyOn(altPlayer, 'setSurfaceHandle').mockImplementation(() => {
+        throw new Error('Native surface bind exception');
+      });
+
+      // Enter cue at t=21.0s
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Blackout overlay displayed and honest blackout recorded
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+    });
+
+    it('falls back safely to blackout overlay when alternate currentTime assignment throws', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Mock currentTime setter to throw exception
+      const originalSetter = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(altPlayer),
+        'currentTime',
+      )?.set;
+      Object.defineProperty(altPlayer, 'currentTime', {
+        set: () => {
+          throw new Error('Native pipeline seek exception');
+        },
+        configurable: true,
+      });
+
+      // Enter cue at t=21.0s
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Blackout overlay displayed and honest blackout recorded
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+
+      // Restore property descriptor
+      if (originalSetter) {
+        Object.defineProperty(altPlayer, 'currentTime', {
+          set: originalSetter,
+          configurable: true,
+        });
+      }
+    });
+
+    it('holds blackout handover mask until surface handle is created, then safely activates blur', async () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Simulate surface destroyed / handle unavailable
+      const surfaceViewComp = UNSAFE_getByType(
+        require('@amazon-devices/react-native-w3cmedia').KeplerShareableSurfaceView,
+      );
+      act(() => {
+        surfaceViewComp.props.onSurfaceViewDestroyed?.('mock-surface-handle-1');
+      });
+
+      // Enter cue at t=21.0s while surface handle is missing
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Mask holds screen in blackout
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      // Surface handle arrives later
+      act(() => {
+        surfaceViewComp.props.onSurfaceViewCreated?.('delayed-surface-handle-99');
+      });
+
+      // Surface attached and blur mode activated
+      expect(altPlayer.surfaceHandle).toBe('delayed-surface-handle-99');
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+    });
+
+    it('falls back safely to blackout overlay when alternate player initialize() rejects', async () => {
+      const initSpy = jest
+        .spyOn(VideoPlayer.prototype, 'initialize')
+        .mockRejectedValueOnce(new Error('Codec initialization failed'));
+
+      const onBack = jest.fn();
+      const { getByText, getByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={blurTestCues}
+          alternateBlurredVideoUrl="data/test_clips/sintel_blurred.mp4"
+        />,
+      );
+
+      // Allow rejection microtask to flush
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const videoComp = UNSAFE_getByType(Video);
+      const altPlayer = (VideoPlayer as any).instances[0];
+
+      // Enter cue at t=21.0s
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Blackout overlay displayed and honest blackout recorded
+      expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(altPlayer.surfaceHandle).toBeNull();
+
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+
+      initSpy.mockRestore();
+    });
+  });
+
+  describe('Heads-Up Advance Prompt Integration', () => {
+    const promptTestCues: Cue[] = [
+      {
+        id: 'prompt-cue-skip-1',
+        start: 10.0,
+        end: 15.0,
+        source: 'visual',
+        action: 'skip',
+        trigger: 'jump_scare',
+      },
+      {
+        id: 'prompt-cue-skip-2',
+        start: 14.0,
+        end: 20.0,
+        source: 'visual',
+        action: 'skip',
+        trigger: 'jump_scare',
+      },
+      {
+        id: 'prompt-cue-review-1',
+        start: 32.0,
+        end: 36.0,
+        source: 'visual',
+        action: 'skip',
+        trigger: 'gunshot',
+        status: 'needs_review',
+      },
+      {
+        id: 'prompt-cue-hide-1',
+        start: 40.0,
+        end: 45.0,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'spider',
+      },
+    ];
+
+    it('remains disabled by default and does not display prompt dialog', () => {
+      const onBack = jest.fn();
+      const { queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={promptTestCues} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      // Advance to 6.0s (within 5s lead time of cue at 10.0s)
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('respects exact start and end boundaries of advance window [start - leadTime, start)', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. At 4.90s (strictly before 5.0s window start) -> no dialog
+      act(() => {
+        videoComp.instance.currentTime = 4.90;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // 2. At 5.00s (exact window start: 10.0 - 5.0) -> dialog appears
+      act(() => {
+        videoComp.instance.currentTime = 5.00;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 3. At 9.90s (inside window before cue start) -> dialog persists
+      act(() => {
+        videoComp.instance.currentTime = 9.90;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 4. At 10.00s (cue start: window closes and trigger actions activate) -> dialog disappears
+      act(() => {
+        videoComp.instance.currentTime = 10.00;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('displays prompt dialog when enabled and in lead time window with Skip Scene button when eligible', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByText(/jump_scare/)).toBeTruthy();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+      expect(getByTestId('prompt-skip')).toBeTruthy();
+      expect(getByText('Skip Scene')).toBeTruthy();
+    });
+
+    it('hides Skip Scene button when skip protection is disabled in options', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: false,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+      // Skip button must NOT be visible when skipEnabled is false
+      expect(queryByTestId('prompt-skip')).toBeNull();
+    });
+
+    it('does not expose unapproved skip for cues requiring review unless confirmReviewSkip is true', () => {
+      const onBack = jest.fn();
+      // Test without confirmReviewSkip
+      const { getByTestId, queryByTestId, UNSAFE_getByType, rerender } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            confirmReviewSkip: false,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Cue at 32.0s (lead time window: [27.0s, 32.0s))
+      act(() => {
+        videoComp.instance.currentTime = 28.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+      // Unapproved skip must NOT be exposed
+      expect(queryByTestId('prompt-skip')).toBeNull();
+
+      // Now rerender with confirmReviewSkip: true
+      rerender(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            confirmReviewSkip: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      act(() => {
+        videoComp.instance.currentTime = 28.0;
+        videoComp.props.onTimeUpdate();
+      });
+      // Now approved skip is exposed
+      expect(getByTestId('prompt-skip')).toBeTruthy();
+    });
+
+    it('does not expose Skip Scene button for non-skip cues (e.g. visual hide)', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Cue at 40.0s is action: 'hide' (lead time window: [35.0s, 40.0s))
+      act(() => {
+        videoComp.instance.currentTime = 36.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+      expect(getByTestId('prompt-continue')).toBeTruthy();
+      // Non-skip cue must NOT expose skip button
+      expect(queryByTestId('prompt-skip')).toBeNull();
+    });
+
+    it('acknowledges prompt on Continue, dismisses dialog, and does not re-prompt on forward approach', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Enter prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Press Continue
+      fireEvent.press(getByTestId('prompt-continue'));
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // Forward playback to 8.0s (still within prompt window)
+      act(() => {
+        videoComp.instance.currentTime = 8.0;
+        videoComp.props.onTimeUpdate();
+      });
+      // Dialog must NOT reappear
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('dismisses prompt on hardware Back button press without exiting screen', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Enter prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Find hardwareBackPress handler
+      const backCalls = (BackHandler.addEventListener as jest.Mock).mock.calls;
+      const lastHardwareCall = [...backCalls]
+        .reverse()
+        .find((call) => call[0] === 'hardwareBackPress');
+      expect(lastHardwareCall).toBeDefined();
+      const hardwareBackHandler = lastHardwareCall[1];
+
+      // Press hardware back
+      act(() => {
+        const handled = hardwareBackHandler();
+        expect(handled).toBe(true);
+      });
+
+      // Dialog dismissed (acknowledged), screen NOT closed
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+      expect(onBack).not.toHaveBeenCalled();
+    });
+
+    it('skips to end of chained cues on Skip button, respects duration clamping, and records honest recap', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      videoComp.instance.duration = 18.0; // Clamped media duration
+
+      // Enter prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Press Skip Scene
+      fireEvent.press(getByTestId('prompt-skip'));
+
+      // Chained cues prompt-cue-skip-1 (10-15s) and prompt-cue-skip-2 (14-20s) clamped to media duration 18.0s
+      expect(videoComp.instance.currentTime).toBe(18.0);
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // Check recap on ended
+      act(() => {
+        videoComp.props.onEnded();
+      });
+      expect(getByTestId('recap-view')).toBeTruthy();
+      expect(getByText(/1 jump scare skipped/)).toBeTruthy();
+    });
+
+    it('re-arms prompt on rewind strictly before lead time window start', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Enter prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // Press Continue to acknowledge
+      fireEvent.press(getByTestId('prompt-continue'));
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // Seek back before window start (window start is 10.0 - 5.0 = 5.0s, seek to 0s)
+      act(() => {
+        fireEvent.press(getByTestId('control-back-10s'));
+      });
+
+      // Advance again to 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      // Prompt re-armed and appears again!
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+    });
+
+    it('enables and disables heads-up prompts dynamically via settings drawer while playing', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} cues={promptTestCues} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Initially at 6.0s -> no prompt (disabled by default)
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+
+      // 2. Open settings drawer and enable
+      fireEvent.press(getByTestId('control-settings'));
+      expect(getByTestId('settings-drawer')).toBeTruthy();
+      fireEvent.press(getByTestId('toggle-heads-up-prompts'));
+      fireEvent.press(getByTestId('settings-done'));
+      expect(queryByTestId('settings-drawer')).toBeNull();
+
+      // Prompt dialog is displayed at 6.0s
+      expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
+
+      // 3. Open settings drawer again while prompt was active and disable
+      fireEvent.press(getByTestId('control-settings'));
+      fireEvent.press(getByTestId('toggle-heads-up-prompts'));
+      fireEvent.press(getByTestId('settings-done'));
+
+      // Prompt dialog dismissed safely
+      expect(queryByTestId('heads-up-prompt-dialog')).toBeNull();
+    });
+
+    it('manages TV focus preferences and restricts background controls while prompt dialog is open', () => {
+      const onBack = jest.fn();
+      const { getByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={promptTestCues}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: true,
+            headsUpPrompts: { enabled: true, leadTimeSeconds: 5.0 },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Enter prompt window at 6.0s
+      act(() => {
+        videoComp.instance.currentTime = 6.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      const continueBtn = getByTestId('prompt-continue');
+      const skipBtn = getByTestId('prompt-skip');
+      const playCtrl = getByTestId('control-play-pause');
+
+      // Continue button has preferred TV focus initially
+      expect(continueBtn.props.hasTVPreferredFocus).toBe(true);
+      // Play control has focusable disabled while prompt dialog is active
+      expect(playCtrl.props.focusable).toBe(false);
+
+      // Focus skip button
+      act(() => {
+        fireEvent(skipBtn, 'focus');
+      });
+      expect(skipBtn.props.hasTVPreferredFocus).toBe(true);
+      expect(continueBtn.props.hasTVPreferredFocus).toBe(false);
     });
   });
 });

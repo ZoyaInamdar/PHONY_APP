@@ -8,9 +8,14 @@ import {
   View,
 } from 'react-native';
 import {BackHandler, TVFocusGuideView} from '@amazon-devices/react-native-kepler';
-import {Video} from '@amazon-devices/react-native-w3cmedia';
+import {
+  Video,
+  VideoPlayer,
+  KeplerShareableSurfaceView,
+} from '@amazon-devices/react-native-w3cmedia';
 import {Cue, EffectiveActions, ViewerOptions} from '../engine/types';
 import {PlaybackState} from '../engine/playbackState';
+import {applyReviewPolicy} from '../engine/reviewPolicy';
 import {
   defaultPlaybackOptions,
   sintelIndexCues,
@@ -54,6 +59,8 @@ export interface PlayerScreenProps {
   options?: Partial<ViewerOptions>;
   initialProfile?: PlayerProfile;
   testVideoUrl?: string;
+  alternateBlurredVideoUrl?: string;
+  blurSwitchTimeoutMs?: number;
   rampDurationMs?: number;
 }
 
@@ -119,6 +126,24 @@ export function sanitizeViewerOptions(
         typeof item === 'string' && CANONICAL_TRIGGER_SET.has(item),
     );
   }
+  if (
+    obj.headsUpPrompts &&
+    typeof obj.headsUpPrompts === 'object' &&
+    !Array.isArray(obj.headsUpPrompts)
+  ) {
+    const promptObj = obj.headsUpPrompts as Record<string, unknown>;
+    const enabled =
+      typeof promptObj.enabled === 'boolean'
+        ? promptObj.enabled
+        : fallback.headsUpPrompts?.enabled ?? false;
+    const leadTimeSeconds =
+      typeof promptObj.leadTimeSeconds === 'number' &&
+      Number.isFinite(promptObj.leadTimeSeconds) &&
+      promptObj.leadTimeSeconds > 0
+        ? promptObj.leadTimeSeconds
+        : fallback.headsUpPrompts?.leadTimeSeconds ?? 5.0;
+    result.headsUpPrompts = { enabled, leadTimeSeconds };
+  }
 
   return result;
 }
@@ -129,6 +154,8 @@ export const PlayerScreen = ({
   options: customOptions,
   initialProfile = 'verification',
   testVideoUrl,
+  alternateBlurredVideoUrl,
+  blurSwitchTimeoutMs = 500,
   rampDurationMs,
 }: PlayerScreenProps) => {
   const rampDuration =
@@ -157,6 +184,24 @@ export const PlayerScreen = ({
   // Fallback deduplication tracking for unsupported renderer actions (e.g. Vega blur fallback)
   const recordedFallbackCueIdsRef = useRef<Set<string>>(new Set());
 
+  // Dual-video switching state and refs for optional preprocessed video blur
+  const isAlternateAssetConfigured =
+    typeof alternateBlurredVideoUrl === 'string' &&
+    alternateBlurredVideoUrl.trim().length > 0;
+  const alternatePlayerRef = useRef<VideoPlayer | null>(null);
+  const alternateSurfaceHandleRef = useRef<string | null>(null);
+  const alternateReadyRef = useRef<boolean>(false);
+  const alternateErrorRef = useRef<boolean>(false);
+  const isBlurActiveRef = useRef<boolean>(false);
+  const [isBlurActive, setIsBlurActive] = useState<boolean>(false);
+
+  const blurTransitionTokenRef = useRef<number>(0);
+  const activeBlurSeekTokenRef = useRef<number>(0);
+  const isSeekingAlternateRef = useRef<boolean>(false);
+  const blurSeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const blurFallbackActiveRef = useRef<boolean>(false);
+  const lastBlurActiveRef = useRef<boolean>(false);
+
   // Selected trigger cues & profile
   const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
 
@@ -180,11 +225,30 @@ export const PlayerScreen = ({
     ...defaultPlaybackOptions,
     ...customOptions,
     disabledCategories: customOptions?.disabledCategories ?? [],
+    headsUpPrompts: customOptions?.headsUpPrompts ?? defaultPlaybackOptions.headsUpPrompts,
   };
 
   const [viewerOptions, setViewerOptions] = useState<ViewerOptions>(baseDefaults);
   const viewerOptionsRef = useRef<ViewerOptions>(viewerOptions);
   viewerOptionsRef.current = viewerOptions;
+
+  // Synchronize customOptions prop updates
+  useEffect(() => {
+    if (customOptions) {
+      setViewerOptions((prev) => {
+        const next: ViewerOptions = {
+          ...prev,
+          ...customOptions,
+          disabledCategories:
+            customOptions.disabledCategories ?? prev.disabledCategories ?? [],
+          headsUpPrompts:
+            customOptions.headsUpPrompts ?? prev.headsUpPrompts,
+        };
+        viewerOptionsRef.current = next;
+        return next;
+      });
+    }
+  }, [customOptions]);
 
   // Storage synchronization and race-condition guard refs
   const isMountedRef = useRef<boolean>(true);
@@ -221,6 +285,31 @@ export const PlayerScreen = ({
   const [showRecap, setShowRecap] = useState<boolean>(false);
   const botheredFeedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Heads-up advance prompt state
+  const [activePromptCue, setActivePromptCue] = useState<Cue | null>(null);
+  const activePromptCueRef = useRef<Cue | null>(null);
+  activePromptCueRef.current = activePromptCue;
+  const [focusedPromptButton, setFocusedPromptButton] = useState<'continue' | 'skip'>('continue');
+  const handlePromptContinueRef = useRef<() => void>(() => {});
+
+  // Evaluate whether the upcoming prompt cue is eligible for skipping under current viewer options & review policy
+  const isSkipEligible = (() => {
+    if (!activePromptCue) {
+      return false;
+    }
+    const policyCues = applyReviewPolicy(activeCues, viewerOptions);
+    const effectiveCue =
+      policyCues.find((c) => c.id === activePromptCue.id) ?? activePromptCue;
+    return (
+      playbackStateRef.current.isCueEligibleForSkip(
+        effectiveCue,
+        viewerOptions,
+      ) && effectiveCue.action === 'skip'
+    );
+  })();
+
+  const promptButtonToFocus = isSkipEligible ? focusedPromptButton : 'continue';
+
   const videoSource = testVideoUrl ?? DEFAULT_VIDEO_URL;
 
   // Derived video layout dimensions to satisfy W3CMedia Video numeric prop contract
@@ -239,6 +328,10 @@ export const PlayerScreen = ({
   useEffect(() => {
     const handler = BackHandler;
     const onBackPress = () => {
+      if (activePromptCueRef.current) {
+        handlePromptContinueRef.current();
+        return true;
+      }
       if (isSettingsOpenRef.current) {
         setIsSettingsOpen(false);
         setFocusedControl('settings');
@@ -331,7 +424,17 @@ export const PlayerScreen = ({
     volumeRampTimerRef.current = intervalId;
   };
 
-  // Cleanup on unmount: cancel volume timers, reset engine, and restore player settings
+  // Ref to invoke applyTriggerActions from asynchronous callbacks without dependency cycles
+  const applyTriggerActionsRef = useRef<
+    (
+      time: number,
+      isSeek?: boolean,
+      overrideOptions?: ViewerOptions,
+      overrideCues?: Cue[],
+    ) => void
+  >(() => {});
+
+  // Cleanup on unmount: cancel volume timers, alternate player, reset engine, and restore settings
   useEffect(() => {
     return () => {
       cancelVolumeRamp();
@@ -339,18 +442,334 @@ export const PlayerScreen = ({
         clearTimeout(botheredFeedbackTimerRef.current);
         botheredFeedbackTimerRef.current = null;
       }
+      if (blurSeekTimeoutRef.current !== null) {
+        clearTimeout(blurSeekTimeoutRef.current);
+        blurSeekTimeoutRef.current = null;
+      }
       const video = videoRef.current ?? videoInstanceRef.current;
       if (video) {
         video.muted = false;
         video.volume = 1.0;
       }
+      const altPlayer = alternatePlayerRef.current;
+      if (altPlayer) {
+        const handle = alternateSurfaceHandleRef.current;
+        if (handle) {
+          altPlayer.clearSurfaceHandle(handle);
+        }
+        altPlayer.pause();
+        altPlayer.deinitialize?.();
+      }
       playbackStateRef.current.reset();
+      activePromptCueRef.current = null;
+      setActivePromptCue(null);
       recordedFallbackCueIdsRef.current.clear();
       if (process.env.NODE_ENV !== 'test') {
         console.log('[Player] Unmounted — playback state reset, audio restored');
       }
     };
   }, []);
+
+  /**
+   * Records a blur cue action truthfully:
+   * - appliedEffect: 'blurred' if alternate blurred video stream is displayed.
+   * - appliedEffect: 'blacked_out' if fallback to blackout was used.
+   */
+  const recordBlurCueAction = (
+    appliedEffect: 'blurred' | 'blacked_out',
+    time: number,
+    optionsToUse?: ViewerOptions,
+    cuesToUse?: Cue[],
+  ) => {
+    const currentOptions = optionsToUse ?? viewerOptionsRef.current;
+    const currentCues = cuesToUse ?? activeCues;
+    for (const cue of currentCues) {
+      if (
+        cue.action === 'blur' &&
+        (cue.source === 'visual' || cue.source === 'audio_visual') &&
+        cue.start <= time &&
+        time < cue.end
+      ) {
+        if (
+          currentOptions.disabledCategories &&
+          cue.trigger &&
+          currentOptions.disabledCategories.includes(cue.trigger)
+        ) {
+          continue;
+        }
+
+        const actionKey = `blur_${cue.id}`;
+        const fallbackKey = `blur_fallback_${cue.id}`;
+        if (
+          !recordedFallbackCueIdsRef.current.has(actionKey) &&
+          !recordedFallbackCueIdsRef.current.has(fallbackKey)
+        ) {
+          recordedFallbackCueIdsRef.current.add(actionKey);
+          recordedFallbackCueIdsRef.current.add(fallbackKey);
+          playbackStateRef.current.recordAction({
+            triggerType: cue.trigger ?? 'visual',
+            appliedEffect,
+            requestedAction: 'blur',
+            cueId: cue.id,
+            start: cue.start,
+            end: cue.end,
+          });
+        }
+      }
+    }
+  };
+
+  /**
+   * Resets blur switching state and safely restores clean player playback.
+   */
+  const exitBlurToClean = () => {
+    ++blurTransitionTokenRef.current;
+    activeBlurSeekTokenRef.current = 0;
+    if (blurSeekTimeoutRef.current) {
+      clearTimeout(blurSeekTimeoutRef.current);
+      blurSeekTimeoutRef.current = null;
+    }
+    isSeekingAlternateRef.current = false;
+    blurFallbackActiveRef.current = false;
+
+    if (isBlurActiveRef.current) {
+      isBlurActiveRef.current = false;
+      setIsBlurActive(false);
+      const handle = alternateSurfaceHandleRef.current;
+      if (handle && alternatePlayerRef.current) {
+        try {
+          alternatePlayerRef.current.clearSurfaceHandle(handle);
+        } catch (err) {
+          console.warn('[Player] Failed to clearSurfaceHandle on exitBlur:', err);
+        }
+      }
+      alternatePlayerRef.current?.pause();
+    }
+  };
+
+  /**
+   * Initiates asynchronous seek on alternate blurred player under blackout mask.
+   * Gated on seek completion event ('seeked') to eliminate stale frames and black flashes.
+   */
+  const initiateAlternateSeek = (targetTime: number) => {
+    if (
+      isSeekingAlternateRef.current ||
+      (isBlurActiveRef.current &&
+        alternatePlayerRef.current &&
+        Math.abs(alternatePlayerRef.current.currentTime - targetTime) < 0.05)
+    ) {
+      return;
+    }
+
+    const token = ++blurTransitionTokenRef.current;
+    activeBlurSeekTokenRef.current = token;
+
+    if (blurSeekTimeoutRef.current) {
+      clearTimeout(blurSeekTimeoutRef.current);
+      blurSeekTimeoutRef.current = null;
+    }
+
+    if (!isAlternateAssetConfigured || alternateErrorRef.current) {
+      isSeekingAlternateRef.current = false;
+      isBlurActiveRef.current = false;
+      setIsBlurActive(false);
+      isContentHiddenRef.current = true;
+      setIsContentHidden(true);
+      recordBlurCueAction('blacked_out', targetTime);
+      return;
+    }
+
+    // 1. Blackout handover mask: shield screen while alternate player is seeking
+    isSeekingAlternateRef.current = true;
+    isBlurActiveRef.current = false;
+    setIsBlurActive(false);
+    isContentHiddenRef.current = true;
+    setIsContentHidden(true);
+
+    const timeoutMs =
+      typeof blurSwitchTimeoutMs === 'number' && blurSwitchTimeoutMs > 0
+        ? blurSwitchTimeoutMs
+        : 500;
+
+    // 2. Set timeout fallback
+    blurSeekTimeoutRef.current = setTimeout(() => {
+      if (activeBlurSeekTokenRef.current !== token) return;
+      console.warn(
+        `[Player] Alternate seek timed out (${timeoutMs}ms); remaining in blackout fallback`,
+      );
+      blurFallbackActiveRef.current = true;
+      isSeekingAlternateRef.current = false;
+      isBlurActiveRef.current = false;
+      setIsBlurActive(false);
+      isContentHiddenRef.current = true;
+      setIsContentHidden(true);
+      recordBlurCueAction('blacked_out', targetTime);
+      applyTriggerActionsRef.current(targetTime);
+    }, timeoutMs);
+
+    // 3. Request asynchronous seek on blurred player
+    if (alternatePlayerRef.current) {
+      try {
+        alternatePlayerRef.current.currentTime = targetTime;
+      } catch (err) {
+        console.warn('[Player] Failed to assign currentTime to alternate player:', err);
+        if (blurSeekTimeoutRef.current) {
+          clearTimeout(blurSeekTimeoutRef.current);
+          blurSeekTimeoutRef.current = null;
+        }
+        blurFallbackActiveRef.current = true;
+        isSeekingAlternateRef.current = false;
+        isBlurActiveRef.current = false;
+        setIsBlurActive(false);
+        isContentHiddenRef.current = true;
+        setIsContentHidden(true);
+        recordBlurCueAction('blacked_out', targetTime);
+        applyTriggerActionsRef.current(targetTime);
+      }
+    }
+  };
+
+  // Manage secondary VideoPlayer instance for preprocessed video blur
+  useEffect(() => {
+    if (!isAlternateAssetConfigured || !alternateBlurredVideoUrl) {
+      return;
+    }
+
+    let isDisposed = false;
+    const player = new VideoPlayer();
+    alternatePlayerRef.current = player;
+    alternateReadyRef.current = false;
+    alternateErrorRef.current = false;
+
+    // Alternate player must remain completely silent (clean player is master clock & audio)
+    player.muted = true;
+    player.volume = 0.0;
+    player.src = alternateBlurredVideoUrl;
+
+    const handleCanPlay = () => {
+      if (isDisposed) return;
+      alternateReadyRef.current = true;
+    };
+
+    const handleSeeked = () => {
+      if (isDisposed) return;
+      const token = activeBlurSeekTokenRef.current;
+      if (!isSeekingAlternateRef.current) return;
+      if (token !== blurTransitionTokenRef.current) return;
+      if (alternateErrorRef.current) return;
+
+      const video = videoRef.current;
+      const currentT = video ? video.currentTime : 0;
+
+      // Clear seeking state and timeout
+      isSeekingAlternateRef.current = false;
+      if (blurSeekTimeoutRef.current) {
+        clearTimeout(blurSeekTimeoutRef.current);
+        blurSeekTimeoutRef.current = null;
+      }
+
+      // Check if current playback position still requires blur
+      const actions = effectiveActionsRef.current;
+      const shouldBlur = actions?.visualAction === 'blur' && !actions.hide;
+      if (!shouldBlur) {
+        return;
+      }
+
+      // Frame is ready: attach surface and switch to blurred mode
+      const handle = alternateSurfaceHandleRef.current;
+      if (!handle) {
+        console.warn(
+          '[Player] Alternate seek completed but surface handle is not yet ready; remaining in blackout handover',
+        );
+        return;
+      }
+
+      try {
+        player.setSurfaceHandle(handle);
+      } catch (err) {
+        console.warn('[Player] Failed to setSurfaceHandle on seeked:', err);
+        alternateErrorRef.current = true;
+        blurFallbackActiveRef.current = true;
+        isBlurActiveRef.current = false;
+        setIsBlurActive(false);
+        recordBlurCueAction('blacked_out', currentT);
+        applyTriggerActionsRef.current(currentT);
+        return;
+      }
+
+      if (video && !video.paused) {
+        player.muted = true;
+        player.volume = 0.0;
+        player.play().catch(() => {});
+      }
+
+      isBlurActiveRef.current = true;
+      setIsBlurActive(true);
+
+      // Record applied action as 'blurred'
+      recordBlurCueAction('blurred', currentT);
+      applyTriggerActionsRef.current(currentT);
+    };
+
+    const handleError = () => {
+      if (isDisposed) return;
+      console.warn('[AlternatePlayer] Error event received; engaging blackout fallback');
+      alternateErrorRef.current = true;
+      blurFallbackActiveRef.current = true;
+      if (blurSeekTimeoutRef.current) {
+        clearTimeout(blurSeekTimeoutRef.current);
+        blurSeekTimeoutRef.current = null;
+      }
+      isSeekingAlternateRef.current = false;
+
+      // Detach surface
+      const handle = alternateSurfaceHandleRef.current;
+      if (handle) {
+        try {
+          player.clearSurfaceHandle(handle);
+        } catch (err) {
+          console.warn('[Player] Failed to clearSurfaceHandle on error:', err);
+        }
+      }
+
+      isBlurActiveRef.current = false;
+      setIsBlurActive(false);
+
+      const video = videoRef.current;
+      const currentT = video ? video.currentTime : 0;
+      recordBlurCueAction('blacked_out', currentT);
+      applyTriggerActionsRef.current(currentT);
+    };
+
+    player.addEventListener('canplay', handleCanPlay);
+    player.addEventListener('seeked', handleSeeked);
+    player.addEventListener('error', handleError);
+
+    player.initialize().catch((err) => {
+      console.warn('[AlternatePlayer] initialize() failed:', err);
+      alternateErrorRef.current = true;
+    });
+
+    return () => {
+      isDisposed = true;
+      if (blurSeekTimeoutRef.current) {
+        clearTimeout(blurSeekTimeoutRef.current);
+        blurSeekTimeoutRef.current = null;
+      }
+      isSeekingAlternateRef.current = false;
+      player.removeEventListener('canplay', handleCanPlay);
+      player.removeEventListener('seeked', handleSeeked);
+      player.removeEventListener('error', handleError);
+      const handle = alternateSurfaceHandleRef.current;
+      if (handle) {
+        player.clearSurfaceHandle(handle);
+      }
+      player.pause();
+      player.deinitialize?.();
+      alternatePlayerRef.current = null;
+      alternateReadyRef.current = false;
+    };
+  }, [isAlternateAssetConfigured, alternateBlurredVideoUrl]);
 
   /**
    * Authoritative trigger action evaluator:
@@ -373,6 +792,8 @@ export const PlayerScreen = ({
     const actions = playbackStateRef.current.resolveAt(time, currentCues, currentOptions);
     effectiveActionsRef.current = actions;
 
+    applyTriggerActionsRef.current = applyTriggerActions;
+
     // 0. Skip forward evaluation
     if (!isSeek && actions.skipTo !== null && Number.isFinite(actions.skipTo)) {
       const maxDur = Number.isFinite(video.duration) ? video.duration : Infinity;
@@ -385,7 +806,7 @@ export const PlayerScreen = ({
         );
 
         cancelVolumeRamp();
-        playbackStateRef.current.seek(targetTime, currentCues);
+        playbackStateRef.current.seek(targetTime, currentCues, currentOptions);
         video.currentTime = targetTime;
         setCurrentTime(targetTime);
         applyTriggerActions(targetTime, true, currentOptions, currentCues);
@@ -405,11 +826,48 @@ export const PlayerScreen = ({
       targetVolume = Number((userVolumeRef.current * actions.soundGain).toFixed(2));
     }
 
-    // 3. Visual Hiding evaluation
-    // On Vega OS, native video-surface blur is unsupported by KeplerVideoSurfaceView.
-    // Requested blur cues safely fall back to visual blackout protection so viewers are protected.
-    const isVegaBlurFallback = actions.visualAction === 'blur';
-    const targetHide = actions.hide || isVegaBlurFallback;
+    // 3. Visual Hiding / Dual-Video Blur evaluation
+    // If an alternate blurred asset is configured and operational, we switch to it.
+    // Otherwise, requested blur cues safely fall back to honest visual blackout protection.
+    const isBlurCueRequested = actions.visualAction === 'blur';
+    const canAttemptBlur =
+      isBlurCueRequested &&
+      !actions.hide &&
+      isAlternateAssetConfigured &&
+      !alternateErrorRef.current &&
+      !blurFallbackActiveRef.current;
+
+    let targetHide = actions.hide;
+
+    if (actions.hide) {
+      // Hide takes absolute precedence over blur
+      exitBlurToClean();
+      targetHide = true;
+    } else if (isBlurCueRequested) {
+      if (canAttemptBlur) {
+        if (isBlurActiveRef.current && !isSeek) {
+          targetHide = false;
+        } else {
+          // Enter blur cue or seeked into one: initiate alternate seek under blackout mask
+          targetHide = true;
+          initiateAlternateSeek(time);
+          if (isBlurActiveRef.current) {
+            targetHide = false;
+          }
+        }
+      } else {
+        // Honest blackout fallback
+        exitBlurToClean();
+        targetHide = true;
+        recordBlurCueAction('blacked_out', time, currentOptions, currentCues);
+      }
+    } else {
+      // Outside visual cues
+      exitBlurToClean();
+      targetHide = false;
+    }
+
+    const isVegaBlurFallback = !canAttemptBlur && isBlurCueRequested;
 
     // Compare against current hardware/element state
     const currentMuted = video.muted;
@@ -419,6 +877,7 @@ export const PlayerScreen = ({
     const muteChanged = currentMuted !== targetMuted;
     const volumeChanged = Math.abs(currentVolume - targetVolume) > 0.01;
     const hideChanged = currentHide !== targetHide;
+    const blurChanged = lastBlurActiveRef.current !== isBlurActiveRef.current;
     const activeCueIdsKey = actions.activeCueIds.join(',');
     const cuesChanged = lastActiveCuesRef.current !== activeCueIdsKey;
 
@@ -508,39 +967,11 @@ export const PlayerScreen = ({
       }
     }
 
-    // Fallback applied-action recording for Vega OS:
-    // When a blur cue activates the blackout fallback, record the applied effect as 'blacked_out'
-    // while preserving requestedAction: 'blur'. Deduplicate by cue ID to prevent repeated records.
+    // Applied-action recording for Vega OS:
+    // If honest blackout fallback is active for a blur cue, record as blacked_out.
+    // (If blur succeeded, it was recorded truthfully by handleSeeked as 'blurred').
     if (isVegaBlurFallback && targetHide) {
-      for (const cue of currentCues) {
-        if (
-          cue.action === 'blur' &&
-          (cue.source === 'visual' || cue.source === 'audio_visual') &&
-          cue.start <= time &&
-          time < cue.end
-        ) {
-          if (
-            currentOptions.disabledCategories &&
-            cue.trigger &&
-            currentOptions.disabledCategories.includes(cue.trigger)
-          ) {
-            continue;
-          }
-
-          const fallbackKey = `blur_fallback_${cue.id}`;
-          if (!recordedFallbackCueIdsRef.current.has(fallbackKey)) {
-            recordedFallbackCueIdsRef.current.add(fallbackKey);
-            playbackStateRef.current.recordAction({
-              triggerType: cue.trigger ?? 'visual',
-              appliedEffect: 'blacked_out',
-              requestedAction: 'blur',
-              cueId: cue.id,
-              start: cue.start,
-              end: cue.end,
-            });
-          }
-        }
-      }
+      recordBlurCueAction('blacked_out', time, currentOptions, currentCues);
     }
 
     // 4. Heads-up warning evaluation (updates on cue start, cue end, and seeking)
@@ -559,8 +990,16 @@ export const PlayerScreen = ({
       }
     }
 
-    if (cuesChanged || muteChanged || volumeChanged || hideChanged || warnChanged || isSeek) {
+    // 5. Advance heads-up prompt dialog evaluation
+    const promptCue = actions.promptCue ?? null;
+    if (promptCue && !activePromptCueRef.current) {
+      setFocusedPromptButton('continue');
+    }
+    setActivePromptCue(promptCue);
+
+    if (cuesChanged || muteChanged || volumeChanged || hideChanged || blurChanged || warnChanged || isSeek) {
       lastActiveCuesRef.current = activeCueIdsKey;
+      lastBlurActiveRef.current = isBlurActiveRef.current;
 
       if (actions.activeCueIds.length === 0) {
         setActiveActionStatus('');
@@ -573,7 +1012,9 @@ export const PlayerScreen = ({
           .join(', ');
 
         let actionDesc = '';
-        if (targetHide) {
+        if (isBlurActiveRef.current) {
+          actionDesc += '🌫️ Video Blurred';
+        } else if (targetHide) {
           actionDesc += '👁️ Visual Hidden';
         } else if (actions.visualAction === 'dim') {
           actionDesc += `⚠️ ${actions.visualAction.toUpperCase()} (unsupported on renderer)`;
@@ -605,6 +1046,7 @@ export const PlayerScreen = ({
 
     if (isPlaying) {
       video.pause();
+      alternatePlayerRef.current?.pause();
       setIsPlaying(false);
       setStatus('Paused');
       return;
@@ -639,11 +1081,13 @@ export const PlayerScreen = ({
         ` → ${newTime.toFixed(2)}`,
     );
 
-    // Notify playback engine of seek (for skip-invalidation on rewind)
-    playbackStateRef.current.seek(newTime, activeCues);
+    // Notify playback engine of seek (for skip-invalidation and prompt re-arming on rewind)
+    playbackStateRef.current.seek(newTime, activeCues, viewerOptionsRef.current);
     if (newTime < currentPos) {
+      blurFallbackActiveRef.current = false;
       for (const cue of activeCues) {
         if (cue.start > newTime) {
+          recordedFallbackCueIdsRef.current.delete(`blur_${cue.id}`);
           recordedFallbackCueIdsRef.current.delete(`blur_fallback_${cue.id}`);
         }
       }
@@ -682,6 +1126,56 @@ export const PlayerScreen = ({
     );
   };
 
+  const handlePromptContinue = () => {
+    const cue = activePromptCueRef.current;
+    if (!cue) {
+      return;
+    }
+    playbackStateRef.current.acknowledgePrompt(cue.id);
+    activePromptCueRef.current = null;
+    setActivePromptCue(null);
+    setFocusedControl('play');
+  };
+  handlePromptContinueRef.current = handlePromptContinue;
+
+  const handlePromptSkip = () => {
+    const cue = activePromptCueRef.current;
+    if (!cue) {
+      return;
+    }
+    const video = videoRef.current;
+    const mediaDuration =
+      video && Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : Number.isFinite(duration) && duration > 0
+        ? duration
+        : undefined;
+
+    playbackStateRef.current.acknowledgePrompt(cue.id);
+    activePromptCueRef.current = null;
+    setActivePromptCue(null);
+    setFocusedControl('play');
+
+    const targetTime = playbackStateRef.current.handlePromptSkip(
+      cue,
+      activeCues,
+      mediaDuration,
+      viewerOptionsRef.current,
+    );
+
+    if (video) {
+      if (targetTime > video.currentTime) {
+        cancelVolumeRamp();
+        video.currentTime = targetTime;
+        setCurrentTime(targetTime);
+        applyTriggerActions(targetTime, true);
+      } else {
+        applyTriggerActions(video.currentTime, true);
+      }
+    }
+  };
+
+
   // Serialized persistence worker to prevent concurrent/out-of-order writes
   const persistViewerOptions = (optionsToSave: ViewerOptions) => {
     latestSavePayloadRef.current = optionsToSave;
@@ -716,8 +1210,11 @@ export const PlayerScreen = ({
       const next = updater(prev);
       viewerOptionsRef.current = next;
       const video = videoRef.current;
-      if (video) {
-        applyTriggerActions(video.currentTime, true, next);
+      const pos = video ? video.currentTime : currentTime;
+      applyTriggerActions(pos, true, next);
+      if (!next.headsUpPrompts?.enabled) {
+        activePromptCueRef.current = null;
+        setActivePromptCue(null);
       }
       persistViewerOptions(next);
       return next;
@@ -861,7 +1358,10 @@ export const PlayerScreen = ({
           }}
           width={videoDimensions.width}
           height={videoDimensions.height}
-          style={[styles.video, isContentHidden && styles.videoHidden]}
+          style={[
+            styles.video,
+            (isContentHidden || isBlurActive) && styles.videoHidden,
+          ]}
           src={videoSource}
           autoplay={true}
           controls={false}
@@ -919,11 +1419,15 @@ export const PlayerScreen = ({
             );
             setIsPlaying(true);
             setStatus('Playing');
+            if (isBlurActiveRef.current && alternatePlayerRef.current) {
+              alternatePlayerRef.current.play().catch(() => {});
+            }
           }}
           onPause={() => {
             console.log('[Player] onPause');
             setIsPlaying(false);
             setStatus('Paused');
+            alternatePlayerRef.current?.pause();
           }}
           onTimeUpdate={() => {
             const video = videoRef.current;
@@ -959,6 +1463,7 @@ export const PlayerScreen = ({
             console.log('[Player] onEnded');
             setIsPlaying(false);
             setStatus('Playback finished');
+            alternatePlayerRef.current?.pause();
             setShowRecap(true);
           }}
           onError={() => {
@@ -984,6 +1489,66 @@ export const PlayerScreen = ({
             setStatus('Stopped (audio focus lost)');
           }}
         />
+
+        {isAlternateAssetConfigured && (
+          <KeplerShareableSurfaceView
+            testID="blurred-shareable-surface"
+            style={[
+              styles.video,
+              styles.alternateVideo,
+              !isBlurActive && styles.videoHidden,
+            ]}
+            scalingmode="fit"
+            onSurfaceViewCreated={(handleOrEvent: any) => {
+              const handle =
+                typeof handleOrEvent === 'string'
+                  ? handleOrEvent
+                  : handleOrEvent?.nativeEvent?.surfaceHandle ??
+                    handleOrEvent?.surfaceHandle ??
+                    null;
+              alternateSurfaceHandleRef.current = handle;
+              if (handle && alternatePlayerRef.current) {
+                const video = videoRef.current;
+                const currentT = video ? video.currentTime : 0;
+                const actions = effectiveActionsRef.current;
+                const shouldBlur = actions?.visualAction === 'blur' && !actions.hide;
+
+                if (
+                  shouldBlur &&
+                  !isSeekingAlternateRef.current &&
+                  !alternateErrorRef.current &&
+                  !blurFallbackActiveRef.current
+                ) {
+                  try {
+                    alternatePlayerRef.current.setSurfaceHandle(handle);
+                    if (video && !video.paused) {
+                      alternatePlayerRef.current.muted = true;
+                      alternatePlayerRef.current.volume = 0.0;
+                      alternatePlayerRef.current.play().catch(() => {});
+                    }
+                    isBlurActiveRef.current = true;
+                    setIsBlurActive(true);
+                    recordBlurCueAction('blurred', currentT);
+                    applyTriggerActionsRef.current(currentT);
+                  } catch (err) {
+                    console.warn('[Player] Failed to attach surface on creation:', err);
+                  }
+                }
+              }
+            }}
+            onSurfaceViewDestroyed={() => {
+              const handle = alternateSurfaceHandleRef.current;
+              if (handle && alternatePlayerRef.current) {
+                try {
+                  alternatePlayerRef.current.clearSurfaceHandle(handle);
+                } catch (err) {
+                  console.warn('[Player] Failed to clearSurfaceHandle on destroy:', err);
+                }
+              }
+              alternateSurfaceHandleRef.current = null;
+            }}
+          />
+        )}
 
         {/* Fallback visual overlay rendered when visual hiding is triggered */}
         {isContentHidden && (
@@ -1033,6 +1598,7 @@ export const PlayerScreen = ({
           onPress={() => seekBy(-10)}
           isFocused={focusedControl === 'back'}
           onFocus={() => setFocusedControl('back')}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="play"
@@ -1041,7 +1607,8 @@ export const PlayerScreen = ({
           onPress={togglePlayback}
           isFocused={focusedControl === 'play'}
           onFocus={() => setFocusedControl('play')}
-          preferred
+          preferred={!activePromptCue}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="forward"
@@ -1050,6 +1617,7 @@ export const PlayerScreen = ({
           onPress={() => seekBy(10)}
           isFocused={focusedControl === 'forward'}
           onFocus={() => setFocusedControl('forward')}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="mute"
@@ -1058,6 +1626,7 @@ export const PlayerScreen = ({
           onPress={toggleMute}
           isFocused={focusedControl === 'mute'}
           onFocus={() => setFocusedControl('mute')}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="profile"
@@ -1072,7 +1641,7 @@ export const PlayerScreen = ({
           onPress={toggleProfile}
           isFocused={focusedControl === 'profile'}
           onFocus={() => setFocusedControl('profile')}
-          focusable={!isSettingsOpen}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="bothered"
@@ -1081,7 +1650,7 @@ export const PlayerScreen = ({
           onPress={handleThatBotheredMe}
           isFocused={focusedControl === 'bothered'}
           onFocus={() => setFocusedControl('bothered')}
-          focusable={!isSettingsOpen && !showRecap}
+          focusable={!isSettingsOpen && !showRecap && !activePromptCue}
         />
         <Control
           id="settings"
@@ -1093,7 +1662,7 @@ export const PlayerScreen = ({
           }}
           isFocused={focusedControl === 'settings'}
           onFocus={() => setFocusedControl('settings')}
-          focusable={!isSettingsOpen}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
           id="home"
@@ -1102,9 +1671,61 @@ export const PlayerScreen = ({
           onPress={onBack}
           isFocused={focusedControl === 'home'}
           onFocus={() => setFocusedControl('home')}
-          focusable={!isSettingsOpen}
+          focusable={!isSettingsOpen && !activePromptCue}
         />
       </TVFocusGuideView>
+
+      {/* Heads-up advance prompt dialog */}
+      {activePromptCue && !showRecap && !isSettingsOpen && (
+        <View style={styles.promptOverlay} testID="heads-up-prompt-overlay">
+          <TVFocusGuideView
+            style={styles.promptContainer}
+            testID="heads-up-prompt-dialog"
+            trapFocusUp
+            trapFocusDown
+            trapFocusLeft
+            trapFocusRight
+            autoFocus>
+            <Text style={styles.promptTitle}>Upcoming Sensitive Content</Text>
+            <Text style={styles.promptMessage}>
+              {`A ${activePromptCue.trigger ?? 'content'} trigger is upcoming at ${formatTime(activePromptCue.start)}. Would you like to continue or skip this segment?`}
+            </Text>
+            <View style={styles.promptButtonGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.promptButton,
+                  promptButtonToFocus === 'continue' && styles.promptButtonFocused,
+                ]}
+                testID="prompt-continue"
+                hasTVPreferredFocus={promptButtonToFocus === 'continue'}
+                onFocus={() => setFocusedPromptButton('continue')}
+                onPress={handlePromptContinue}
+                accessibilityRole="button"
+                accessibilityLabel="Continue watching"
+                activeOpacity={0.8}>
+                <Text style={styles.promptButtonText}>Continue</Text>
+              </TouchableOpacity>
+              {isSkipEligible && (
+                <TouchableOpacity
+                  style={[
+                    styles.promptButton,
+                    styles.promptSkipButton,
+                    promptButtonToFocus === 'skip' && styles.promptButtonFocused,
+                  ]}
+                  testID="prompt-skip"
+                  hasTVPreferredFocus={promptButtonToFocus === 'skip'}
+                  onFocus={() => setFocusedPromptButton('skip')}
+                  onPress={handlePromptSkip}
+                  accessibilityRole="button"
+                  accessibilityLabel="Skip Scene"
+                  activeOpacity={0.8}>
+                  <Text style={styles.promptButtonText}>Skip Scene</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TVFocusGuideView>
+        </View>
+      )}
 
       {/* In-player settings drawer */}
       {isSettingsOpen && (
@@ -1177,6 +1798,22 @@ export const PlayerScreen = ({
                   updateViewerOptions((prev) => ({
                     ...prev,
                     skipEnabled: !prev.skipEnabled,
+                  }))
+                }
+              />
+              <DrawerToggleItem
+                testID="toggle-heads-up-prompts"
+                label="Heads-Up Warning Prompts"
+                enabled={viewerOptions.headsUpPrompts?.enabled ?? false}
+                isFocused={focusedDrawerItem === 'toggle-heads-up'}
+                onFocus={() => setFocusedDrawerItem('toggle-heads-up')}
+                onPress={() =>
+                  updateViewerOptions((prev) => ({
+                    ...prev,
+                    headsUpPrompts: {
+                      enabled: !(prev.headsUpPrompts?.enabled ?? false),
+                      leadTimeSeconds: prev.headsUpPrompts?.leadTimeSeconds ?? 5.0,
+                    },
                   }))
                 }
               />
@@ -1401,6 +2038,10 @@ const styles = StyleSheet.create({
   videoHidden: {
     opacity: 0,
   },
+  alternateVideo: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
   hiddenOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#0F172A',
@@ -1623,5 +2264,70 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 16,
     fontWeight: '700',
+  },
+  promptOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 85,
+  },
+  promptContainer: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    padding: 24,
+    maxWidth: 600,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  promptTitle: {
+    color: '#F8FAFC',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  promptMessage: {
+    color: '#CBD5E1',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  promptButtonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  promptButton: {
+    flex: 1,
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginHorizontal: 8,
+  },
+  promptSkipButton: {
+    backgroundColor: '#DC2626',
+  },
+  promptButtonFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
+    transform: [{ scale: 1.05 }],
+  },
+  promptButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

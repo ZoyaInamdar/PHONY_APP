@@ -23,6 +23,10 @@ import {
   verificationTestCues,
 } from '../data/playbackCues';
 import {
+  PROMPT_HARNESS_SCENARIOS,
+  PromptScenario,
+} from '../data/promptHarnessScenarios';
+import {
   appendBotheredLog,
   getItem,
   setItem,
@@ -62,6 +66,8 @@ export interface PlayerScreenProps {
   alternateBlurredVideoUrl?: string;
   blurSwitchTimeoutMs?: number;
   rampDurationMs?: number;
+  devHarnessMode?: boolean;
+  initialHarnessScenario?: number;
 }
 
 export const CANONICAL_TRIGGER_CATEGORIES = [
@@ -157,6 +163,8 @@ export const PlayerScreen = ({
   alternateBlurredVideoUrl,
   blurSwitchTimeoutMs = 500,
   rampDurationMs,
+  devHarnessMode = false,
+  initialHarnessScenario = 0,
 }: PlayerScreenProps) => {
   const rampDuration =
     rampDurationMs !== undefined
@@ -205,6 +213,15 @@ export const PlayerScreen = ({
   // Selected trigger cues & profile
   const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
 
+  // Developer prompt test harness state
+  const [isDevHarnessOpen, setIsDevHarnessOpen] = useState<boolean>(devHarnessMode);
+  const [selectedHarnessScenarioIndex, setSelectedHarnessScenarioIndex] = useState<number>(
+    initialHarnessScenario >= 0 && initialHarnessScenario < PROMPT_HARNESS_SCENARIOS.length
+      ? initialHarnessScenario
+      : 0,
+  );
+  const [focusedHarnessItem, setFocusedHarnessItem] = useState<string>('harness-scenario-0');
+
   const getProfileCues = (p: PlayerProfile): Cue[] => {
     switch (p) {
       case 'standard':
@@ -217,15 +234,24 @@ export const PlayerScreen = ({
     }
   };
 
-  const activeCues: Cue[] =
-    customCues ?? getProfileCues(profile);
+  const activeCues: Cue[] = isDevHarnessOpen
+    ? PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex]?.cues ?? (customCues ?? getProfileCues(profile))
+    : customCues ?? getProfileCues(profile);
 
   // User protection preferences state
+  const initialHarness = devHarnessMode ? PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex] : null;
   const baseDefaults: ViewerOptions = {
     ...defaultPlaybackOptions,
     ...customOptions,
-    disabledCategories: customOptions?.disabledCategories ?? [],
-    headsUpPrompts: customOptions?.headsUpPrompts ?? defaultPlaybackOptions.headsUpPrompts,
+    ...(initialHarness?.options ?? {}),
+    disabledCategories:
+      customOptions?.disabledCategories ??
+      initialHarness?.options?.disabledCategories ??
+      [],
+    headsUpPrompts:
+      customOptions?.headsUpPrompts ??
+      initialHarness?.options?.headsUpPrompts ??
+      defaultPlaybackOptions.headsUpPrompts,
   };
 
   const [viewerOptions, setViewerOptions] = useState<ViewerOptions>(baseDefaults);
@@ -1101,6 +1127,73 @@ export const PlayerScreen = ({
     applyTriggerActions(newTime, true);
   };
 
+  const seekTo = (targetTime: number) => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const currentPos = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    const maxDur = Number.isFinite(video.duration) ? video.duration : Infinity;
+    const newTime = Math.max(0, Math.min(targetTime, maxDur));
+
+    console.log(
+      `[Player] seekTo: currentTime=${currentPos.toFixed(2)} → ${newTime.toFixed(2)}`,
+    );
+
+    playbackStateRef.current.seek(newTime, activeCues, viewerOptionsRef.current);
+    if (newTime < currentPos) {
+      blurFallbackActiveRef.current = false;
+      for (const cue of activeCues) {
+        if (cue.start > newTime) {
+          recordedFallbackCueIdsRef.current.delete(`blur_${cue.id}`);
+          recordedFallbackCueIdsRef.current.delete(`blur_fallback_${cue.id}`);
+        }
+      }
+    }
+
+    video.currentTime = newTime;
+    setCurrentTime(newTime);
+    applyTriggerActions(newTime, true);
+  };
+
+  const selectHarnessScenario = (index: number) => {
+    const scenario = PROMPT_HARNESS_SCENARIOS[index];
+    if (!scenario) return;
+
+    setSelectedHarnessScenarioIndex(index);
+    updateViewerOptions((prev) => ({
+      ...prev,
+      ...scenario.options,
+      headsUpPrompts: {
+        enabled: scenario.options.headsUpPrompts?.enabled ?? true,
+        leadTimeSeconds:
+          scenario.options.headsUpPrompts?.leadTimeSeconds ?? scenario.leadTimeSeconds,
+      },
+    }));
+
+    playbackStateRef.current = new PlaybackState();
+    recordedFallbackCueIdsRef.current.clear();
+    lastActiveCuesRef.current = '';
+    lastWarnCueIdsRef.current = '';
+    activePromptCueRef.current = null;
+    setActivePromptCue(null);
+
+    seekTo(scenario.seekBeforeWindow);
+  };
+
+  const resetHarnessEngineState = () => {
+    playbackStateRef.current = new PlaybackState();
+    recordedFallbackCueIdsRef.current.clear();
+    lastActiveCuesRef.current = '';
+    lastWarnCueIdsRef.current = '';
+    activePromptCueRef.current = null;
+    setActivePromptCue(null);
+    const video = videoRef.current;
+    const pos = video ? video.currentTime : currentTime;
+    applyTriggerActions(pos, true);
+  };
+
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) {
@@ -1590,6 +1683,172 @@ export const PlayerScreen = ({
         {formatTime(currentTime)} / {formatTime(duration)}
       </Text>
 
+      {/* Developer prompt test harness panel */}
+      {isDevHarnessOpen && (
+        <View style={styles.harnessPanel} testID="prompt-harness-panel">
+          <View style={styles.harnessHeader}>
+            <View style={styles.harnessHeaderLeft}>
+              <Text style={styles.harnessBadge}>DEV HARNESS</Text>
+              <Text style={styles.harnessTitle}>Heads-Up Prompt Runtime Harness</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.harnessCloseButton}
+              testID="harness-close"
+              onPress={() => setIsDevHarnessOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close prompt test harness">
+              <Text style={styles.harnessCloseText}>✕ Exit Harness</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Scenario selector tabs */}
+          <View style={styles.harnessTabRow}>
+            {PROMPT_HARNESS_SCENARIOS.map((s, idx) => {
+              const isSelected = selectedHarnessScenarioIndex === idx;
+              const isFocused = focusedHarnessItem === `harness-scenario-${idx}`;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  testID={`harness-scenario-${idx}`}
+                  style={[
+                    styles.harnessTab,
+                    isSelected && styles.harnessTabSelected,
+                    isFocused && styles.harnessTabFocused,
+                  ]}
+                  onFocus={() => setFocusedHarnessItem(`harness-scenario-${idx}`)}
+                  onPress={() => selectHarnessScenario(idx)}
+                  focusable={!isSettingsOpen && !activePromptCue}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={s.name}>
+                  <Text
+                    style={[
+                      styles.harnessTabText,
+                      isSelected && styles.harnessTabTextSelected,
+                    ]}>
+                    {s.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Scenario metadata & cue status card */}
+          {(() => {
+            const currentScenario =
+              PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex] ??
+              PROMPT_HARNESS_SCENARIOS[0];
+            const primaryCue = currentScenario.cues[0];
+            const windowStart = primaryCue
+              ? Math.max(0, primaryCue.start - currentScenario.leadTimeSeconds)
+              : 0;
+            const windowEnd = primaryCue ? primaryCue.start : 0;
+            return (
+              <View style={styles.harnessInfoCard}>
+                <Text style={styles.harnessInfoDesc}>{currentScenario.description}</Text>
+                <View style={styles.harnessMetaRow}>
+                  <Text style={styles.harnessMetaText}>
+                    Cues: [{currentScenario.cues.map((c) => `${c.start.toFixed(1)}s-${c.end.toFixed(1)}s (${c.action})`).join(', ')}]
+                  </Text>
+                  <Text style={styles.harnessMetaText}>
+                    Status: {primaryCue?.status ?? 'none'}
+                  </Text>
+                  <Text style={styles.harnessMetaText}>
+                    Effective Action: {currentScenario.expectedEffectiveAction}
+                  </Text>
+                  <Text style={styles.harnessMetaText}>
+                    Lead Time: {currentScenario.leadTimeSeconds.toFixed(1)}s
+                  </Text>
+                  <Text style={styles.harnessMetaText}>
+                    Prompt Window: [{windowStart.toFixed(1)}s, {windowEnd.toFixed(1)}s)
+                  </Text>
+                  <Text style={styles.harnessMetaText}>
+                    Skip Button: {currentScenario.expectedSkipButton ? 'Visible' : 'Hidden'}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* Direct seek & lifecycle controls */}
+          {(() => {
+            const currentScenario =
+              PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex] ??
+              PROMPT_HARNESS_SCENARIOS[0];
+            return (
+              <View style={styles.harnessActionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.harnessActionButton,
+                    focusedHarnessItem === 'harness-seek-before' && styles.harnessButtonFocused,
+                  ]}
+                  testID="harness-seek-before"
+                  onFocus={() => setFocusedHarnessItem('harness-seek-before')}
+                  onPress={() => seekTo(currentScenario.seekBeforeWindow)}
+                  focusable={!isSettingsOpen && !activePromptCue}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Seek before window (${currentScenario.seekBeforeWindow}s)`}>
+                  <Text style={styles.harnessActionText}>
+                    ⏪ Seek Before ({currentScenario.seekBeforeWindow.toFixed(1)}s)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.harnessActionButton,
+                    styles.harnessActionPrimary,
+                    focusedHarnessItem === 'harness-seek-window' && styles.harnessButtonFocused,
+                  ]}
+                  testID="harness-seek-window"
+                  onFocus={() => setFocusedHarnessItem('harness-seek-window')}
+                  onPress={() => seekTo(currentScenario.seekInWindow)}
+                  focusable={!isSettingsOpen && !activePromptCue}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Seek into prompt window (${currentScenario.seekInWindow}s)`}>
+                  <Text
+                    style={[
+                      styles.harnessActionText,
+                      styles.harnessActionPrimaryText,
+                    ]}>
+                    🎯 Seek Into Window ({currentScenario.seekInWindow.toFixed(1)}s)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.harnessActionButton,
+                    focusedHarnessItem === 'harness-seek-cue' && styles.harnessButtonFocused,
+                  ]}
+                  testID="harness-seek-cue"
+                  onFocus={() => setFocusedHarnessItem('harness-seek-cue')}
+                  onPress={() => seekTo(currentScenario.seekCueStart)}
+                  focusable={!isSettingsOpen && !activePromptCue}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Seek cue start (${currentScenario.seekCueStart}s)`}>
+                  <Text style={styles.harnessActionText}>
+                    ⏩ Seek Cue Start ({currentScenario.seekCueStart.toFixed(1)}s)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.harnessActionButton,
+                    focusedHarnessItem === 'harness-reset-state' && styles.harnessButtonFocused,
+                  ]}
+                  testID="harness-reset-state"
+                  onFocus={() => setFocusedHarnessItem('harness-reset-state')}
+                  onPress={resetHarnessEngineState}
+                  focusable={!isSettingsOpen && !activePromptCue}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset Engine State">
+                  <Text style={styles.harnessActionText}>🔄 Reset State</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
+        </View>
+      )}
+
       <TVFocusGuideView style={styles.controls} autoFocus>
         <Control
           id="back"
@@ -1816,6 +2075,40 @@ export const PlayerScreen = ({
                     },
                   }))
                 }
+              />
+              <Text style={styles.drawerSectionHeader}>DEVELOPER TESTING</Text>
+              <DrawerToggleItem
+                testID="toggle-prompt-harness"
+                label="Prompt Test Harness"
+                enabled={isDevHarnessOpen}
+                isFocused={focusedDrawerItem === 'toggle-harness'}
+                onFocus={() => setFocusedDrawerItem('toggle-harness')}
+                onPress={() => {
+                  const nextHarnessOpen = !isDevHarnessOpen;
+                  setIsDevHarnessOpen(nextHarnessOpen);
+                  if (nextHarnessOpen) {
+                    const scenario =
+                      PROMPT_HARNESS_SCENARIOS[selectedHarnessScenarioIndex];
+                    if (scenario) {
+                      updateViewerOptions((prev) => ({
+                        ...prev,
+                        ...scenario.options,
+                        headsUpPrompts: {
+                          enabled: scenario.options.headsUpPrompts?.enabled ?? true,
+                          leadTimeSeconds:
+                            scenario.options.headsUpPrompts?.leadTimeSeconds ??
+                            scenario.leadTimeSeconds,
+                        },
+                      }));
+                      playbackStateRef.current = new PlaybackState();
+                      recordedFallbackCueIdsRef.current.clear();
+                      lastActiveCuesRef.current = '';
+                      lastWarnCueIdsRef.current = '';
+                      activePromptCueRef.current = null;
+                      setActivePromptCue(null);
+                    }
+                  }
+                }}
               />
 
               {activeCategories.length > 0 && (
@@ -2329,5 +2622,142 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  harnessPanel: {
+    backgroundColor: '#0F172A',
+    borderColor: '#3B82F6',
+    borderWidth: 2,
+    borderRadius: 10,
+    padding: 14,
+    marginHorizontal: CONTAINER_PADDING_HORIZONTAL,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  harnessHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  harnessHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  harnessBadge: {
+    backgroundColor: '#2563EB',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  harnessTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 10,
+  },
+  harnessCloseButton: {
+    backgroundColor: '#334155',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  harnessCloseText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  harnessTabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  harnessTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  harnessTabSelected: {
+    backgroundColor: '#1D4ED8',
+    borderColor: '#60A5FA',
+  },
+  harnessTabFocused: {
+    borderColor: '#FFFFFF',
+  },
+  harnessTabText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  harnessTabTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  harnessInfoCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  harnessInfoDesc: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  harnessMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  harnessMetaText: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  harnessActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  harnessActionButton: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#475569',
+    alignItems: 'center',
+  },
+  harnessActionPrimary: {
+    backgroundColor: '#047857',
+    borderColor: '#10B981',
+  },
+  harnessActionText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  harnessActionPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  harnessButtonFocused: {
+    borderColor: '#FFFFFF',
+    transform: [{ scale: 1.02 }],
   },
 });

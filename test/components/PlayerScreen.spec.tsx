@@ -2775,5 +2775,37 @@ describe('PlayerScreen Component Tests', () => {
       expect(skipBtn.props.hasTVPreferredFocus).toBe(true);
       expect(continueBtn.props.hasTVPreferredFocus).toBe(false);
     });
+
+    it('allows switching harness scenarios directly on-screen and closing harness panel via exit button', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, getByText, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} devHarnessMode={true} initialHarnessScenario={0} />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Harness panel is active
+      expect(getByTestId('prompt-harness-panel')).toBeTruthy();
+
+      // Switch to scenario 2 (review unconfirmed)
+      act(() => {
+        fireEvent.press(getByTestId('harness-scenario-1'));
+      });
+
+      // Video seeks to scenario 2 before-window timestamp (13.0s)
+      expect(videoComp.instance.currentTime).toBe(13.0);
+
+      // Switch to scenario 5 (chained skip)
+      act(() => {
+        fireEvent.press(getByTestId('harness-scenario-4'));
+      });
+      expect(videoComp.instance.currentTime).toBe(33.0);
+
+      // Exit harness button closes the harness panel
+      act(() => {
+        fireEvent.press(getByTestId('harness-close'));
+      });
+      expect(queryByTestId('prompt-harness-panel')).toBeNull();
+    });
   });
 });

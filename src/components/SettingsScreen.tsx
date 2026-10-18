@@ -160,6 +160,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   optionsRef.current = options;
   profileRef.current = profile;
 
+  // D-pad navigation anchor refs for 10-foot TV UI focus chaining
+  const backButtonRef = useRef<any>(null);
+  const resetButtonRef = useRef<any>(null);
+  const profileStandardRef = useRef<any>(null);
+  const reductionToggleRef = useRef<any>(null);
+  const reductionOption30Ref = useRef<any>(null);
+  const blurOptionStandardRef = useRef<any>(null);
+  const visualProtectionRef = useRef<any>(null);
+  const categoryFlashingRef = useRef<any>(null);
+
   // TV remote hardware back button listener
   useEffect(() => {
     const handler = BackHandler;
@@ -283,6 +293,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.headerActionRow}>
           {onBack && (
             <TouchableOpacity
+              ref={backButtonRef}
               style={[
                 styles.navButton,
                 focusedId === 'settings-back-button' && styles.navButtonFocused,
@@ -290,7 +301,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               testID="settings-back-button"
               accessibilityRole="button"
               accessibilityLabel="Back to Player"
+              isTVSelectable={true}
               hasTVPreferredFocus={true}
+              nextFocusRight={resetButtonRef.current}
+              nextFocusDown={profileStandardRef.current}
               onFocus={() => setFocusedId('settings-back-button')}
               onPress={onBack}
               activeOpacity={0.8}>
@@ -299,6 +313,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           )}
 
           <TouchableOpacity
+            ref={resetButtonRef}
             style={[
               styles.navButton,
               styles.resetButton,
@@ -307,6 +322,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             testID="settings-reset-button"
             accessibilityRole="button"
             accessibilityLabel="Reset to Default Settings"
+            isTVSelectable={true}
+            nextFocusLeft={backButtonRef.current}
+            nextFocusDown={profileStandardRef.current}
             onFocus={() => setFocusedId('settings-reset-button')}
             onPress={handleResetDefaults}
             activeOpacity={0.8}>
@@ -340,6 +358,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               return (
                 <TouchableOpacity
                   key={p}
+                  ref={p === 'standard' ? profileStandardRef : undefined}
                   style={[
                     styles.pickerButton,
                     isSelected && styles.pickerButtonSelected,
@@ -349,6 +368,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Profile: ${p}`}
+                  isTVSelectable={true}
+                  nextFocusUp={backButtonRef.current}
+                  nextFocusDown={reductionToggleRef.current}
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() => handleProfileChange(p)}
                   activeOpacity={0.8}>
@@ -356,6 +378,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={[
                       styles.pickerButtonText,
                       isSelected && styles.pickerButtonTextSelected,
+                      isFocused && styles.pickerButtonFocusedText,
                     ]}>
                     {p === 'standard'
                       ? 'Standard'
@@ -376,6 +399,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionHeader}>AUDIO VOLUME REDUCTION</Text>
             <TouchableOpacity
+              ref={reductionToggleRef}
               style={[
                 styles.togglePill,
                 options.reduceEnabled ? styles.togglePillActive : styles.togglePillInactive,
@@ -385,6 +409,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               accessibilityRole="checkbox"
               accessibilityState={{ checked: options.reduceEnabled }}
               accessibilityLabel="Enable Audio Volume Reduction"
+              isTVSelectable={true}
+              nextFocusUp={profileStandardRef.current}
+              nextFocusDown={reductionOption30Ref.current}
               onFocus={() => setFocusedId('toggle-volume-reduction')}
               onPress={() =>
                 handleUpdateOptions((prev) => ({
@@ -420,6 +447,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               return (
                 <TouchableOpacity
                   key={gain}
+                  ref={gain === 0.3 ? reductionOption30Ref : undefined}
                   style={[
                     styles.pickerButton,
                     isSelected && styles.pickerButtonSelected,
@@ -429,6 +457,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Reduction Gain ${percent} percent`}
+                  isTVSelectable={true}
+                  nextFocusUp={
+                    reductionPickerNextFocusUp ?? reductionToggleRef.current
+                  }
+                  nextFocusDown={
+                    reductionPickerNextFocusDown ?? blurOptionStandardRef.current
+                  }
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() =>
                     handleUpdateOptions((prev) => ({
@@ -450,10 +485,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={[
                       styles.pickerButtonText,
                       isSelected && styles.pickerButtonTextSelected,
+                      isFocused && styles.pickerButtonFocusedText,
                     ]}>
                     {percent}% {gain === 0.3 ? '(Default)' : ''}
                   </Text>
-                  <Text style={styles.pickerSubText}>
+                  <Text
+                    style={[
+                      styles.pickerSubText,
+                      isFocused && styles.pickerSubTextFocused,
+                    ]}>
                     {gain === 0.15
                       ? '-16 dB'
                       : gain === 0.25
@@ -499,6 +539,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               return (
                 <TouchableOpacity
                   key={mode}
+                  ref={mode === 'standard' ? blurOptionStandardRef : undefined}
                   style={[
                     styles.pickerButton,
                     isSelected && styles.pickerButtonSelected,
@@ -508,6 +549,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Blur Intensity: ${mode}`}
+                  isTVSelectable={true}
+                  nextFocusUp={
+                    blurPickerNextFocusUp ?? reductionOption30Ref.current
+                  }
+                  nextFocusDown={
+                    blurPickerNextFocusDown ?? visualProtectionRef.current
+                  }
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() => setBlurMode(mode)}
                   activeOpacity={0.8}
@@ -523,6 +571,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={[
                       styles.pickerButtonText,
                       isSelected && styles.pickerButtonTextSelected,
+                      isFocused && styles.pickerButtonFocusedText,
                     ]}>
                     {mode === 'off'
                       ? 'Off'
@@ -578,10 +627,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <View style={styles.togglesGrid}>
             <ToggleItem
+              forwardedRef={visualProtectionRef}
               testID="toggle-visual-protection"
               label="Visual Protection (Hide / Blackout)"
               enabled={options.hideEnabled}
               isFocused={focusedId === 'toggle-visual-protection'}
+              nextFocusUp={blurOptionStandardRef.current}
               onFocus={() => setFocusedId('toggle-visual-protection')}
               onPress={() =>
                 handleUpdateOptions((prev) => ({
@@ -624,6 +675,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               label="Advance Heads-Up Prompts (3-5s Notice)"
               enabled={options.headsUpPrompts?.enabled ?? false}
               isFocused={focusedId === 'toggle-heads-up-prompts'}
+              nextFocusDown={categoryFlashingRef.current}
               onFocus={() => setFocusedId('toggle-heads-up-prompts')}
               onPress={() =>
                 handleUpdateOptions((prev) => ({
@@ -654,6 +706,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               return (
                 <TouchableOpacity
                   key={cat}
+                  ref={cat === 'flashing' ? categoryFlashingRef : undefined}
                   style={[
                     styles.categoryPill,
                     isEnabled ? styles.categoryPillActive : styles.categoryPillDisabled,
@@ -663,6 +716,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isEnabled }}
                   accessibilityLabel={`Trigger Category: ${cat}`}
+                  isTVSelectable={true}
+                  nextFocusUp={visualProtectionRef.current}
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() =>
                     handleUpdateOptions((prev) => {
@@ -677,7 +732,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     })
                   }
                   activeOpacity={0.8}>
-                  <Text style={styles.categoryPillIcon}>
+                  <Text
+                    style={[
+                      styles.categoryPillIcon,
+                      isFocused && styles.categoryPillFocusedIcon,
+                    ]}>
                     {isEnabled ? '✓' : '✕'}
                   </Text>
                   <Text
@@ -686,6 +745,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       isEnabled
                         ? styles.categoryPillTextActive
                         : styles.categoryPillTextDisabled,
+                      isFocused && styles.categoryPillFocusedText,
                     ]}>
                     {cat}
                   </Text>
@@ -710,6 +770,9 @@ interface ToggleItemProps {
   onFocus: () => void;
   onPress: () => void;
   testID: string;
+  forwardedRef?: React.Ref<any>;
+  nextFocusUp?: any;
+  nextFocusDown?: any;
 }
 
 const ToggleItem: React.FC<ToggleItemProps> = ({
@@ -719,9 +782,13 @@ const ToggleItem: React.FC<ToggleItemProps> = ({
   onFocus,
   onPress,
   testID,
+  forwardedRef,
+  nextFocusUp,
+  nextFocusDown,
 }) => {
   return (
     <TouchableOpacity
+      ref={forwardedRef}
       style={[
         styles.toggleRow,
         isFocused && styles.toggleRowFocused,
@@ -730,10 +797,19 @@ const ToggleItem: React.FC<ToggleItemProps> = ({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: enabled }}
       accessibilityLabel={`${label}: ${enabled ? 'Enabled' : 'Disabled'}`}
+      isTVSelectable={true}
+      nextFocusUp={nextFocusUp}
+      nextFocusDown={nextFocusDown}
       onFocus={onFocus}
       onPress={onPress}
       activeOpacity={0.8}>
-      <Text style={styles.toggleRowLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.toggleRowLabel,
+          isFocused && styles.toggleRowLabelFocused,
+        ]}>
+        {label}
+      </Text>
       <View
         style={[
           styles.statusBadge,
@@ -796,8 +872,9 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   navButtonFocused: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#334155',
+    borderColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
+    transform: [{ scale: 1.05 }],
   },
   resetButton: {
     backgroundColor: '#27272A',
@@ -881,8 +958,13 @@ const styles = StyleSheet.create({
     borderColor: '#38BDF8',
   },
   pickerButtonFocused: {
-    borderColor: '#FACC15',
-    transform: [{ scale: 1.03 }],
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E5A900', // High-contrast TV yellow
+    transform: [{ scale: 1.05 }],
+  },
+  pickerButtonFocusedText: {
+    color: '#000000',
+    fontWeight: '800',
   },
   pickerButtonText: {
     color: '#E2E8F0',
@@ -898,6 +980,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  pickerSubTextFocused: {
+    color: '#000000',
+    fontWeight: '700',
+  },
   togglePill: {
     paddingVertical: 6,
     paddingHorizontal: 14,
@@ -912,7 +998,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#475569',
   },
   togglePillFocused: {
-    borderColor: '#FACC15',
+    borderColor: '#FFFFFF',
+    transform: [{ scale: 1.06 }],
   },
   togglePillText: {
     color: '#FFFFFF',
@@ -993,13 +1080,18 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   toggleRowFocused: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#334155',
+    borderColor: '#FFFFFF',
+    backgroundColor: '#1E3A8A',
+    transform: [{ scale: 1.02 }],
   },
   toggleRowLabel: {
     color: '#E2E8F0',
     fontSize: 14,
     fontWeight: '500',
+  },
+  toggleRowLabelFocused: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   statusBadge: {
     paddingVertical: 4,
@@ -1041,8 +1133,17 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categoryPillFocused: {
-    borderColor: '#FACC15',
-    transform: [{ scale: 1.02 }],
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E5A900',
+    transform: [{ scale: 1.05 }],
+  },
+  categoryPillFocusedIcon: {
+    color: '#000000',
+    fontWeight: '800',
+  },
+  categoryPillFocusedText: {
+    color: '#000000',
+    fontWeight: '800',
   },
   categoryPillIcon: {
     color: '#38BDF8',

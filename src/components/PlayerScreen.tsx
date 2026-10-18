@@ -2089,6 +2089,11 @@ export const PlayerScreen = ({
           onPress={handleThatBotheredMe}
           isFocused={focusedControl === 'bothered'}
           onFocus={() => setFocusedControl('bothered')}
+          onBlur={() => {
+            if (focusedControl === 'bothered') {
+              setFocusedControl('');
+            }
+          }}
           focusable={!isSettingsOpen && !showRecap && !activePromptCue}
         />
         <Control
@@ -2407,7 +2412,7 @@ interface ControlProps {
 }
 
 const Control = ({
-  id: _id,
+  id,
   label,
   onPress,
   isFocused,
@@ -2417,27 +2422,43 @@ const Control = ({
   testID,
   accessibilityLabel,
   focusable = true,
-}: ControlProps) => (
-  <TouchableOpacity
-    style={[
-      styles.control,
-      preferred && styles.preferredControl,
-      isFocused && styles.focusedControl,
-    ]}
-    onPress={onPress}
-    onFocus={onFocus}
-    onBlur={onBlur}
-    testID={testID}
-    accessibilityRole="button"
-    accessibilityLabel={accessibilityLabel ?? label}
-    hasTVPreferredFocus={preferred}
-    focusable={focusable}
-    activeOpacity={0.8}>
-    <Text style={[styles.controlText, isFocused && styles.focusedControlText]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
+}: ControlProps) => {
+  const isBothered = id === 'bothered';
+  return (
+    <TouchableOpacity
+      style={[
+        styles.control,
+        isBothered && styles.botheredControl,
+        preferred && styles.preferredControl,
+        isFocused &&
+          (isBothered
+            ? styles.botheredControlFocused
+            : styles.focusedControl),
+      ]}
+      onPress={onPress}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      isTVSelectable={true}
+      hasTVPreferredFocus={preferred}
+      focusable={focusable}
+      activeOpacity={0.8}>
+      <Text
+        style={[
+          styles.controlText,
+          isBothered && styles.botheredControlText,
+          isFocused &&
+            (isBothered
+              ? styles.botheredControlFocusedText
+              : styles.focusedControlText),
+        ]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 interface DrawerToggleItemProps {
   label: string;
@@ -2628,6 +2649,17 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     transform: [{scale: 1.08}],
   },
+  botheredControl: {
+    backgroundColor: 'rgba(50, 50, 50, 0.8)',
+    borderColor: 'transparent',
+    borderWidth: 3,
+  },
+  botheredControlFocused: {
+    backgroundColor: '#E5A900', // High-contrast TV yellow
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
+    transform: [{scale: 1.08}], // Pop-out effect
+  },
   controlText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -2636,6 +2668,16 @@ const styles = StyleSheet.create({
   focusedControlText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  botheredControlText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  botheredControlFocusedText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '800',
   },
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,

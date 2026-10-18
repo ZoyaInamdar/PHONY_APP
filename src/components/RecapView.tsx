@@ -80,11 +80,17 @@ export const RecapView: React.FC<RecapViewProps> = ({
               style={[
                 styles.button,
                 styles.restartButton,
-                focusedButton === 'restart' && styles.buttonFocused,
+                focusedButton === 'restart' && styles.restartButtonFocused,
               ]}
               testID="recap-watch-again"
               onPress={onRestart}
               onFocus={() => setFocusedButton('restart')}
+              onBlur={() => {
+                if (focusedButton === 'restart') {
+                  setFocusedButton('done');
+                }
+              }}
+              isTVSelectable={true}
               accessibilityRole="button"
               accessibilityLabel="Watch Again"
               activeOpacity={0.8}>
@@ -96,16 +102,23 @@ export const RecapView: React.FC<RecapViewProps> = ({
             style={[
               styles.button,
               styles.doneButton,
-              focusedButton === 'done' && styles.buttonFocused,
+              focusedButton === 'done' && styles.doneButtonFocused,
             ]}
             testID="recap-done"
             onPress={onClose}
             onFocus={() => setFocusedButton('done')}
+            isTVSelectable={true}
             hasTVPreferredFocus={true}
             accessibilityRole="button"
             accessibilityLabel="Done, close recap"
             activeOpacity={0.8}>
-            <Text style={styles.buttonText}>Done</Text>
+            <Text
+              style={[
+                styles.buttonText,
+                focusedButton === 'done' && styles.doneButtonFocusedText,
+              ]}>
+              Done
+            </Text>
           </TouchableOpacity>
         </View>
       </TVFocusGuideView>
@@ -223,9 +236,25 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     transform: [{ scale: 1.05 }],
   },
+  doneButtonFocused: {
+    backgroundColor: '#E5A900', // High-contrast TV yellow
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
+    transform: [{ scale: 1.08 }], // Pop-out effect
+  },
+  restartButtonFocused: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
+    transform: [{ scale: 1.05 }],
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: 'bold',
+  },
+  doneButtonFocusedText: {
+    color: '#000000',
+    fontWeight: '800',
   },
 });

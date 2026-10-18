@@ -865,3 +865,12 @@ experimental_features:
         - "Zero-shot classification calibration"
         - "Frame inference speed"
         - "Embedding cache storage footprint"
+
+# ------------------------------------------------------------------------------
+# 10. Heads-Up Advance Notice Prompts
+# ------------------------------------------------------------------------------
+# Advance warning prompt configuration before sensitive cues
+# ------------------------------------------------------------------------------
+heads_up_prompts:
+  enabled: false
+  lead_time_seconds: 5.0

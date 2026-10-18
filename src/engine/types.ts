@@ -40,6 +40,16 @@ export interface Cue {
   detectorSource?: string;
 }
 
+export interface HeadsUpPromptOptions {
+  enabled: boolean;
+  leadTimeSeconds: number;
+}
+
+export const DEFAULT_HEADS_UP_PROMPT_OPTIONS: HeadsUpPromptOptions = {
+  enabled: false,
+  leadTimeSeconds: 5.0,
+};
+
 export interface ViewerOptions {
   hideEnabled: boolean;
   muteEnabled: boolean;
@@ -53,6 +63,11 @@ export interface ViewerOptions {
    * category will not produce playback actions (mute, hide, reduce, skip, or warn).
    */
   disabledCategories?: string[];
+  /**
+   * Advance heads-up prompt options.
+   * Disabled by default for backward compatibility.
+   */
+  headsUpPrompts?: HeadsUpPromptOptions;
 }
 
 export interface EffectiveActions {
@@ -81,6 +96,11 @@ export interface EffectiveActions {
    * warning notifications without overriding audio/visual playback states.
    */
   warnCueIds: string[];
+  /**
+   * Active cue eligible for advance heads-up warning prompt during
+   * [cue.start - leadTimeSeconds, cue.start), or null if none.
+   */
+  promptCue?: Cue | null;
 }
 
 export const DEFAULT_VIEWER_OPTIONS: ViewerOptions = {
@@ -91,4 +111,41 @@ export const DEFAULT_VIEWER_OPTIONS: ViewerOptions = {
   reduceGain: 0.3,
   confirmReviewSkip: false,
   disabledCategories: [],
+  headsUpPrompts: DEFAULT_HEADS_UP_PROMPT_OPTIONS,
 };
+
+/**
+ * Resolves HeadsUpPromptOptions from partial input, applying default fallback values.
+ * Maps snake_case configuration keys (heads_up_prompts) to camelCase if encountered.
+ */
+export function resolveHeadsUpPromptOptions(
+  raw?: Partial<HeadsUpPromptOptions> | Record<string, unknown> | null,
+): HeadsUpPromptOptions {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_HEADS_UP_PROMPT_OPTIONS };
+  }
+
+  const source: Record<string, unknown> =
+    typeof (raw as any).heads_up_prompts === 'object' && (raw as any).heads_up_prompts !== null
+      ? (raw as any).heads_up_prompts
+      : typeof (raw as any).headsUpPrompts === 'object' && (raw as any).headsUpPrompts !== null
+      ? (raw as any).headsUpPrompts
+      : (raw as Record<string, unknown>);
+
+  const enabled =
+    typeof source.enabled === 'boolean'
+      ? source.enabled
+      : DEFAULT_HEADS_UP_PROMPT_OPTIONS.enabled;
+
+  const rawLeadTime =
+    source.leadTimeSeconds ?? source.lead_time_seconds;
+  const leadTimeSeconds =
+    typeof rawLeadTime === 'number' && Number.isFinite(rawLeadTime) && rawLeadTime > 0
+      ? rawLeadTime
+      : DEFAULT_HEADS_UP_PROMPT_OPTIONS.leadTimeSeconds;
+
+  return {
+    enabled,
+    leadTimeSeconds,
+  };
+}

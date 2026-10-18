@@ -213,6 +213,24 @@
         "unresolved_model_selections": { "type": "object" }
       },
       "additionalProperties": true
+    },
+    "heads_up_prompts": {
+      "type": "object",
+      "description": "Configuration for advance heads-up warning prompts before sensitive cues.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether heads-up advance warning prompts are enabled. Disabled by default."
+        },
+        "lead_time_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "default": 5.0,
+          "description": "Advance notice lead time in seconds prior to cue start. Must be strictly positive."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,

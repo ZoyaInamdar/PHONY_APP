@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -36,6 +37,39 @@ CANONICAL_TRIGGER_IDS = [
 ]
 
 ALLOWED_ACTIONS = ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
+
+DEFAULT_HEADS_UP_PROMPT_CONFIG: Dict[str, Any] = {
+    "enabled": False,
+    "lead_time_seconds": 5.0,
+}
+
+
+def get_heads_up_prompt_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract and resolve heads_up_prompts configuration with backward-compatible defaults.
+
+    Returns:
+        Dict with 'enabled' (bool) and 'lead_time_seconds' (float).
+    """
+    prompts = config.get("heads_up_prompts")
+    if not isinstance(prompts, dict):
+        return dict(DEFAULT_HEADS_UP_PROMPT_CONFIG)
+
+    enabled = prompts.get("enabled", DEFAULT_HEADS_UP_PROMPT_CONFIG["enabled"])
+    if not isinstance(enabled, bool):
+        enabled = DEFAULT_HEADS_UP_PROMPT_CONFIG["enabled"]
+
+    lead_time = prompts.get("lead_time_seconds", DEFAULT_HEADS_UP_PROMPT_CONFIG["lead_time_seconds"])
+    if isinstance(lead_time, bool) or not isinstance(lead_time, (int, float)):
+        lead_time = DEFAULT_HEADS_UP_PROMPT_CONFIG["lead_time_seconds"]
+    else:
+        lead_time = float(lead_time)
+        if not math.isfinite(lead_time) or lead_time <= 0.0:
+            lead_time = DEFAULT_HEADS_UP_PROMPT_CONFIG["lead_time_seconds"]
+
+    return {
+        "enabled": enabled,
+        "lead_time_seconds": lead_time,
+    }
 
 
 def load_config(config_path: Path | str = DEFAULT_CONFIG_PATH) -> Dict[str, Any]:
@@ -138,6 +172,23 @@ def validate_domain_rules(config: Dict[str, Any]) -> List[str]:
                 errors.append(
                     f"Experimental stretch feature '{s_name}' should not be enabled by default for baseline demo."
                 )
+
+    # 6. Heads-up advance warning prompt contract
+    if "heads_up_prompts" in config:
+        prompts = config["heads_up_prompts"]
+        if not isinstance(prompts, dict):
+            errors.append("heads_up_prompts must be a mapping/dictionary.")
+        else:
+            if "enabled" in prompts and not isinstance(prompts["enabled"], bool):
+                errors.append(f"heads_up_prompts.enabled must be a boolean, got {type(prompts['enabled']).__name__}.")
+            if "lead_time_seconds" in prompts:
+                lt = prompts["lead_time_seconds"]
+                if isinstance(lt, bool) or not isinstance(lt, (int, float)):
+                    errors.append(f"heads_up_prompts.lead_time_seconds must be a numeric value, got {type(lt).__name__}.")
+                elif not math.isfinite(float(lt)):
+                    errors.append("heads_up_prompts.lead_time_seconds must be a finite number.")
+                elif float(lt) <= 0.0:
+                    errors.append(f"heads_up_prompts.lead_time_seconds must be strictly greater than 0.0, got {lt}.")
 
     return errors
 

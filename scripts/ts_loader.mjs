@@ -40,5 +40,16 @@ export const EffectiveActions = {};
       source: (result.source || '') + dummyExports,
     };
   }
+  if (url.endsWith('/recap.ts') || url.endsWith('\\recap.ts')) {
+    const dummyExports = `
+export const AppliedAction = {};
+export const PlaybackSessionPayload = {};
+`;
+    return {
+      format: result.format,
+      shortCircuit: true,
+      source: (result.source || '') + dummyExports,
+    };
+  }
   return result;
 }

@@ -132,6 +132,49 @@ export function resolveActions(
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Advance heads-up prompt eligibility
+  // ---------------------------------------------------------------------------
+  let promptCue: Cue | null = null;
+  if (options.headsUpPrompts?.enabled) {
+    const leadTime = options.headsUpPrompts.leadTimeSeconds;
+    if (Number.isFinite(leadTime) && leadTime > 0) {
+      const eligiblePrompts = policyCues.filter((cue) => {
+        if (
+          !cue.id ||
+          !Number.isFinite(cue.start) ||
+          !Number.isFinite(cue.end) ||
+          cue.start < 0 ||
+          cue.end <= cue.start
+        ) {
+          throw new Error(`Invalid cue: ${cue.id || '(missing id)'}`);
+        }
+
+        if (
+          options.disabledCategories &&
+          cue.trigger &&
+          options.disabledCategories.includes(cue.trigger)
+        ) {
+          return false;
+        }
+
+        const windowStart = Math.max(0, cue.start - leadTime);
+        return windowStart <= time && time < cue.start;
+      });
+
+      if (eligiblePrompts.length > 0) {
+        // Deterministic selection: earliest cue.start, then tie-break by cue.id
+        eligiblePrompts.sort((a, b) => {
+          if (a.start !== b.start) {
+            return a.start - b.start;
+          }
+          return a.id.localeCompare(b.id);
+        });
+        promptCue = eligiblePrompts[0];
+      }
+    }
+  }
+
   // `hide` true is kept for backward-compat: it is true exactly when visualAction is 'hide'.
   const hide = visualAction === 'hide';
 
@@ -143,5 +186,6 @@ export function resolveActions(
     skipTo,
     activeCueIds: active.map((cue) => cue.id),
     warnCueIds,
+    promptCue,
   };
 }

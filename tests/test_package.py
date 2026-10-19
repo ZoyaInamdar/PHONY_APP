@@ -32,7 +32,12 @@ from scripts.package_cues import (
     package_cues,
 )
 from scripts.validate_config import CANONICAL_TRIGGER_IDS
-from scripts.validate_index import load_index, validate_index
+from scripts.validate_index import (
+    load_config_data,
+    load_index,
+    load_schema,
+    validate_index,
+)
 
 CUES_PATH = Path("data/cues.json")
 INDEX_PATH = Path("data/index.json")
@@ -1653,3 +1658,250 @@ def test_provenance_preservation_across_distinct_sources_and_merges():
     # Cue 4: profanity_detector
     assert cues[3]["trigger"] == "profanity"
     assert cues[3]["source"] == "profanity_detector"
+
+
+# ------------------------------------------------------------------------------
+# 11. Experimental Detectors (jump_scare & fast_motion) Packaging Integration
+# ------------------------------------------------------------------------------
+
+def test_package_synthetic_jump_scare_cue():
+    """Verify a valid synthetic jump_scare cue is accepted, formatted, and packaged."""
+    raw_jump_scare = {
+        "start": 2.123,
+        "end": 3.789,
+        "trigger": "jump_scare",
+        "score": 0.8542,
+        "source": "jump_scare_detector",
+    }
+    config = load_config_data(CONFIG_PATH)
+    schema = load_schema(SCHEMA_PATH)
+
+    res = package_cues(
+        raw_data={"detections": [raw_jump_scare]},
+        film_id="sintel",
+        duration_seconds=52.0,
+        config=config,
+        schema=schema,
+    )
+
+    cues = res["cues"]
+    assert len(cues) == 1
+    cue = cues[0]
+    assert cue["trigger"] == "jump_scare"
+    assert cue["score"] == 0.8542
+    assert cue["source"] == "jump_scare_detector"
+    assert cue["start"] == 2.123
+    assert cue["end"] == 3.789
+    assert cue["id"] == "cue_sintel_jump_scare_002123_003789"
+
+
+def test_package_synthetic_fast_motion_cue():
+    """Verify a valid synthetic fast_motion cue is accepted, formatted, and packaged."""
+    raw_fast_motion = {
+        "start": 5.0,
+        "end": 7.5,
+        "trigger": "fast_motion",
+        "score": 0.65,
+        "source": "motion_detector",
+    }
+    config = load_config_data(CONFIG_PATH)
+    schema = load_schema(SCHEMA_PATH)
+
+    res = package_cues(
+        raw_data={"detections": [raw_fast_motion]},
+        film_id="tears_of_steel",
+        duration_seconds=100.0,
+        config=config,
+        schema=schema,
+    )
+
+    cues = res["cues"]
+    assert len(cues) == 1
+    cue = cues[0]
+    assert cue["trigger"] == "fast_motion"
+    assert cue["score"] == 0.65
+    assert cue["source"] == "motion_detector"
+    assert cue["start"] == 5.0
+    assert cue["end"] == 7.5
+    assert cue["id"] == "cue_tears_of_steel_fast_motion_005000_007500"
+
+
+def test_packaged_index_with_experimental_cues_validates_against_schema(tmp_path: Path):
+    """Verify packaged index containing experimental cues passes full schema and domain validation."""
+    raw_detections = [
+        {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"},
+        {"start": 3.0, "end": 4.5, "trigger": "fast_motion", "score": 0.75, "source": "motion_detector"},
+        {"start": 6.0, "end": 7.2, "trigger": "jump_scare", "score": 0.88, "source": "jump_scare_detector"},
+    ]
+
+    out_file = tmp_path / "experimental_index.json"
+    raw_file = tmp_path / "raw_detections.json"
+    raw_file.write_text(json.dumps(raw_detections), encoding="utf-8")
+
+    package_and_save_index(
+        input_path=raw_file,
+        output_path=out_file,
+        config_path=CONFIG_PATH,
+        schema_path=SCHEMA_PATH,
+        film_id="multi_trigger_test",
+        duration_seconds=15.0,
+        fps=24.0,
+    )
+
+    is_valid, errors = validate_index(
+        index_path=out_file,
+        schema_path=SCHEMA_PATH,
+        config_path=CONFIG_PATH,
+    )
+    assert is_valid is True, f"Validation errors:\n{errors}"
+    assert errors == []
+
+
+def test_experimental_cue_invariants_and_merge_preservation():
+    """Verify trigger IDs, score fields, sources, and half-open intervals are preserved correctly."""
+    raw_detections = [
+        # Two contiguous fast_motion cues from motion_detector with gap 0.5s <= merge_gap 2.0s -> MUST MERGE
+        {"start": 1.0, "end": 2.5, "trigger": "fast_motion", "score": 0.6, "source": "motion_detector"},
+        {"start": 3.0, "end": 5.0, "trigger": "fast_motion", "score": 0.85, "source": "motion_detector"},
+        # Overlapping jump_scare cue on [2.0, 4.0) with different trigger & source -> MUST NOT MERGE
+        {"start": 2.0, "end": 4.0, "trigger": "jump_scare", "score": 0.92, "source": "jump_scare_detector"},
+    ]
+
+    res = package_cues(
+        raw_data={"detections": raw_detections},
+        film_id="invariants_test",
+        duration_seconds=10.0,
+        config=load_config_data(CONFIG_PATH),
+        schema=load_schema(SCHEMA_PATH),
+    )
+
+    cues = res["cues"]
+    assert len(cues) == 2
+
+    # Chronologically sorted by (start, end)
+    # Cue 1: Merged fast_motion [1.0, 5.0) score=0.85
+    assert cues[0]["trigger"] == "fast_motion"
+    assert cues[0]["source"] == "motion_detector"
+    assert cues[0]["start"] == 1.0
+    assert cues[0]["end"] == 5.0
+    assert cues[0]["score"] == 0.85
+    assert cues[0]["id"] == "cue_invariants_test_fast_motion_001000_005000"
+
+    # Cue 2: jump_scare [2.0, 4.0) score=0.92
+    assert cues[1]["trigger"] == "jump_scare"
+    assert cues[1]["source"] == "jump_scare_detector"
+    assert cues[1]["start"] == 2.0
+    assert cues[1]["end"] == 4.0
+    assert cues[1]["score"] == 0.92
+    assert cues[1]["id"] == "cue_invariants_test_jump_scare_002000_004000"
+
+
+def test_existing_packaging_unchanged_without_experimental_detectors():
+    """Verify standard packaging behavior is 100% identical when experimental cues are not present."""
+    standard_detections = [
+        {"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"},
+        {"start": 4.0, "end": 5.5, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
+    ]
+
+    res = package_cues(
+        raw_data={"detections": standard_detections},
+        film_id="standard_test",
+        duration_seconds=10.0,
+        config=load_config_data(CONFIG_PATH),
+        schema=load_schema(SCHEMA_PATH),
+    )
+
+    cues = res["cues"]
+    assert len(cues) == 2
+    assert [c["trigger"] for c in cues] == ["loud_spike", "profanity"]
+    assert all(c["trigger"] not in ("fast_motion", "jump_scare") for c in cues)
+
+
+def test_disabled_experimental_viewer_policies_prevent_playback_application():
+    """Verify that disabled experimental viewer policies prevent those cues from being applied in standard playback."""
+    node_test_script = """
+    import assert from 'node:assert';
+    import { adaptPackagedIndex } from './src/engine/packagedIndexAdapter.ts';
+    import { DEFAULT_TRIGGER_POLICIES } from './src/data/defaultTriggerPolicies.ts';
+
+    const testIndex = {
+      schema_version: 1,
+      film_id: 'policy_test',
+      timeline: {
+        duration_seconds: 20.0,
+        timestamp_unit: 'seconds',
+        interval_convention: 'half_open',
+        fps: 24.0,
+      },
+      cues: [
+        {
+          id: 'cue_loud_spike_01',
+          start: 2.0,
+          end: 4.0,
+          trigger: 'loud_spike',
+          score: 0.9,
+          source: 'loudness_detector',
+        },
+        {
+          id: 'cue_jump_scare_01',
+          start: 6.0,
+          end: 8.0,
+          trigger: 'jump_scare',
+          score: 0.85,
+          source: 'jump_scare_detector',
+        },
+        {
+          id: 'cue_fast_motion_01',
+          start: 10.0,
+          end: 12.0,
+          trigger: 'fast_motion',
+          score: 0.7,
+          source: 'motion_detector',
+        },
+      ],
+    };
+
+    // 1. With standard production default policies (both experimental triggers are disabled):
+    assert.strictEqual(DEFAULT_TRIGGER_POLICIES.jump_scare.enabled, false);
+    assert.strictEqual(DEFAULT_TRIGGER_POLICIES.fast_motion.enabled, false);
+
+    const standardCues = adaptPackagedIndex(testIndex, DEFAULT_TRIGGER_POLICIES);
+    assert.strictEqual(standardCues.length, 1, 'Only enabled cues should be adapted');
+    assert.strictEqual(standardCues[0].trigger, 'loud_spike');
+    assert.strictEqual(standardCues[0].action, 'mute');
+
+    // 2. Explicitly enable jump_scare via custom policy:
+    const customJumpPolicies = {
+      ...DEFAULT_TRIGGER_POLICIES,
+      jump_scare: { ...DEFAULT_TRIGGER_POLICIES.jump_scare, enabled: true },
+    };
+    const jumpCues = adaptPackagedIndex(testIndex, customJumpPolicies);
+    assert.strictEqual(jumpCues.length, 2);
+    const jumpScareCue = jumpCues.find(c => c.trigger === 'jump_scare');
+    assert.ok(jumpScareCue);
+    assert.strictEqual(jumpScareCue.action, 'warn');
+    assert.strictEqual(jumpScareCue.source, 'audio_visual');
+
+    // 3. Explicitly enable fast_motion via custom policy:
+    const customMotionPolicies = {
+      ...DEFAULT_TRIGGER_POLICIES,
+      fast_motion: { ...DEFAULT_TRIGGER_POLICIES.fast_motion, enabled: true },
+    };
+    const motionCues = adaptPackagedIndex(testIndex, customMotionPolicies);
+    assert.strictEqual(motionCues.length, 2);
+    const motionCue = motionCues.find(c => c.trigger === 'fast_motion');
+    assert.ok(motionCue);
+    assert.strictEqual(motionCue.action, 'warn');
+    assert.strictEqual(motionCue.source, 'visual');
+
+    console.log('Experimental policies playback prevention verified successfully.');
+    """
+    res = subprocess.run(
+        ["node", "--loader", "./scripts/ts_loader.mjs", "-e", node_test_script],
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parent.parent),
+    )
+    assert res.returncode == 0, f"Node script failed:\n{res.stderr}"
+    assert "Experimental policies playback prevention verified successfully." in res.stdout
+

@@ -120,6 +120,53 @@ class TestStageBuilding:
         assert "--fps" in pkg_stage.command
         assert "30.0" in pkg_stage.command
 
+    def test_stage_sequence_with_include_experimental(self):
+        """With include_experimental=True, fast motion and jump scare detectors are inserted before packaging."""
+        paths = PipelinePaths.default()
+        options = PipelineOptions(include_experimental=True)
+        stages = build_pipeline_stages(paths, options, python_exe="test_python")
+
+        assert len(stages) == 9
+        stage_names = [s.name for s in stages]
+        assert "Extract Audio" in stage_names[0]
+        assert "Detect Loud Spikes" in stage_names[1]
+        assert "Parse Subtitles" in stage_names[2]
+        assert "Detect Fast Motion" in stage_names[3]
+        assert "Detect Jump Scares" in stage_names[4]
+        assert "Package Multi-Detector Cues" in stage_names[5]
+        assert "Validate Packaged Index" in stage_names[6]
+        assert "Score Packaged Index" in stage_names[7]
+        assert "Score Complete Dataset" in stage_names[8]
+
+        # Verify fast motion detector stage arguments
+        motion_stage = stages[3]
+        assert "detect_fast_motion.py" in motion_stage.command[1]
+        assert "--input" in motion_stage.command
+        assert str(paths.input_media) in motion_stage.command
+        assert "--output" in motion_stage.command
+        assert str(paths.fast_motion_path) in motion_stage.command
+        assert "--config" in motion_stage.command
+        assert str(paths.config_yaml) in motion_stage.command
+
+        # Verify jump scare detector stage arguments
+        jump_stage = stages[4]
+        assert "detect_jump_scare.py" in jump_stage.command[1]
+        assert "--input" in jump_stage.command
+        assert str(paths.input_media) in jump_stage.command
+        assert "--output" in jump_stage.command
+        assert str(paths.jump_scare_path) in jump_stage.command
+        assert "--config" in jump_stage.command
+        assert str(paths.config_yaml) in jump_stage.command
+
+        # Verify packaging stage includes all 4 detector outputs
+        pkg_stage = stages[5]
+        input_idx = pkg_stage.command.index("--input")
+        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 5]
+        assert str(paths.loudness_detections) in pkg_inputs
+        assert str(paths.profanity_detections) in pkg_inputs
+        assert str(paths.fast_motion_path) in pkg_inputs
+        assert str(paths.jump_scare_path) in pkg_inputs
+
 
 class TestPrerequisitesCheck:
     def test_prerequisites_check_in_repo(self):
@@ -160,22 +207,84 @@ class TestPrerequisitesCheck:
             errors = check_prerequisites(paths, check_ffmpeg=True)
             assert any("FFmpeg" in e for e in errors)
 
+    def test_prerequisites_check_experimental_scripts(self, tmp_path: Path):
+        """When check_experimental=True, missing detector scripts are reported."""
+        paths = PipelinePaths(
+            repo_root=tmp_path,
+            input_media=tmp_path / "clip.mp4",
+            input_srt=tmp_path / "clip.srt",
+            wordlist=tmp_path / "wordlist.txt",
+            labels_csv=tmp_path / "labels.csv",
+            config_yaml=tmp_path / "config.yaml",
+            index_schema=tmp_path / "schema.json",
+            eval_dir=tmp_path / "eval",
+            audio_wav=tmp_path / "eval" / "audio.wav",
+            loudness_detections=tmp_path / "eval" / "loudness.json",
+            profanity_detections=tmp_path / "eval" / "profanity.json",
+            index_json=tmp_path / "eval" / "index.json",
+            multi_report_json=tmp_path / "reports" / "multi.json",
+            multi_report_md=tmp_path / "reports" / "multi.md",
+            dataset_report_json=tmp_path / "reports" / "dataset.json",
+            dataset_report_md=tmp_path / "reports" / "dataset.md",
+        )
+        paths.input_media.touch()
+        paths.input_srt.touch()
+        paths.wordlist.touch()
+        paths.labels_csv.touch()
+        paths.config_yaml.touch()
+        paths.index_schema.touch()
+
+        errors = check_prerequisites(paths, check_ffmpeg=False, check_experimental=True)
+        assert len(errors) == 2
+        assert any("detect_fast_motion.py" in e for e in errors)
+        assert any("detect_jump_scare.py" in e for e in errors)
+
 
 class TestPipelineExecution:
     @patch("subprocess.run")
-    def test_execute_pipeline_success(self, mock_run: MagicMock):
+    def test_execute_pipeline_success(self, mock_run: MagicMock, tmp_path: Path):
         """Successful execution runs all stages in sequence and returns code 0."""
         mock_run.return_value = MagicMock(returncode=0)
 
+        eval_dir = tmp_path / "eval"
+        reports_dir = tmp_path / "reports"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        reports_dir.mkdir(parents=True, exist_ok=True)
+
         paths = PipelinePaths.default()
+        paths = PipelinePaths(
+            repo_root=paths.repo_root,
+            input_media=paths.input_media,
+            input_srt=paths.input_srt,
+            wordlist=paths.wordlist,
+            labels_csv=paths.labels_csv,
+            config_yaml=paths.config_yaml,
+            index_schema=paths.index_schema,
+            eval_dir=eval_dir,
+            audio_wav=eval_dir / "audio.wav",
+            loudness_detections=eval_dir / "loudness.json",
+            profanity_detections=eval_dir / "profanity.json",
+            index_json=eval_dir / "index.json",
+            multi_report_json=reports_dir / "multi.json",
+            multi_report_md=reports_dir / "multi.md",
+            dataset_report_json=reports_dir / "dataset.json",
+            dataset_report_md=reports_dir / "dataset.md",
+        )
         options = PipelineOptions(skip_dataset_eval=True)
+
+        # Ensure expected output files exist so expected_output check passes
+        paths.audio_wav.touch()
+        paths.loudness_detections.touch()
+        paths.profanity_detections.touch()
+        paths.index_json.touch()
+        paths.multi_report_json.touch()
 
         code = execute_pipeline(paths, options, check_env=False)
         assert code == 0
         assert mock_run.call_count == 6
 
     @patch("subprocess.run")
-    def test_execute_pipeline_failure_halts_immediately(self, mock_run: MagicMock):
+    def test_execute_pipeline_failure_halts_immediately(self, mock_run: MagicMock, tmp_path: Path):
         """When a stage fails, execution halts immediately and preserves the exit code."""
         # Stage 1 succeeds, Stage 2 fails with exit code 42
         mock_run.side_effect = [
@@ -183,13 +292,67 @@ class TestPipelineExecution:
             MagicMock(returncode=42),
         ]
 
+        eval_dir = tmp_path / "eval"
+        eval_dir.mkdir(parents=True, exist_ok=True)
         paths = PipelinePaths.default()
+        paths = PipelinePaths(
+            repo_root=paths.repo_root,
+            input_media=paths.input_media,
+            input_srt=paths.input_srt,
+            wordlist=paths.wordlist,
+            labels_csv=paths.labels_csv,
+            config_yaml=paths.config_yaml,
+            index_schema=paths.index_schema,
+            eval_dir=eval_dir,
+            audio_wav=eval_dir / "audio.wav",
+            loudness_detections=eval_dir / "loudness.json",
+            profanity_detections=eval_dir / "profanity.json",
+            index_json=eval_dir / "index.json",
+            multi_report_json=tmp_path / "multi.json",
+            multi_report_md=tmp_path / "multi.md",
+            dataset_report_json=tmp_path / "dataset.json",
+            dataset_report_md=tmp_path / "dataset.md",
+        )
+        paths.audio_wav.touch()
         options = PipelineOptions()
 
         code = execute_pipeline(paths, options, check_env=False)
         assert code == 42
         # Only 2 subprocess calls were made; stages 3-7 were NEVER executed
         assert mock_run.call_count == 2
+
+    @patch("subprocess.run")
+    def test_execute_pipeline_missing_expected_output_fails(self, mock_run: MagicMock, tmp_path: Path):
+        """When a stage returns 0 but fails to produce its expected output file, pipeline halts."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        eval_dir = tmp_path / "eval"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        paths = PipelinePaths.default()
+        paths = PipelinePaths(
+            repo_root=paths.repo_root,
+            input_media=paths.input_media,
+            input_srt=paths.input_srt,
+            wordlist=paths.wordlist,
+            labels_csv=paths.labels_csv,
+            config_yaml=paths.config_yaml,
+            index_schema=paths.index_schema,
+            eval_dir=eval_dir,
+            audio_wav=eval_dir / "audio.wav",
+            loudness_detections=eval_dir / "loudness.json",
+            profanity_detections=eval_dir / "profanity.json",
+            index_json=eval_dir / "index.json",
+            multi_report_json=tmp_path / "multi.json",
+            multi_report_md=tmp_path / "multi.md",
+            dataset_report_json=tmp_path / "dataset.json",
+            dataset_report_md=tmp_path / "dataset.md",
+        )
+        options = PipelineOptions(skip_dataset_eval=True)
+
+        # Do NOT create audio.wav -> stage 1 should fail expected_output check
+        code = execute_pipeline(paths, options, check_env=False)
+        assert code == 1
+        assert mock_run.call_count == 1
 
     def test_execute_pipeline_prerequisites_failure_stops_before_any_command(self, tmp_path: Path):
         """Prerequisite failure returns 1 without running any commands."""
@@ -234,5 +397,14 @@ class TestCLIInvocation:
         assert args.duration == 15.0
         assert args.fps == 24.0
         assert args.generate_media is False
+        assert args.include_experimental is False
         assert args.skip_dataset_eval is False
         assert args.dry_run is False
+
+    def test_parse_args_include_experimental(self):
+        """CLI --include-experimental flag enables experimental detectors."""
+        args_default = parse_args([])
+        assert args_default.include_experimental is False
+
+        args_exp = parse_args(["--include-experimental"])
+        assert args_exp.include_experimental is True

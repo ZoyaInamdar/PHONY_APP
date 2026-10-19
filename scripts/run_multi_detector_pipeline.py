@@ -52,6 +52,8 @@ class PipelinePaths:
     multi_report_md: Path
     dataset_report_json: Path
     dataset_report_md: Path
+    fast_motion_detections: Optional[Path] = None
+    jump_scare_detections: Optional[Path] = None
 
     @classmethod
     def default(cls, repo_root: Optional[Path] = None) -> PipelinePaths:
@@ -75,7 +77,17 @@ class PipelinePaths:
             multi_report_md=reports_dir / "multi_detector_evaluation_report.md",
             dataset_report_json=reports_dir / "detection_evaluation_report.json",
             dataset_report_md=reports_dir / "detection_evaluation_report.md",
+            fast_motion_detections=eval_dir / "fast_motion_detections.json",
+            jump_scare_detections=eval_dir / "jump_scare_detections.json",
         )
+
+    @property
+    def fast_motion_path(self) -> Path:
+        return self.fast_motion_detections if self.fast_motion_detections is not None else (self.eval_dir / "fast_motion_detections.json")
+
+    @property
+    def jump_scare_path(self) -> Path:
+        return self.jump_scare_detections if self.jump_scare_detections is not None else (self.eval_dir / "jump_scare_detections.json")
 
 
 @dataclass(frozen=True)
@@ -87,6 +99,7 @@ class PipelineOptions:
     skip_dataset_eval: bool = False
     generate_media: bool = False
     dry_run: bool = False
+    include_experimental: bool = False
 
 
 @dataclass(frozen=True)
@@ -96,9 +109,14 @@ class PipelineStage:
     name: str
     command: List[str]
     description: str
+    expected_output: Optional[Path] = None
 
 
-def check_prerequisites(paths: PipelinePaths, check_ffmpeg: bool = True) -> List[str]:
+def check_prerequisites(
+    paths: PipelinePaths,
+    check_ffmpeg: bool = True,
+    check_experimental: bool = False,
+) -> List[str]:
     """Check required input files and binaries. Returns list of error messages (empty if OK)."""
     errors: List[str] = []
 
@@ -122,6 +140,14 @@ def check_prerequisites(paths: PipelinePaths, check_ffmpeg: bool = True) -> List
 
     if not paths.index_schema.is_file():
         errors.append(f"Index schema JSON not found: {paths.index_schema}")
+
+    if check_experimental:
+        fast_motion_script = paths.repo_root / "scripts" / "detect_fast_motion.py"
+        jump_scare_script = paths.repo_root / "scripts" / "detect_jump_scare.py"
+        if not fast_motion_script.is_file():
+            errors.append(f"Fast motion detector script not found: {fast_motion_script}")
+        if not jump_scare_script.is_file():
+            errors.append(f"Jump scare detector script not found: {jump_scare_script}")
 
     return errors
 
@@ -172,6 +198,7 @@ def build_pipeline_stages(
                 str(paths.audio_wav),
             ],
             description="Extracts 44.1kHz mono 16-bit PCM WAV from media container.",
+            expected_output=paths.audio_wav,
         )
     )
     current_id += 1
@@ -194,6 +221,7 @@ def build_pipeline_stages(
                 options.film_id,
             ],
             description="Detects acoustic spikes exceeding loudness threshold.",
+            expected_output=paths.loudness_detections,
         )
     )
     current_id += 1
@@ -215,11 +243,64 @@ def build_pipeline_stages(
                 "profanity_detector",
             ],
             description="Matches subtitle cues against profanity wordlist.",
+            expected_output=paths.profanity_detections,
         )
     )
     current_id += 1
 
+    # Optional Stages: Experimental Detectors
+    if options.include_experimental:
+        stages.append(
+            PipelineStage(
+                stage_id=current_id,
+                name="Detect Fast Motion (motion_detector)",
+                command=[
+                    py,
+                    str(paths.repo_root / "scripts" / "detect_fast_motion.py"),
+                    "--input",
+                    str(paths.input_media),
+                    "--output",
+                    str(paths.fast_motion_path),
+                    "--config",
+                    str(paths.config_yaml),
+                ],
+                description="Detects visual fast motion and camera shake from video luminance differences.",
+                expected_output=paths.fast_motion_path,
+            )
+        )
+        current_id += 1
+
+        stages.append(
+            PipelineStage(
+                stage_id=current_id,
+                name="Detect Jump Scares (jump_scare_detector)",
+                command=[
+                    py,
+                    str(paths.repo_root / "scripts" / "detect_jump_scare.py"),
+                    "--input",
+                    str(paths.input_media),
+                    "--output",
+                    str(paths.jump_scare_path),
+                    "--config",
+                    str(paths.config_yaml),
+                ],
+                description="Detects multimodal compound jump scares fusing audio spikes and rapid visual change.",
+                expected_output=paths.jump_scare_path,
+            )
+        )
+        current_id += 1
+
     # Stage 4: Package Cues into Index
+    package_inputs = [
+        str(paths.loudness_detections),
+        str(paths.profanity_detections),
+    ]
+    if options.include_experimental:
+        package_inputs.extend([
+            str(paths.fast_motion_path),
+            str(paths.jump_scare_path),
+        ])
+
     stages.append(
         PipelineStage(
             stage_id=current_id,
@@ -228,8 +309,7 @@ def build_pipeline_stages(
                 py,
                 str(paths.repo_root / "scripts" / "package_cues.py"),
                 "--input",
-                str(paths.loudness_detections),
-                str(paths.profanity_detections),
+                *package_inputs,
                 "--output",
                 str(paths.index_json),
                 "--config",
@@ -244,6 +324,7 @@ def build_pipeline_stages(
                 str(options.fps),
             ],
             description="Combines detections into a single chronological cue index.",
+            expected_output=paths.index_json,
         )
     )
     current_id += 1
@@ -288,6 +369,7 @@ def build_pipeline_stages(
                 str(paths.multi_report_md),
             ],
             description="Evaluates same-timeline cues against ground-truth and outputs reports.",
+            expected_output=paths.multi_report_json,
         )
     )
     current_id += 1
@@ -307,6 +389,7 @@ def build_pipeline_stages(
                     str(paths.dataset_report_md),
                 ],
                 description="Runs full dataset evaluation across positive and negative controls.",
+                expected_output=paths.dataset_report_json,
             )
         )
 
@@ -325,7 +408,7 @@ def execute_pipeline(
 
     # Validate prerequisites
     if check_env:
-        errors = check_prerequisites(paths, check_ffmpeg=True)
+        errors = check_prerequisites(paths, check_ffmpeg=True, check_experimental=options.include_experimental)
         if errors:
             print("=================================================================", file=sys.stderr)
             print("[ERROR] Pipeline prerequisites check failed:", file=sys.stderr)
@@ -366,6 +449,14 @@ def execute_pipeline(
                 )
                 print("Pipeline execution halted immediately. Subsequent stages cancelled.", file=sys.stderr)
                 return res.returncode
+
+            if stage.expected_output and not stage.expected_output.is_file():
+                print(
+                    f"\n[FATAL] Stage {stage.stage_id} ({stage.name}) exited with code 0 but expected output file was not created: {stage.expected_output}",
+                    file=sys.stderr,
+                )
+                print("Pipeline execution halted immediately. Subsequent stages cancelled.", file=sys.stderr)
+                return 1
         except Exception as exc:
             print(f"\n[FATAL] Stage {stage.stage_id} ({stage.name}) raised unexpected error: {exc}", file=sys.stderr)
             return 1
@@ -432,6 +523,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Run media generation prior to audio extraction.",
     )
     parser.add_argument(
+        "--include-experimental",
+        action="store_true",
+        help="Include experimental detectors (fast_motion, jump_scare) in pipeline execution and packaging.",
+    )
+    parser.add_argument(
         "--skip-dataset-eval",
         action="store_true",
         help="Skip the dataset-wide evaluation stage and run only same-timeline evaluation.",
@@ -461,6 +557,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             audio_wav=out_dir / "audio.wav",
             loudness_detections=out_dir / "loudness_detections.json",
             profanity_detections=out_dir / "profanity_detections.json",
+            fast_motion_detections=out_dir / "fast_motion_detections.json",
+            jump_scare_detections=out_dir / "jump_scare_detections.json",
             index_json=out_dir / "index.json",
         )
 
@@ -471,6 +569,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         skip_dataset_eval=args.skip_dataset_eval,
         generate_media=args.generate_media,
         dry_run=args.dry_run,
+        include_experimental=args.include_experimental,
     )
 
     return execute_pipeline(paths, options)

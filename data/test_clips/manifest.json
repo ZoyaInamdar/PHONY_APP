@@ -1,6 +1,6 @@
 {
   "generator_version": 1,
-  "clip_count": 30,
+  "clip_count": 34,
   "clips": [
     {
       "clip_name": "audio_explosion_test.mp4",
@@ -57,7 +57,8 @@
         "triggers": [
           "loud_spike"
         ]
-      }
+      },
+      "description": "Sharp isolated volume spike (+15 dB) against quiet baseline"
     },
     {
       "clip_name": "audio_loud_spike_test.mp4",
@@ -76,7 +77,8 @@
         "triggers": [
           "loud_spike"
         ]
-      }
+      },
+      "description": "Quiet background drone with sudden localized +15 dB volume burst"
     },
     {
       "clip_name": "audio_multi_event_mix.mp4",
@@ -94,7 +96,8 @@
         "triggers": [
           "gunshot"
         ]
-      }
+      },
+      "description": "Composite multi-event audio mix"
     },
     {
       "clip_name": "audio_negative_ambient.mp4",
@@ -109,7 +112,8 @@
       "metadata": {
         "description": "Negative baseline clip without acoustic spikes",
         "event_type": "ambient_noise"
-      }
+      },
+      "description": "Negative baseline clip without acoustic spikes"
     },
     {
       "clip_name": "audio_negative_dialogue.mp4",
@@ -124,7 +128,8 @@
       "metadata": {
         "description": "Negative baseline clip without acoustic spikes",
         "event_type": "calm_dialogue"
-      }
+      },
+      "description": "Negative baseline clip without acoustic spikes"
     },
     {
       "clip_name": "audio_scream_test.mp4",
@@ -160,7 +165,60 @@
         "has_fine_text": true,
         "has_1px_grid": true,
         "has_contrast_swatches": true
-      }
+      },
+      "description": "Fine-detail text and contrast pattern for blur/blackout verification"
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "duration": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "trigger": "fast_motion",
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame.",
+        "triggers": [
+          "fast_motion"
+        ]
+      },
+      "clip_id": "fast_motion_neg_01",
+      "filename": "fast_motion_negative.mp4",
+      "contains_trigger": false,
+      "experimental": true,
+      "description": "Gentle/slow-panning spatial translation at 2px per frame."
+    },
+    {
+      "clip_name": "fast_motion_positive.mp4",
+      "duration": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "trigger": "fast_motion",
+      "start": 0.0,
+      "end": 3.0,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "clip_id": "fast_motion_pos_01",
+        "filename": "fast_motion_positive.mp4",
+        "contains_trigger": true,
+        "experimental": true,
+        "description": "High-velocity spatial translation at 50px per frame.",
+        "triggers": [
+          "fast_motion"
+        ]
+      },
+      "clip_id": "fast_motion_pos_01",
+      "filename": "fast_motion_positive.mp4",
+      "contains_trigger": true,
+      "experimental": true,
+      "description": "High-velocity spatial translation at 50px per frame."
     },
     {
       "clip_name": "flash_area_half_24fps_4hz_c050.mp4",
@@ -643,6 +701,58 @@
       }
     },
     {
+      "clip_name": "jump_scare_negative.mp4",
+      "duration": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "trigger": "jump_scare",
+      "start": null,
+      "end": null,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell.",
+        "triggers": [
+          "jump_scare"
+        ]
+      },
+      "clip_id": "jump_scare_neg_01",
+      "filename": "jump_scare_negative.mp4",
+      "contains_trigger": false,
+      "experimental": true,
+      "description": "Gradual fade from black to dark gray with soft audio swell."
+    },
+    {
+      "clip_name": "jump_scare_positive.mp4",
+      "duration": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "trigger": "jump_scare",
+      "start": 1.5,
+      "end": 1.6,
+      "labeller": "synthetic_generator",
+      "metadata": {
+        "clip_id": "jump_scare_pos_01",
+        "filename": "jump_scare_positive.mp4",
+        "contains_trigger": true,
+        "experimental": true,
+        "description": "Synchronized 1-frame visual flash and acoustic transient burst at 1.5s.",
+        "triggers": [
+          "jump_scare"
+        ]
+      },
+      "clip_id": "jump_scare_pos_01",
+      "filename": "jump_scare_positive.mp4",
+      "contains_trigger": true,
+      "experimental": true,
+      "description": "Synchronized 1-frame visual flash and acoustic transient burst at 1.5s."
+    },
+    {
       "clip_name": "speech_triggers_test.mp4",
       "duration": 17.0,
       "fps": 24.0,
@@ -658,7 +768,8 @@
         "triggers": [
           "profanity"
         ]
-      }
+      },
+      "description": "Speech trigger clip with matching .srt truth subtitles"
     },
     {
       "clip_name": "sync_test.mp4",
@@ -673,7 +784,8 @@
       "metadata": {
         "description": "Synchronization calibration clip with 3 simultaneous visual flashes and 1000Hz beeps",
         "markers_count": 3
-      }
+      },
+      "description": "Synchronization calibration clip with 3 simultaneous visual flashes and 1000Hz beeps"
     },
     {
       "clip_name": "video_negative_slow_fade.mp4",
@@ -687,7 +799,8 @@
       "labeller": "synthetic_generator",
       "metadata": {
         "description": "Slow continuous fade (0.2 Hz) below WCAG 3 Hz flash cutoff"
-      }
+      },
+      "description": "Slow continuous fade (0.2 Hz) below WCAG 3 Hz flash cutoff"
     },
     {
       "clip_name": "video_negative_smooth_gradient.mp4",
@@ -701,7 +814,8 @@
       "labeller": "synthetic_generator",
       "metadata": {
         "description": "Smooth spatial sinusoidal luminance gradient, delta Y < 0.05"
-      }
+      },
+      "description": "Smooth spatial sinusoidal luminance gradient, delta Y < 0.05"
     },
     {
       "clip_name": "video_negative_static.mp4",
@@ -715,7 +829,8 @@
       "labeller": "synthetic_generator",
       "metadata": {
         "description": "Completely static 50% neutral gray video"
-      }
+      },
+      "description": "Completely static 50% neutral gray video"
     }
   ]
 }

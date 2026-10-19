@@ -665,3 +665,61 @@ def test_multi_trigger_fixture_labels():
     assert intervals == [(1.0, 3.5), (5.0, 5.4), (7.0, 9.5), (11.0, 11.3)]
 
 
+def test_experimental_test_suite_specs_and_labels(tmp_path: Path):
+    """Verify experimental suite generates fast_motion and jump_scare specs with exact intervals."""
+    from scripts.generate_test_clips import (
+        build_all_clip_specs,
+        generate_experimental_test_suite,
+    )
+
+    specs = build_all_clip_specs(include_experimental=True)
+    assert len(specs) == 34
+    exp_clip_names = {s.clip_name for s in specs}
+    assert "fast_motion_positive.mp4" in exp_clip_names
+    assert "fast_motion_negative.mp4" in exp_clip_names
+    assert "jump_scare_positive.mp4" in exp_clip_names
+    assert "jump_scare_negative.mp4" in exp_clip_names
+
+    paths, exp_specs = generate_experimental_test_suite(output_dir=tmp_path)
+    assert len(paths) == 6
+    assert (tmp_path / "fast_motion_positive.mp4").is_file()
+    assert (tmp_path / "fast_motion_negative.mp4").is_file()
+    assert (tmp_path / "jump_scare_positive.mp4").is_file()
+    assert (tmp_path / "jump_scare_positive.wav").is_file()
+    assert (tmp_path / "jump_scare_negative.mp4").is_file()
+    assert (tmp_path / "jump_scare_negative.wav").is_file()
+
+    # Verify manifest
+    manifest_file = tmp_path / "manifest.json"
+    assert manifest_file.is_file()
+    with manifest_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["clip_count"] == 34
+
+    # Verify labels.csv
+    labels_file = tmp_path / "labels.csv"
+    assert labels_file.is_file()
+    with labels_file.open("r", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    fm_pos = next(r for r in rows if r["clip"] == "fast_motion_positive.mp4")
+    assert fm_pos["trigger"] == "fast_motion"
+    assert float(fm_pos["start"]) == 0.0
+    assert float(fm_pos["end"]) == 3.0
+
+    fm_neg = next(r for r in rows if r["clip"] == "fast_motion_negative.mp4")
+    assert fm_neg["trigger"] == "fast_motion"
+    assert fm_neg["start"] == ""
+    assert fm_neg["end"] == ""
+
+    js_pos = next(r for r in rows if r["clip"] == "jump_scare_positive.mp4")
+    assert js_pos["trigger"] == "jump_scare"
+    assert float(js_pos["start"]) == 1.5
+    assert float(js_pos["end"]) == 1.6
+
+    js_neg = next(r for r in rows if r["clip"] == "jump_scare_negative.mp4")
+    assert js_neg["trigger"] == "jump_scare"
+    assert js_neg["start"] == ""
+    assert js_neg["end"] == ""
+
+
+

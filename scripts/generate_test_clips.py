@@ -25,6 +25,8 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
+
 # Repository root discovery
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -96,8 +98,8 @@ class ClipSpec:
     metadata: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def to_label_dict(self) -> Optional[Dict[str, Any]]:
-        """Return label row dictionary if this clip contains a canonical trigger."""
-        if self.trigger is None or self.start is None or self.end is None:
+        """Return label row dictionary if this clip contains a canonical trigger or is an explicit negative control."""
+        if self.trigger is None:
             return None
         if self.trigger not in CANONICAL_TRIGGERS:
             raise ValueError(
@@ -107,8 +109,8 @@ class ClipSpec:
         row: Dict[str, Any] = {
             "clip": self.clip_name,
             "trigger": self.trigger,
-            "start": round(float(self.start), 3),
-            "end": round(float(self.end), 3),
+            "start": round(float(self.start), 3) if self.start is not None else "",
+            "end": round(float(self.end), 3) if self.end is not None else "",
             "labeller": self.labeller,
         }
         if "actual_flash_rate" in self.metadata and self.metadata["actual_flash_rate"] is not None:
@@ -189,22 +191,33 @@ def write_labels_csv(
             raise ValueError(
                 f"Invalid trigger '{trig}' in record {row}. Must be one of {sorted(valid_triggers)}"
             )
-        start = float(row["start"])
-        end = float(row["end"])
-        if start < 0.0 or end <= start:
-            raise ValueError(f"Invalid interval [{start}, {end}) in record {row}")
+        start_val = row.get("start")
+        end_val = row.get("end")
+        if start_val is not None and str(start_val).strip() != "" and end_val is not None and str(end_val).strip() != "":
+            start = float(start_val)
+            end = float(end_val)
+            if start < 0.0 or end <= start:
+                raise ValueError(f"Invalid interval [{start}, {end}) in record {row}")
 
-    sorted_records = sorted(records, key=lambda r: (r["clip"], float(r["start"])))
+    sorted_records = sorted(
+        records,
+        key=lambda r: (
+            r["clip"],
+            float(r["start"]) if r.get("start") is not None and str(r.get("start", "")).strip() != "" else -1.0,
+        ),
+    )
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in sorted_records:
+            start_val = r.get("start")
+            end_val = r.get("end")
             row_dict = {
                 "clip": r["clip"],
                 "trigger": r["trigger"],
-                "start": f"{float(r['start']):.3f}",
-                "end": f"{float(r['end']):.3f}",
+                "start": f"{float(start_val):.3f}" if (start_val is not None and str(start_val).strip() != "") else "",
+                "end": f"{float(end_val):.3f}" if (end_val is not None and str(end_val).strip() != "") else "",
                 "labeller": r.get("labeller", "synthetic_generator"),
             }
             if "actual_rate" in r and r["actual_rate"] is not None and str(r["actual_rate"]).strip() != "":
@@ -281,6 +294,16 @@ def write_manifest_json(
             # If multiple triggers, prepare list
             if s.trigger:
                 clip_dict.setdefault("metadata", {})["triggers"] = [s.trigger]
+            if "clip_id" in s.metadata:
+                clip_dict["clip_id"] = s.metadata["clip_id"]
+            if "filename" in s.metadata:
+                clip_dict["filename"] = s.metadata["filename"]
+            if "contains_trigger" in s.metadata:
+                clip_dict["contains_trigger"] = s.metadata["contains_trigger"]
+            if "experimental" in s.metadata:
+                clip_dict["experimental"] = s.metadata["experimental"]
+            if "description" in s.metadata:
+                clip_dict["description"] = s.metadata["description"]
             distinct_clips[s.clip_name] = clip_dict
         else:
             existing = distinct_clips[s.clip_name]
@@ -304,11 +327,12 @@ def write_manifest_json(
     return out_path
 
 
-def build_all_clip_specs() -> List[ClipSpec]:
-    """Return ClipSpec definitions for all 30 standardized synthetic benchmark clips.
+def build_all_clip_specs(include_experimental: bool = False) -> List[ClipSpec]:
+    """Return ClipSpec definitions for standardized synthetic benchmark clips.
 
     Provides exact clip metadata (fps, duration, resolution, technical parameters)
-    for evaluation harness indexing.
+    for evaluation harness indexing. When include_experimental is True, includes
+    fast_motion and jump_scare test clips and controls.
     """
     specs: List[ClipSpec] = []
 
@@ -652,12 +676,97 @@ def build_all_clip_specs() -> List[ClipSpec]:
         )
     )
 
+    if include_experimental:
+        specs.append(
+            ClipSpec(
+                clip_name="fast_motion_positive.mp4",
+                duration=3.0,
+                fps=30.0,
+                width=1280,
+                height=720,
+                trigger="fast_motion",
+                start=0.000,
+                end=3.000,
+                labeller="synthetic_generator",
+                metadata={
+                    "clip_id": "fast_motion_pos_01",
+                    "filename": "fast_motion_positive.mp4",
+                    "contains_trigger": True,
+                    "experimental": True,
+                    "description": "High-velocity spatial translation at 50px per frame.",
+                },
+            )
+        )
+        specs.append(
+            ClipSpec(
+                clip_name="fast_motion_negative.mp4",
+                duration=3.0,
+                fps=30.0,
+                width=1280,
+                height=720,
+                trigger="fast_motion",
+                start=None,
+                end=None,
+                labeller="synthetic_generator",
+                metadata={
+                    "clip_id": "fast_motion_neg_01",
+                    "filename": "fast_motion_negative.mp4",
+                    "contains_trigger": False,
+                    "experimental": True,
+                    "description": "Gentle/slow-panning spatial translation at 2px per frame.",
+                },
+            )
+        )
+        specs.append(
+            ClipSpec(
+                clip_name="jump_scare_positive.mp4",
+                duration=3.0,
+                fps=30.0,
+                width=1280,
+                height=720,
+                trigger="jump_scare",
+                start=1.500,
+                end=1.600,
+                labeller="synthetic_generator",
+                metadata={
+                    "clip_id": "jump_scare_pos_01",
+                    "filename": "jump_scare_positive.mp4",
+                    "contains_trigger": True,
+                    "experimental": True,
+                    "description": "Synchronized 1-frame visual flash and acoustic transient burst at 1.5s.",
+                },
+            )
+        )
+        specs.append(
+            ClipSpec(
+                clip_name="jump_scare_negative.mp4",
+                duration=3.0,
+                fps=30.0,
+                width=1280,
+                height=720,
+                trigger="jump_scare",
+                start=None,
+                end=None,
+                labeller="synthetic_generator",
+                metadata={
+                    "clip_id": "jump_scare_neg_01",
+                    "filename": "jump_scare_negative.mp4",
+                    "contains_trigger": False,
+                    "experimental": True,
+                    "description": "Gradual fade from black to dark gray with soft audio swell.",
+                },
+            )
+        )
+
     return specs
 
 
-def reexport_full_manifest(output_path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "manifest.json") -> Path:
-    """Re-export manifest.json with all 30 clips (28 base suite + 2 loud_spike clips) and complete stream metadata."""
-    specs = build_all_clip_specs()
+def reexport_full_manifest(
+    output_path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "manifest.json",
+    include_experimental: bool = True,
+) -> Path:
+    """Re-export manifest.json with all clips (base suite + experimental clips) and complete stream metadata."""
+    specs = build_all_clip_specs(include_experimental=include_experimental)
     return write_manifest_json(specs, output_path)
 
 
@@ -671,11 +780,15 @@ def read_labels_csv(csv_path: Union[str, Path]) -> List[Dict[str, Any]]:
     with path.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            start_raw = str(row.get("start", "")).strip()
+            end_raw = str(row.get("end", "")).strip()
+            if not start_raw and not end_raw:
+                continue
             record: Dict[str, Any] = {
                 "clip": row["clip"],
                 "trigger": row["trigger"],
-                "start": float(row["start"]),
-                "end": float(row["end"]),
+                "start": float(start_raw),
+                "end": float(end_raw),
                 "labeller": row.get("labeller", ""),
             }
             if "actual_rate" in row and row["actual_rate"] is not None and str(row["actual_rate"]).strip() != "":
@@ -2213,7 +2326,394 @@ def generate_negative_video_clips(
     return generated_paths, specs
 
 
+def write_video(
+    output_path: Union[str, Path],
+    frames: List[Any],
+    fps: int = 30,
+) -> Path:
+    """Encode raw image frames into an MP4 video file using ffmpeg.
 
+    Args:
+        output_path: Target video file path.
+        frames: Sequence of uint8 numpy image arrays (H, W, 3).
+        fps: Framerate in frames per second.
+
+    Returns:
+        Path to the generated MP4 file.
+    """
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = find_tool("ffmpeg")
+    if not frames:
+        raise ValueError("Frames list cannot be empty for write_video")
+
+    h, w, c = frames[0].shape
+    cmd = [
+        ffmpeg_bin, "-y",
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-s", f"{w}x{h}",
+        "-pix_fmt", "bgr24" if c == 3 else "gray",
+        "-r", str(fps),
+        "-i", "-",
+        "-an",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        str(out_path),
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    raw_bytes = b"".join(f.tobytes() for f in frames)
+    proc.communicate(input=raw_bytes)
+    if proc.returncode != 0:
+        raise RuntimeError(f"FFmpeg failed with exit code {proc.returncode} encoding {out_path}")
+    return out_path
+
+
+def mix_audio_burst(
+    output_audio: Union[str, Path],
+    burst_time: float = 1.5,
+    duration: float = 3.0,
+    burst_duration: float = 0.1,
+    frequency: float = 880.0,
+) -> Path:
+    """Generate audio track with silence and a sudden 0dBFS acoustic burst at burst_time.
+
+    Args:
+        output_audio: Destination audio file path (.wav or .mp4).
+        burst_time: Timestamp in seconds for the transient burst.
+        duration: Total audio duration in seconds.
+        burst_duration: Duration of the acoustic burst.
+        frequency: Burst frequency in Hz.
+
+    Returns:
+        Path to output audio.
+    """
+    out_path = Path(output_audio)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = find_tool("ffmpeg")
+    t_start = float(burst_time)
+    t_end = round(t_start + burst_duration, 3)
+    cmd = [
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", f"sine=frequency={frequency}:duration={duration}",
+        "-af", f"volume=enable='between(t,{t_start},{t_end})':volume=1.0:volume=0.0",
+        "-c:a", "pcm_s16le" if out_path.suffix.lower() == ".wav" else "aac",
+        str(out_path),
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return out_path
+
+
+def generate_fast_motion_positive(
+    output_path: Union[str, Path],
+    duration: float = 3.0,
+    fps: int = 30,
+) -> Path:
+    """Generate positive test clip for fast_motion trigger with high-velocity spatial translation.
+
+    Simulates high-velocity translation at 50 pixels per frame.
+    Ground-truth trigger interval: [0.000, 3.000).
+    """
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import cv2  # type: ignore
+        has_cv2 = True
+    except ImportError:
+        cv2 = None
+        has_cv2 = False
+
+    frames = []
+    num_frames = int(duration * fps)
+    for i in range(num_frames):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        x_pos = (i * 50) % 1280
+        if has_cv2 and cv2 is not None:
+            cv2.rectangle(frame, (x_pos, 300), (x_pos + 100, 400), (255, 255, 255), -1)
+        else:
+            x_end = min(x_pos + 100, 1280)
+            frame[300:400, x_pos:x_end] = (255, 255, 255)
+            if x_pos + 100 > 1280:
+                frame[300:400, 0:(x_pos + 100 - 1280)] = (255, 255, 255)
+        frames.append(frame)
+
+    write_video(out_path, frames, fps)
+    return out_path
+
+
+def generate_fast_motion_negative(
+    output_path: Union[str, Path],
+    duration: float = 3.0,
+    fps: int = 30,
+) -> Path:
+    """Generate negative control clip for fast_motion trigger with gentle/slow-panning translation.
+
+    Simulates gentle spatial translation at 2 pixels per frame (far below motion threshold).
+    Negative control: contains no active trigger intervals.
+    """
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import cv2  # type: ignore
+        has_cv2 = True
+    except ImportError:
+        cv2 = None
+        has_cv2 = False
+
+    frames = []
+    num_frames = int(duration * fps)
+    for i in range(num_frames):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        x_pos = (i * 2) % 1280
+        if has_cv2 and cv2 is not None:
+            cv2.rectangle(frame, (x_pos, 300), (x_pos + 100, 400), (255, 255, 255), -1)
+        else:
+            x_end = min(x_pos + 100, 1280)
+            frame[300:400, x_pos:x_end] = (255, 255, 255)
+            if x_pos + 100 > 1280:
+                frame[300:400, 0:(x_pos + 100 - 1280)] = (255, 255, 255)
+        frames.append(frame)
+
+    write_video(out_path, frames, fps)
+    return out_path
+
+
+def generate_jump_scare_positive(
+    output_video: Union[str, Path],
+    output_audio: Optional[Union[str, Path]] = None,
+    duration: float = 3.0,
+    fps: int = 30,
+) -> Tuple[Path, Optional[Path]]:
+    """Generate positive test clip for jump_scare trigger with synchronized visual flash and audio spike.
+
+    Visual: Black frames with sudden 1-frame white flash at 1.5s.
+    Audio: Silence with sudden 0dBFS acoustic burst at 1.5s.
+    Ground-truth trigger interval: [1.500, 1.600).
+    """
+    out_v = Path(output_video)
+    out_v.parent.mkdir(parents=True, exist_ok=True)
+    scare_frame_idx = int(1.5 * fps)
+    frames = []
+    num_frames = int(duration * fps)
+    for i in range(num_frames):
+        color = 255 if i == scare_frame_idx else 0
+        frame = np.full((720, 1280, 3), color, dtype=np.uint8)
+        frames.append(frame)
+
+    write_video(out_v, frames, fps)
+
+    out_a = None
+    if output_audio:
+        out_a = Path(output_audio)
+        mix_audio_burst(out_a, burst_time=1.5, duration=duration)
+
+    # Mux acoustic burst directly into video container for multimodal detectors
+    ffmpeg_bin = find_tool("ffmpeg")
+    temp_muxed = out_v.with_name(f"{out_v.stem}_muxed.mp4")
+    cmd_mux = [
+        ffmpeg_bin, "-y",
+        "-i", str(out_v),
+        "-f", "lavfi", "-i", f"sine=frequency=880:duration={duration}",
+        "-af", "volume=enable='between(t,1.5,1.6)':volume=1.0:volume=0.0",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-shortest",
+        str(temp_muxed),
+    ]
+    mux_res = subprocess.run(cmd_mux, capture_output=True)
+    if mux_res.returncode == 0 and temp_muxed.is_file():
+        temp_muxed.replace(out_v)
+
+    return out_v, out_a
+
+
+def generate_jump_scare_negative(
+    output_video: Union[str, Path],
+    output_audio: Optional[Union[str, Path]] = None,
+    duration: float = 3.0,
+    fps: int = 30,
+) -> Tuple[Path, Optional[Path]]:
+    """Generate negative control clip for jump_scare trigger with gradual transitions.
+
+    Visual: Gradual fade from black to dark gray.
+    Audio: Slow volume swell with no abrupt transients.
+    Negative control: contains no active trigger intervals.
+    """
+    out_v = Path(output_video)
+    out_v.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = find_tool("ffmpeg")
+
+    cmd_v = [
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", f"color=c=0x404040:s=1280x720:r={fps}:d={duration}",
+        "-f", "lavfi", "-i", f"sine=frequency=220:duration={duration}",
+        "-vf", f"fade=t=in:st=0:d={duration}",
+        "-af", f"afade=t=in:st=0:d={duration},volume=0.2",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        str(out_v),
+    ]
+    subprocess.run(cmd_v, check=True, capture_output=True)
+
+    out_a = None
+    if output_audio:
+        out_a = Path(output_audio)
+        cmd_a = [
+            ffmpeg_bin, "-y",
+            "-f", "lavfi", "-i", f"sine=frequency=220:duration={duration}",
+            "-af", f"afade=t=in:st=0:d={duration},volume=0.2",
+            "-c:a", "pcm_s16le",
+            str(out_a),
+        ]
+        subprocess.run(cmd_a, check=True, capture_output=True)
+
+    return out_v, out_a
+
+
+def generate_experimental_test_suite(
+    output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
+) -> Tuple[List[Path], List[ClipSpec]]:
+    """Generate the experimental test clip suite (fast_motion and jump_scare positive and negative controls).
+
+    Outputs:
+    - fast_motion_positive.mp4
+    - fast_motion_negative.mp4
+    - jump_scare_positive.mp4 and jump_scare_positive.wav
+    - jump_scare_negative.mp4 and jump_scare_negative.wav
+    - Appends ground-truth intervals to labels.csv
+    - Updates manifest.json with full registration data
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    generated_paths: List[Path] = []
+    specs: List[ClipSpec] = []
+
+    # 1. fast_motion positive
+    fm_pos_path = out_dir / "fast_motion_positive.mp4"
+    generate_fast_motion_positive(fm_pos_path, duration=3.0, fps=30)
+    generated_paths.append(fm_pos_path)
+    specs.append(
+        ClipSpec(
+            clip_name="fast_motion_positive.mp4",
+            duration=3.0,
+            fps=30.0,
+            width=1280,
+            height=720,
+            trigger="fast_motion",
+            start=0.000,
+            end=3.000,
+            labeller="synthetic_generator",
+            metadata={
+                "clip_id": "fast_motion_pos_01",
+                "filename": "fast_motion_positive.mp4",
+                "contains_trigger": True,
+                "experimental": True,
+                "description": "High-velocity spatial translation at 50px per frame.",
+            },
+        )
+    )
+
+    # 2. fast_motion negative
+    fm_neg_path = out_dir / "fast_motion_negative.mp4"
+    generate_fast_motion_negative(fm_neg_path, duration=3.0, fps=30)
+    generated_paths.append(fm_neg_path)
+    specs.append(
+        ClipSpec(
+            clip_name="fast_motion_negative.mp4",
+            duration=3.0,
+            fps=30.0,
+            width=1280,
+            height=720,
+            trigger="fast_motion",
+            start=None,
+            end=None,
+            labeller="synthetic_generator",
+            metadata={
+                "clip_id": "fast_motion_neg_01",
+                "filename": "fast_motion_negative.mp4",
+                "contains_trigger": False,
+                "experimental": True,
+                "description": "Gentle/slow-panning spatial translation at 2px per frame.",
+            },
+        )
+    )
+
+    # 3. jump_scare positive
+    js_pos_v = out_dir / "jump_scare_positive.mp4"
+    js_pos_a = out_dir / "jump_scare_positive.wav"
+    generate_jump_scare_positive(js_pos_v, js_pos_a, duration=3.0, fps=30)
+    generated_paths.extend([js_pos_v, js_pos_a])
+    specs.append(
+        ClipSpec(
+            clip_name="jump_scare_positive.mp4",
+            duration=3.0,
+            fps=30.0,
+            width=1280,
+            height=720,
+            trigger="jump_scare",
+            start=1.500,
+            end=1.600,
+            labeller="synthetic_generator",
+            metadata={
+                "clip_id": "jump_scare_pos_01",
+                "filename": "jump_scare_positive.mp4",
+                "contains_trigger": True,
+                "experimental": True,
+                "description": "Synchronized 1-frame visual flash and acoustic transient burst at 1.5s.",
+            },
+        )
+    )
+
+    # 4. jump_scare negative
+    js_neg_v = out_dir / "jump_scare_negative.mp4"
+    js_neg_a = out_dir / "jump_scare_negative.wav"
+    generate_jump_scare_negative(js_neg_v, js_neg_a, duration=3.0, fps=30)
+    generated_paths.extend([js_neg_v, js_neg_a])
+    specs.append(
+        ClipSpec(
+            clip_name="jump_scare_negative.mp4",
+            duration=3.0,
+            fps=30.0,
+            width=1280,
+            height=720,
+            trigger="jump_scare",
+            start=None,
+            end=None,
+            labeller="synthetic_generator",
+            metadata={
+                "clip_id": "jump_scare_neg_01",
+                "filename": "jump_scare_negative.mp4",
+                "contains_trigger": False,
+                "experimental": True,
+                "description": "Gradual fade from black to dark gray with soft audio swell.",
+            },
+        )
+    )
+
+    # Update labels.csv: preserve existing records, replace/add experimental rows
+    labels_csv_path = out_dir / "labels.csv"
+    existing_records: List[Dict[str, Any]] = []
+    if labels_csv_path.is_file():
+        with labels_csv_path.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                existing_records.append(dict(r))
+
+    experimental_clip_names = {s.clip_name for s in specs}
+    merged_records = [r for r in existing_records if r.get("clip") not in experimental_clip_names]
+    for s in specs:
+        row = s.to_label_dict()
+        if row is not None:
+            merged_records.append(row)
+
+    write_labels_csv(merged_records, labels_csv_path)
+
+    # Update manifest.json with all specs including experimental
+    all_specs = build_all_clip_specs(include_experimental=True)
+    write_manifest_json(all_specs, out_dir / "manifest.json")
+
+    return generated_paths, specs
 
 
 def main() -> None:
@@ -2263,6 +2763,16 @@ def main() -> None:
         help="Generate only negative video and audio clips (gradients, slow fades, ambient, dialogue).",
     )
     parser.add_argument(
+        "--include-experimental",
+        action="store_true",
+        help="Include experimental triggers (fast_motion and jump_scare) in test suite generation.",
+    )
+    parser.add_argument(
+        "--experimental-only",
+        action="store_true",
+        help="Generate only experimental trigger test clips (fast_motion and jump_scare).",
+    )
+    parser.add_argument(
         "--reexport-manifest",
         action="store_true",
         help="Re-export manifest.json with all 30 clips (28 base suite + 2 loud_spike clips) without regenerating media files.",
@@ -2278,8 +2788,21 @@ def main() -> None:
     print("=" * 70)
 
     if args.reexport_manifest:
-        out_manifest = reexport_full_manifest(out_dir / "manifest.json")
-        print(f"Re-exported manifest with all 30 clips to: {out_manifest}")
+        out_manifest = reexport_full_manifest(out_dir / "manifest.json", include_experimental=args.include_experimental)
+        print(f"Re-exported manifest to: {out_manifest}")
+        return
+
+    if args.experimental_only or (args.include_experimental and not any([
+        args.sync_only, args.flash_only, args.detail_only,
+        args.audio_only, args.speech_only, args.multi_trigger_only,
+        args.negatives_only
+    ])):
+        print("[1/1] Generating experimental benchmark suite (fast_motion, jump_scare, and controls)...")
+        exp_paths, exp_specs = generate_experimental_test_suite(out_dir)
+        print(f"Generated {len(exp_paths)} experimental test assets in {out_dir}")
+        print(f"Updated primary labels in: {out_dir / 'labels.csv'}")
+        print(f"Updated manifest in: {out_dir / 'manifest.json'}")
+        print("\nGeneration complete!")
         return
 
     if args.sync_only:

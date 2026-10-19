@@ -15,8 +15,8 @@
       "subtitles": [
         {
           "language": "en",
-          "source_url": "",
-          "license_name": "Unverified",
+          "source_url": "https://durian.blender.org/sharing/",
+          "license_name": "CC BY 3.0",
           "license_url": "https://durian.blender.org/sharing/",
           "attribution": "(CC) Blender Foundation | durian.blender.org",
           "verification_date": "2026-10-17",
@@ -39,7 +39,7 @@
         {
           "language": "en",
           "source_url": "https://download.blender.org/demo/movies/ToS/subtitles/TOS-en.srt",
-          "license_name": "Unverified",
+          "license_name": "CC BY 3.0",
           "license_url": "https://mango.blender.org/sharing/",
           "attribution": "CC BY 3.0",
           "verification_date": "2026-10-17",
@@ -59,6 +59,20 @@
       "attribution": "Public Domain / Creative Commons CC0",
       "verification_date": "2026-10-18",
       "sha256": "0cbdd98a62bf94f5f28dbac85a70bacc4fe0c407c8919765c6ec2d7df193ecdf"
+    },
+    {
+      "asset": "audio_reduce_preview",
+      "asset_id": "audio_reduce_preview",
+      "asset_type": "preview_audio",
+      "filename": "audio_reduce_preview.wav",
+      "path": "assets/audio_preview/audio_reduce_preview.wav",
+      "source_url": "Generated synthetically via FFmpeg lavfi / audio synthesis.",
+      "license": "CC0",
+      "license_name": "CC0",
+      "attribution": "Public Domain - PHONY_APP Calibration Assets",
+      "verified_on": "2026-10-19",
+      "verification_date": "2026-10-19",
+      "sha256": "b69677108bda640222cad20ad3007f3e8cdf4d6a9d478a05dedad7723d83b91d"
     }
   ]
 }

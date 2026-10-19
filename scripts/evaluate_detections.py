@@ -427,9 +427,15 @@ def load_ground_truth_labels(
             if not clip_name or not trigger:
                 continue
 
+            start_raw = str(row.get("start", "")).strip()
+            end_raw = str(row.get("end", "")).strip()
+            if not start_raw and not end_raw:
+                # Negative control marker in labels.csv: trigger is never active in this clip
+                continue
+
             try:
-                start_f = float(row["start"])
-                end_f = float(row["end"])
+                start_f = float(start_raw)
+                end_f = float(end_raw)
             except (ValueError, TypeError) as exc:
                 raise ValueError(
                     f"Row {row_idx} in {path.name} contains invalid numeric timestamps: {row}"

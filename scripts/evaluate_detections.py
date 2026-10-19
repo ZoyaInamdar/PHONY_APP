@@ -36,6 +36,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.classify_audio_events import classify_audio_events
+from scripts.detect_fast_motion import detect_fast_motion
 from scripts.detect_flashing import detect_flashing
 from scripts.detect_jump_scare import detect_jump_scare
 from scripts.detect_loudness import (
@@ -137,9 +138,9 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "component": "motion_detector",
         "modality": "visual",
         "owner": "Person C",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unimplemented",
+        "status": "available",
+        "script": "scripts/detect_fast_motion.py",
+        "method": "frame_difference_rule",
     },
     "jump_scare": {
         "component": "compound_detector",
@@ -670,6 +671,17 @@ def run_detector_for_clip(
 
     elif trigger == "jump_scare":
         raw_detections = detect_jump_scare(
+            clip_file,
+            config=config,
+        )
+        merged_detections = merge_detections(
+            detections=raw_detections,
+            config=config,
+        )
+        return merged_detections
+
+    elif trigger == "fast_motion":
+        raw_detections = detect_fast_motion(
             clip_file,
             config=config,
         )

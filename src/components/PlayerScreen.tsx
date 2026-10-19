@@ -19,9 +19,11 @@ import {applyReviewPolicy} from '../engine/reviewPolicy';
 import {
   defaultPlaybackOptions,
   sintelIndexCues,
+  sintelTrailerCues,
   skipVerificationTestCues,
   verificationTestCues,
 } from '../data/playbackCues';
+import {loadAndValidateFilmIndex} from '../engine/validatedPlayback';
 import {
   getFilmMetadata,
   loadFilmCues,
@@ -85,6 +87,8 @@ export interface PlayerScreenProps {
   rampDurationMs?: number;
   devHarnessMode?: boolean;
   initialHarnessScenario?: number;
+  packagedIndex?: unknown;
+  mediaDuration?: number;
 }
 
 export const CANONICAL_TRIGGER_CATEGORIES = [
@@ -183,6 +187,8 @@ export const PlayerScreen = ({
   rampDurationMs,
   devHarnessMode = false,
   initialHarnessScenario = 0,
+  packagedIndex,
+  mediaDuration,
 }: PlayerScreenProps) => {
   const rampDuration =
     rampDurationMs !== undefined
@@ -300,10 +306,37 @@ export const PlayerScreen = ({
   );
   const [focusedHarnessItem, setFocusedHarnessItem] = useState<string>('harness-scenario-0');
 
+  const resolvedIndexCues = React.useMemo(() => {
+    if (customCues) {
+      return customCues;
+    }
+    if (packagedIndex) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const triggerPoliciesJson = require('../../test/fixtures/triggerPolicies.json');
+        return loadAndValidateFilmIndex(
+          packagedIndex,
+          triggerPoliciesJson.policies,
+          {
+            filmId: currentFilmId,
+            durationSeconds: mediaDuration,
+          },
+        );
+      } catch (err) {
+        console.warn('[PlayerScreen] Failed to load packaged index:', err);
+        return [];
+      }
+    }
+    if (currentFilmId === 'sintel_trailer') {
+      return sintelTrailerCues;
+    }
+    return null;
+  }, [customCues, packagedIndex, currentFilmId, mediaDuration]);
+
   const getProfileCues = (p: PlayerProfile): Cue[] => {
     switch (p) {
       case 'standard':
-        return standardIndexCues;
+        return resolvedIndexCues ?? standardIndexCues;
       case 'skip_verification':
         return skipVerificationTestCues;
       case 'verification':
@@ -321,7 +354,10 @@ export const PlayerScreen = ({
       const scenario = PROMPT_HARNESS_SCENARIOS[scenarioIndex];
       return scenario ? scenario.cues : [];
     }
-    return customCues ?? getProfileCues(currentProfile);
+    if (customCues) {
+      return customCues;
+    }
+    return getProfileCues(currentProfile);
   };
 
   const activeCues: Cue[] = computeActiveCues(
@@ -1723,7 +1759,9 @@ export const PlayerScreen = ({
       applyTriggerActions(video.currentTime, true, viewerOptionsRef.current, nextCues);
     }
 
-    persistProfile(nextProfile);
+    setItem(STORAGE_KEYS.USER_PROFILE, nextProfile).catch((err) => {
+      console.error('[PlayerScreen] Failed to persist profile to storage', err);
+    });
   };
 
   const formatTime = (seconds: number) => {
@@ -1772,15 +1810,18 @@ export const PlayerScreen = ({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title} testID="player-title">
-          Trigger-Aware Player{filmMetadata ? ` — ${filmMetadata.title}` : ''}
+          <Text>Trigger-Aware Player</Text>
+          {filmMetadata ? ' — ' : ''}
+          {filmMetadata ? filmMetadata.title : ''}
         </Text>
         <Text style={styles.profileBadge} testID="player-profile-badge">
-          Profile:{' '}
-          {profile === 'verification'
-            ? 'Verification Cues'
-            : profile === 'skip_verification'
-            ? 'Skip Verification'
-            : `${filmMetadata?.title ?? currentFilmId} Index`}
+          {`Profile: ${
+            profile === 'verification'
+              ? 'Verification Cues'
+              : profile === 'skip_verification'
+              ? 'Skip Verification'
+              : `${filmMetadata?.title ?? currentFilmId} Index`
+          }`}
         </Text>
       </View>
 

@@ -359,61 +359,23 @@ python scripts/generate_test_clips.py --negatives-only # Negative video gradient
 
 ---
 
-## 10. Reproducible Multi-Detector Demo Pipeline (Person B)
+## 10. Multi-Film Catalogue & Content Delivery
 
-A single command executes the complete multi-detector demonstration pipeline end-to-end:
-1. Audio extraction via FFmpeg (44.1kHz mono 16-bit PCM WAV).
-2. Audio loudness spike detection (`scripts/detect_loudness.py`).
-3. Subtitle parsing & profanity detection (`scripts/parse_subtitles.py`).
-4. Multi-detector cue packaging into unified index (`scripts/package_cues.py`).
-5. Schema and domain validation (`scripts/validate_index.py`).
-6. Same-timeline multi-trigger evaluation (`scripts/evaluate_detections.py`).
-7. Dataset-wide detector benchmark report generation (`scripts/evaluate_detections.py`).
+The Trigger-Aware Player supports demo content and packaged detection indexes for selectable open-movie films licensed under Creative Commons Attribution 3.0 (Blender Foundation):
 
-### Prerequisites
-- Python 3.10+
-- `ffmpeg` executable on system `PATH` (required for audio extraction from video container)
-- Baseline input assets in `data/test_clips/` (`multi_trigger_test.mp4`, `multi_trigger_test.srt`, `labels.csv`)
-
-### Execution Command
-```bash
-python scripts/run_multi_detector_pipeline.py
-```
-
-### Options & Flags
-- `--dry-run`: Prints the planned stages and commands without executing them.
-- `--skip-dataset-eval`: Runs only the same-timeline evaluation for `multi_trigger_test` (skipping dataset-wide benchmark).
-- `--generate-media`: Prepends synthetic test-clip generation if source media needs to be refreshed.
-
-### Output Isolation
-All intermediate and processed detector outputs are strictly isolated to:
-`data/processed/multi_trigger_eval/`
-(`audio.wav`, `loudness_detections.json`, `profanity_detections.json`, `index.json`)
-Reports are generated to:
-- `reports/multi_detector_evaluation_report.md` (and `.json`)
-- `reports/detection_evaluation_report.md` (and `.json`)
-
-Root-level indexes (`data/index.json`) and source media are never overwritten.
-
----
-
-## 11. Content Delivery & Two-Film Catalogue (Person B)
-
-The Trigger-Aware Player supports demo content and packaged detection indexes for two selectable open-movie films licensed under Creative Commons Attribution 3.0 (Blender Foundation):
-
-| Film Metadata | Film 1: Sintel (`sintel`) | Film 2: Tears of Steel (`tears_of_steel`) |
+| Film Metadata | Film 1: Sintel Trailer (`sintel_trailer` / `sintel`) | Film 2: Tears of Steel (`tears_of_steel`) |
 |---|---|---|
-| **Film ID** | `sintel` | `tears_of_steel` |
+| **Film ID** | `sintel_trailer` (demo stream: `sintel`) | `tears_of_steel` |
 | **Title** | *Sintel* | *Tears of Steel* |
-| **Duration & FPS** | 52.0s @ 24.0 fps (Trailer demo) | 734.167s @ 24.0 fps (Full film demo) |
+| **Duration & FPS** | 52.21s @ 24.0 fps (Trailer demo) | 734.167s @ 24.0 fps (Full film demo) |
 | **Stream / Media URL** | `https://media.w3.org/2010/05/sintel/trailer.mp4` | `https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov` |
-| **Packaged Index** | `data/index.json` (7 cues) | `data/tears_of_steel_index.json` (6 cues) |
+| **Packaged Index** | `data/processed/sintel_trailer/index.json` & `data/index.json` | `data/tears_of_steel_index.json` & `data/processed/tears_of_steel/index.json` |
 | **Subtitles** | `data/subtitles/sintel.srt` | `data/subtitles/tears_of_steel.srt` |
 | **Rights / License** | CC BY 3.0 Blender Foundation | CC BY 3.0 Blender Foundation |
 
 ### Architecture & Catalogue Abstraction
 
-Content metadata and index resolution are centralized in [`src/data/catalogue.ts`](src/data/catalogue.ts):
+Content metadata and index resolution are centralized in [`src/data/catalogue.ts`](src/data/catalogue.ts) and [`src/data/filmCatalogue.ts`](src/data/filmCatalogue.ts):
 - `getAllFilms()`: Returns all discoverable film catalogue entries.
 - `getFilm(filmId)`: Returns metadata for a specific film; throws descriptive error if `filmId` is unknown.
 - `getFilmMetadata(filmId)`: Safe non-throwing lookup.
@@ -422,6 +384,7 @@ Content metadata and index resolution are centralized in [`src/data/catalogue.ts
 
 Backward-compatible helpers in [`src/data/playbackCues.ts`](src/data/playbackCues.ts):
 - `sintelIndexCues`: Pre-adapted cues for *Sintel*.
+- `sintelTrailerCues`: Packaged cues adapted from real Sintel trailer detection index (`data/processed/sintel_trailer/index.json`).
 - `tearsOfSteelIndexCues`: Pre-adapted cues for *Tears of Steel*.
 - `getCuesForFilm(filmId)`: Dynamic lookup resolving cues by film ID.
 
@@ -453,7 +416,7 @@ python scripts/validate_index.py --index data/tears_of_steel_index.json
 
 ### Film Selection & Cue Isolation Rules
 
-1. **Clean Slate on Switch**: Switching films via home screen tiles (`App.tsx`) or the in-player `Film: Sintel / Film: Tears of Steel` toggle (`PlayerScreen.tsx`) immediately cancels in-flight volume ramps, resets `PlaybackState`, clears active prompt dialogs, resets elapsed playback time, and unloads previous cues.
+1. **Clean Slate on Switch**: Switching films via home screen tiles (`App.tsx`) or the in-player film toggle (`PlayerScreen.tsx`) immediately cancels in-flight volume ramps, resets `PlaybackState`, clears active prompt dialogs, resets elapsed playback time, and unloads previous cues.
 2. **Zero Silent Fallback**: If an unknown film ID is selected or a film's index file is missing/malformed, the player displays an `Index Load Error` banner (`index-error-banner`) and stops playback rather than silently defaulting to another film's cues.
 
 ### Running Content Delivery Tests
@@ -461,4 +424,156 @@ python scripts/validate_index.py --index data/tears_of_steel_index.json
 ```bash
 pytest tests/test_content_delivery.py -v
 ```
+
+---
+
+## 11. Opt-in Experimental Detector Pipeline
+
+The multi-detector evaluation pipeline integrates optional experimental detectors (`fast_motion` and `jump_scare`) alongside the canonical triggers.
+
+### Experimental Detectors
+- **`fast_motion`**: Optical frame-difference heuristics detecting rapid scene movement.
+- **`jump_scare`**: Multimodal audio-visual compound detector combining acoustic transient loudness spikes with rapid visual transitions.
+- **Experimental Test Clips**: Ground-truth benchmark includes both positive and negative validation clips (`fast_motion_positive.mp4`, `fast_motion_negative.mp4`, `jump_scare_positive.mp4`, `jump_scare_negative.mp4`).
+
+### Running Multi-Detector Pipeline
+
+```bash
+# Standard pipeline execution
+python scripts/run_multi_detector_pipeline.py
+
+# Opt-in experimental detector pipeline
+python scripts/run_multi_detector_pipeline.py --include-experimental
+```
+
+---
+
+## 12. Hackathon Demonstration & Reproduction Guide
+
+### 12.1 App Scope & Capabilities
+
+The **Trigger-Aware Player** is an on-device accessible media player for Amazon Fire TV (Vega OS) that automatically mitigates distressing or harmful audiovisual triggers (`flashing`, `loud_spike`, `gunshot`, `explosion`, `scream`, `profanity`, `spider`, `fast_motion`, `jump_scare`) according to viewer-selected sensitivity profiles.
+
+- **What the app does**:
+  - Dynamically enforces viewer preferences on-device using mathematical half-open intervals $[start, end)$.
+  - Executes **`hide`** (instant visual blackout protection).
+  - Executes **`mute`** (complete audio silencing with smooth volume ramp fade-in/fade-out).
+  - Executes **`reduce`** (configurable fractional audio volume attenuation, e.g. 25%, 35%, 50%).
+  - Executes **`warn`** (advance heads-up notification without interrupting playback).
+  - Executes **`skip`** (forward scene seek past trigger interval with duration clamping).
+  - Resolves overlapping cues with strict precedence: `mute` overrides `reduce`; `hide` overrides `blur`/`dim`.
+  - Enforces review safety: unconfirmed `needs_review` cues **never** trigger a skip without explicit viewer confirmation.
+  - Restores audio volume and visual display immediately upon cue exit, seek, or media change.
+  - Persists preferences and disabled trigger categories across app restarts via `AsyncStorage`.
+
+- **What the app does not do (Known Hardware Limitations)**:
+  - *Spatial Blur & Brightness Dimming*: The engine computes `visualAction: 'blur'` and `visualAction: 'dim'`, but hardware shader filtering requires native Vega OS display overlay APIs. In Phase 0, blur cues fall back to honest visual blackout protection without fabricating unsupported shader effects.
+  - *Tears of Steel Playback*: The full 734s video container (`tears_of_steel.webm`) is absent on disk. The film is locked as `isAvailable: false` in the catalogue with an explicit blocker message to prevent phantom playback.
+
+---
+
+### 12.2 Media Asset & Detector Inventory
+
+| Asset Name | Local File Path | Duration | Status | Packaged Index |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sintel (Trailer)** | `data/media/sintel_trailer.mp4` | 52.21s | **Verified Available** (H.264/AAC, 1080p, CC-BY 3.0 Blender Foundation) | `data/processed/sintel_trailer/index.json` (`synthetic: false`) |
+| **Tears of Steel** | *Absent locally* (`*.webm` excluded by `.gitignore`) | 734.167s | **Blocked** (Subtitles present at `data/subtitles/tears_of_steel.srt`) | `data/processed/tears_of_steel/index.json` (`isAvailable: false`) |
+| **Synthetic Test Clips** | `data/test_clips/*.mp4` | 1.0s – 10.0s | **Verified Available** (Generated by `scripts/generate_test_clips.py`) | Benchmarked against `data/test_clips/labels.csv` |
+
+**Real Media Detector Ingestion**:
+- `flash_detector`, `loudness_detector`, and `audio_event_classifier` were run on the verified Sintel trailer.
+- Packaged cues are saved in `data/processed/sintel_trailer/index.json` and bundled into the player.
+- Reported precision, recall, and F1 figures in evaluation summaries derive from the synthetic ground-truth benchmark (`data/test_clips/labels.csv`), as commercial films lack frame-by-frame human ground truth.
+
+---
+
+### 12.3 Exact Setup, Build, and Execution Commands
+
+#### 1. Prerequisites Verification
+```bash
+# Python 3.10+ virtual environment
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Node.js & dependencies
+npm install
+
+# Verify Vega CLI
+/Users/zoya/vega/bin/vega device list
+```
+
+#### 2. Run Automated Verification Suites
+```bash
+# TypeScript engine typecheck (0 errors)
+npm run typecheck
+
+# Jest pure engine & subtitles tests (15 suites, 179 tests)
+npm test
+
+# Jest React Native / Kepler component tests (23 suites, 336 tests)
+npm run test:rn
+
+# Python detector & packaging tests (421 passed, 5 skipped)
+PATH="/opt/homebrew/bin:$PATH" pytest tests/ -q
+
+# Evaluation results summary
+npm run results
+```
+
+#### 3. Build & Launch on Vega Virtual Device
+```bash
+# Build the Vega aarch64 debug package
+npm run build:debug
+
+# Deploy and launch the application onto the running VirtualDevice
+/Users/zoya/vega/bin/vega run-app build/private/kepler/@amazon-devices/triggerawareplayer/undefined/vega/aarch64/Debug/@amazon-devices/triggerawareplayer_aarch64.vpkg com.hackathon2026.triggerawareplayer.main --deviceId VirtualDevice
+
+# Alternatively, run the complete automated launch script:
+bash scripts/launch_player.sh
+```
+
+---
+
+### 12.4 Live Demonstration Workflow
+
+1. **Launch App**: The app starts on the Fire TV Home Screen with 4 D-pad navigable tiles: `Home`, `Get Started`, `Debug`, and `Learn More`.
+2. **Select Media**:
+   - Press **Get Started** (`KEY_ENTER`) to launch the player with the verified **Sintel Trailer**.
+   - Notice that if Tears of Steel is selected via `Learn More`, the app displays the truthful blocker message: *"Full video media asset (tears_of_steel.webm) is absent locally."*
+3. **Real Film Playback (`Cues: Index`)**:
+   - The player loads real packaged cues from `data/processed/sintel_trailer/index.json`.
+   - At 1.8s – 10.6s: Real `loud_spike` cue triggers audio mute with smooth volume restoration.
+   - At 8.64s – 9.6s: Real `explosion` / `gunshot` audio event triggers audio muting.
+   - At 24.0s – 25.5s: Real `flashing` trigger activates visual blackout protection.
+4. **Viewer Settings Drawer**:
+   - Focus the **Settings** button in the player control bar or press `Debug` from Home.
+   - Adjust **Sensitivity** (`strict`, `moderate`, `off`).
+   - Toggle **Disabled Categories** (e.g. disabling `loud_spike` allows loud audio to pass through unmuted).
+   - Adjust **Volume Reduction Gain** (15%, 25%, 35%, 50%, 75%).
+5. **Demonstrating All Supported Actions via Demo Profiles**:
+   - Focus the **`Cues`** toggle button (`control-profile`) on the player control bar.
+   - Press Enter to cycle to **`Cues: Verify`**:
+     - *6.0s – 10.0s*: Standalone Audio Mute.
+     - *13.0s – 18.0s*: Standalone Audio Volume Reduction (attenuates volume to 35%).
+     - *21.0s – 26.0s*: Standalone Visual Blackout (`hide`).
+     - *29.0s – 38.0s*: Overlapping Cues — `hide` [29s–35s), `reduce` [30s–37s), and `mute` [32s–34.5s). Demonstrates that mute strictly overrides reduce, then restores to reduced volume at 34.5s, visual returns at 35.0s, and volume recovers to 100% at 37.0s.
+   - Press Enter again to cycle to **`Cues: Skip`**:
+     - *10.0s – 18.0s*: Ready Skip cue jumps forward past the scene to 18.0s.
+     - *18.0s – 24.0s*: Immediate destination action synchronization (audio mute at destination).
+     - *30.0s – 36.0s*: `needs_review` Skip cue — proves that without confirmation, the player safely falls back to visual blackout and **never** skips unexpectedly.
+   - Press Enter again to return to **`Cues: Index`** (real film packaged cues).
+
+---
+
+### 12.5 Troubleshooting Common Failures
+
+- **`Virtual device not found`**: Ensure the Vega Virtual Device is started:
+  ```bash
+  /Users/zoya/vega/bin/vega virtual-device start --timeoutSeconds 180
+  ```
+- **`ModuleNotFoundError: No module named 'yaml'`**: Activate the project virtual environment before running Python scripts:
+  ```bash
+  source .venv/bin/activate
+  ```
+- **`Tears of Steel asset unavailable`**: Expected behavior. The full video asset `tears_of_steel.webm` was excluded from source control (`*.webm` in `.gitignore`). Use `sintel_trailer` for live video playback.
 

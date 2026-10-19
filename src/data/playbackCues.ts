@@ -26,16 +26,30 @@ export const tearsOfSteelIndexCues: Cue[] = adaptPackagedIndex(
 );
 
 /**
+ * Packaged cues adapted from the real Sintel trailer detection index
+ * (data/processed/sintel_trailer/index.json).
+ */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+export const sintelTrailerIndexJson = require('../../data/processed/sintel_trailer/index.json');
+export const sintelTrailerCues: Cue[] = adaptPackagedIndex(
+  sintelTrailerIndexJson,
+  DEFAULT_TRIGGER_POLICIES,
+);
+
+/**
  * Resolves cues for a given film_id from the film catalogue.
  */
 export function getCuesForFilm(filmId: string): Cue[] {
   if (filmId === 'sintel') {
     return sintelIndexCues;
   }
+  if (filmId === 'sintel_trailer') {
+    return sintelTrailerCues;
+  }
   if (filmId === 'tears_of_steel') {
     return tearsOfSteelIndexCues;
   }
-  throw new Error(`Unknown film ID: "${filmId}". Supported films: "sintel", "tears_of_steel".`);
+  throw new Error(`Unknown film ID: "${filmId}". Supported films: "sintel", "sintel_trailer", "tears_of_steel".`);
 }
 
 /**

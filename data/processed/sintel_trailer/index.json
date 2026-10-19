@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel_trailer",
+  "synthetic": false,
+  "description": "Packaged player cue index for sintel_trailer.",
+  "timeline": {
+    "duration_seconds": 52.21,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 24.0
+  },
+  "cues": [
+    {
+      "id": "cue_sintel_trailer_loud_spike_001800_010600",
+      "start": 1.8,
+      "end": 10.6,
+      "trigger": "loud_spike",
+      "score": 0.979,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_trailer_explosion_008640_009600",
+      "start": 8.64,
+      "end": 9.6,
+      "trigger": "explosion",
+      "score": 0.8318,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_trailer_gunshot_008640_009600",
+      "start": 8.64,
+      "end": 9.6,
+      "trigger": "gunshot",
+      "score": 0.7502,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_trailer_loud_spike_016600_017600",
+      "start": 16.6,
+      "end": 17.6,
+      "trigger": "loud_spike",
+      "score": 0.468,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_trailer_flashing_029917_030958",
+      "start": 29.917,
+      "end": 30.958,
+      "trigger": "flashing",
+      "score": 0.4058,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_trailer_loud_spike_040400_040500",
+      "start": 40.4,
+      "end": 40.5,
+      "trigger": "loud_spike",
+      "score": 0.404,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_trailer_loud_spike_046900_048600",
+      "start": 46.9,
+      "end": 48.6,
+      "trigger": "loud_spike",
+      "score": 0.548,
+      "source": "loudness_detector"
+    }
+  ]
+}

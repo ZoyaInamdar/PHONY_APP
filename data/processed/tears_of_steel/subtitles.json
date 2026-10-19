@@ -20,5 +20,11 @@
       "score": 1.0,
       "source": "profanity_detector"
     }
-  ]
+  ],
+  "film_id": "tears_of_steel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 734.167,
+    "fps": 24.0
+  }
 }

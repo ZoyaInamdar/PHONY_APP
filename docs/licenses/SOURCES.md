@@ -84,3 +84,42 @@ All samples and synthesis procedures are released under permissive or public-dom
 - **Verification Hash (SHA-256)**: `0cbdd98a62bf94f5f28dbac85a70bacc4fe0c407c8919765c6ec2d7df193ecdf`
 - **Documentation**: See [`docs/licenses/blur_preview_license.md`](blur_preview_license.md) and [`docs/licenses/media_rights.json`](media_rights.json).
 
+---
+
+## 5. Machine Learning Models & Weights
+
+### 5.1 YAMNet ONNX Audio Classifier (`models/yamnet/`)
+- **Model ID**: `yamnet` (YamNet ONNX Float)
+- **Source Architecture & Code**: TensorFlow AudioSet Models (Google LLC)
+- **Code License**: **Apache License 2.0** (see headers in `models/yamnet/params.py` and `models/yamnet/features.py`)
+- **Weights Provenance**: Trained on Google AudioSet ontology. ONNX export generated via Qualcomm AI Hub (`tool_versions: qairt 2.50.0.260828221209`, `onnx_runtime: 1.30.0`).
+- **Files**:
+  - `models/yamnet/params.py` (Apache 2.0)
+  - `models/yamnet/features.py` (Apache 2.0)
+  - `models/yamnet/yamnet_class_map.csv` (Apache 2.0 / AudioSet Creative Commons Attribution 4.0)
+  - `models/yamnet/yamnet-onnx-float/yamnet.onnx` (14.7 MB binary ONNX graph)
+  - `models/yamnet/yamnet-onnx-float/yamnet.data` (14.8 MB binary tensor weights)
+  - `models/yamnet/yamnet-onnx-float/metadata.json`
+- **Permitted Use**: Commercial and non-commercial inference, evaluation, and research permitted under Apache 2.0.
+- **Attribution Notice**:
+  > YAMNet model and code: Copyright 2019 The TensorFlow Authors. Licensed under the Apache License, Version 2.0.
+  > AudioSet ontology: Copyright Google LLC, licensed under Creative Commons Attribution 4.0 International.
+
+---
+
+## 6. Software Dependency Licensing & Isolation
+
+### 6.1 Runtime Player Dependencies (On-Device Vega OS)
+- **React (`react`), React Native (`react-native`)**: MIT License
+- **AsyncStorage (`@react-native-async-storage/async-storage`)**: MIT License
+- **Ajv (`ajv`)**: MIT License
+- **Amazon Vega SDK (`@amazon-devices/react-native-kepler`, `@amazon-devices/react-native-w3cmedia`)**: Amazon Proprietary Hackathon Platform License (restricted to Hackathon participation and deployment to Fire TV / Vega OS target devices).
+
+### 6.2 Offline Processing & Evaluation Dependencies
+- **PyYAML, jsonschema**: MIT License
+- **NumPy, SciPy, soundfile**: BSD-3-Clause
+- **librosa**: ISC License
+- **OpenCV Headless (`opencv-python-headless`)**: Apache License 2.0
+- **pysrt (`pysrt`)**: **GNU General Public License v3.0 (GPLv3)**
+  - *Isolation Boundary*: `pysrt` is strictly an offline CLI tool dependency used by `scripts/parse_subtitles.py` to extract timestamped dialogue into JSON format prior to player ingestion. It is **never** bundled into or distributed with the runtime React Native player package (`dist/` or `.vpkg`).
+

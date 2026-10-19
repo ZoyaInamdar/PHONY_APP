@@ -211,7 +211,7 @@ exports[`App matches snapshot 1`] = `
       </View>
     </View>
     <View
-      accessibilityLabel="Get started"
+      accessibilityLabel="Watch Sintel"
       accessibilityRole="button"
       accessibilityState={
         {
@@ -301,8 +301,104 @@ exports[`App matches snapshot 1`] = `
             }
           }
         >
-          Get
-started
+          Sintel
+(Film 1)
+        </Text>
+      </View>
+    </View>
+    <View
+      accessibilityLabel="Watch Tears of Steel"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      hasTVPreferredFocus={false}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "backgroundColor": "#0074B8",
+          "borderRadius": 44,
+          "height": 320,
+          "opacity": 1,
+          "overflow": "hidden",
+          "padding": 20,
+          "width": 320,
+        }
+      }
+      testID="tile-tears-of-steel"
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+            "justifyContent": "center",
+          }
+        }
+      >
+        <Image
+          accessible={false}
+          resizeMode="contain"
+          source={
+            {
+              "testUri": "../../../src/assets/get-started.png",
+            }
+          }
+          style={
+            {
+              "height": 80,
+              "tintColor": "#FFFFFF",
+              "width": 80,
+            }
+          }
+        />
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+            "justifyContent": "center",
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#FFFFFF",
+              "fontSize": 52,
+              "fontWeight": "bold",
+              "includeFontPadding": false,
+              "lineHeight": 52,
+              "textAlign": "center",
+            }
+          }
+        >
+          Tears of
+Steel
         </Text>
       </View>
     </View>

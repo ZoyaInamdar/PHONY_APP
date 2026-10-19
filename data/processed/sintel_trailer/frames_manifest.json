@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "target_fps": 1.0,
+  "max_dimension": 512,
+  "total_snapshots": 53,
+  "snapshots": [
+    {
+      "index": 0,
+      "timestamp_seconds": 0.0,
+      "filename": "snapshot_0001.jpg",
+      "path": "snapshots/snapshot_0001.jpg"
+    },
+    {
+      "index": 1,
+      "timestamp_seconds": 1.0,
+      "filename": "snapshot_0002.jpg",
+      "path": "snapshots/snapshot_0002.jpg"
+    },
+    {
+      "index": 2,
+      "timestamp_seconds": 2.0,
+      "filename": "snapshot_0003.jpg",
+      "path": "snapshots/snapshot_0003.jpg"
+    },
+    {
+      "index": 3,
+      "timestamp_seconds": 3.0,
+      "filename": "snapshot_0004.jpg",
+      "path": "snapshots/snapshot_0004.jpg"
+    },
+    {
+      "index": 4,
+      "timestamp_seconds": 4.0,
+      "filename": "snapshot_0005.jpg",
+      "path": "snapshots/snapshot_0005.jpg"
+    },
+    {
+      "index": 5,
+      "timestamp_seconds": 5.0,
+      "filename": "snapshot_0006.jpg",
+      "path": "snapshots/snapshot_0006.jpg"
+    },
+    {
+      "index": 6,
+      "timestamp_seconds": 6.0,
+      "filename": "snapshot_0007.jpg",
+      "path": "snapshots/snapshot_0007.jpg"
+    },
+    {
+      "index": 7,
+      "timestamp_seconds": 7.0,
+      "filename": "snapshot_0008.jpg",
+      "path": "snapshots/snapshot_0008.jpg"
+    },
+    {
+      "index": 8,
+      "timestamp_seconds": 8.0,
+      "filename": "snapshot_0009.jpg",
+      "path": "snapshots/snapshot_0009.jpg"
+    },
+    {
+      "index": 9,
+      "timestamp_seconds": 9.0,
+      "filename": "snapshot_0010.jpg",
+      "path": "snapshots/snapshot_0010.jpg"
+    },
+    {
+      "index": 10,
+      "timestamp_seconds": 10.0,
+      "filename": "snapshot_0011.jpg",
+      "path": "snapshots/snapshot_0011.jpg"
+    },
+    {
+      "index": 11,
+      "timestamp_seconds": 11.0,
+      "filename": "snapshot_0012.jpg",
+      "path": "snapshots/snapshot_0012.jpg"
+    },
+    {
+      "index": 12,
+      "timestamp_seconds": 12.0,
+      "filename": "snapshot_0013.jpg",
+      "path": "snapshots/snapshot_0013.jpg"
+    },
+    {
+      "index": 13,
+      "timestamp_seconds": 13.0,
+      "filename": "snapshot_0014.jpg",
+      "path": "snapshots/snapshot_0014.jpg"
+    },
+    {
+      "index": 14,
+      "timestamp_seconds": 14.0,
+      "filename": "snapshot_0015.jpg",
+      "path": "snapshots/snapshot_0015.jpg"
+    },
+    {
+      "index": 15,
+      "timestamp_seconds": 15.0,
+      "filename": "snapshot_0016.jpg",
+      "path": "snapshots/snapshot_0016.jpg"
+    },
+    {
+      "index": 16,
+      "timestamp_seconds": 16.0,
+      "filename": "snapshot_0017.jpg",
+      "path": "snapshots/snapshot_0017.jpg"
+    },
+    {
+      "index": 17,
+      "timestamp_seconds": 17.0,
+      "filename": "snapshot_0018.jpg",
+      "path": "snapshots/snapshot_0018.jpg"
+    },
+    {
+      "index": 18,
+      "timestamp_seconds": 18.0,
+      "filename": "snapshot_0019.jpg",
+      "path": "snapshots/snapshot_0019.jpg"
+    },
+    {
+      "index": 19,
+      "timestamp_seconds": 19.0,
+      "filename": "snapshot_0020.jpg",
+      "path": "snapshots/snapshot_0020.jpg"
+    },
+    {
+      "index": 20,
+      "timestamp_seconds": 20.0,
+      "filename": "snapshot_0021.jpg",
+      "path": "snapshots/snapshot_0021.jpg"
+    },
+    {
+      "index": 21,
+      "timestamp_seconds": 21.0,
+      "filename": "snapshot_0022.jpg",
+      "path": "snapshots/snapshot_0022.jpg"
+    },
+    {
+      "index": 22,
+      "timestamp_seconds": 22.0,
+      "filename": "snapshot_0023.jpg",
+      "path": "snapshots/snapshot_0023.jpg"
+    },
+    {
+      "index": 23,
+      "timestamp_seconds": 23.0,
+      "filename": "snapshot_0024.jpg",
+      "path": "snapshots/snapshot_0024.jpg"
+    },
+    {
+      "index": 24,
+      "timestamp_seconds": 24.0,
+      "filename": "snapshot_0025.jpg",
+      "path": "snapshots/snapshot_0025.jpg"
+    },
+    {
+      "index": 25,
+      "timestamp_seconds": 25.0,
+      "filename": "snapshot_0026.jpg",
+      "path": "snapshots/snapshot_0026.jpg"
+    },
+    {
+      "index": 26,
+      "timestamp_seconds": 26.0,
+      "filename": "snapshot_0027.jpg",
+      "path": "snapshots/snapshot_0027.jpg"
+    },
+    {
+      "index": 27,
+      "timestamp_seconds": 27.0,
+      "filename": "snapshot_0028.jpg",
+      "path": "snapshots/snapshot_0028.jpg"
+    },
+    {
+      "index": 28,
+      "timestamp_seconds": 28.0,
+      "filename": "snapshot_0029.jpg",
+      "path": "snapshots/snapshot_0029.jpg"
+    },
+    {
+      "index": 29,
+      "timestamp_seconds": 29.0,
+      "filename": "snapshot_0030.jpg",
+      "path": "snapshots/snapshot_0030.jpg"
+    },
+    {
+      "index": 30,
+      "timestamp_seconds": 30.0,
+      "filename": "snapshot_0031.jpg",
+      "path": "snapshots/snapshot_0031.jpg"
+    },
+    {
+      "index": 31,
+      "timestamp_seconds": 31.0,
+      "filename": "snapshot_0032.jpg",
+      "path": "snapshots/snapshot_0032.jpg"
+    },
+    {
+      "index": 32,
+      "timestamp_seconds": 32.0,
+      "filename": "snapshot_0033.jpg",
+      "path": "snapshots/snapshot_0033.jpg"
+    },
+    {
+      "index": 33,
+      "timestamp_seconds": 33.0,
+      "filename": "snapshot_0034.jpg",
+      "path": "snapshots/snapshot_0034.jpg"
+    },
+    {
+      "index": 34,
+      "timestamp_seconds": 34.0,
+      "filename": "snapshot_0035.jpg",
+      "path": "snapshots/snapshot_0035.jpg"
+    },
+    {
+      "index": 35,
+      "timestamp_seconds": 35.0,
+      "filename": "snapshot_0036.jpg",
+      "path": "snapshots/snapshot_0036.jpg"
+    },
+    {
+      "index": 36,
+      "timestamp_seconds": 36.0,
+      "filename": "snapshot_0037.jpg",
+      "path": "snapshots/snapshot_0037.jpg"
+    },
+    {
+      "index": 37,
+      "timestamp_seconds": 37.0,
+      "filename": "snapshot_0038.jpg",
+      "path": "snapshots/snapshot_0038.jpg"
+    },
+    {
+      "index": 38,
+      "timestamp_seconds": 38.0,
+      "filename": "snapshot_0039.jpg",
+      "path": "snapshots/snapshot_0039.jpg"
+    },
+    {
+      "index": 39,
+      "timestamp_seconds": 39.0,
+      "filename": "snapshot_0040.jpg",
+      "path": "snapshots/snapshot_0040.jpg"
+    },
+    {
+      "index": 40,
+      "timestamp_seconds": 40.0,
+      "filename": "snapshot_0041.jpg",
+      "path": "snapshots/snapshot_0041.jpg"
+    },
+    {
+      "index": 41,
+      "timestamp_seconds": 41.0,
+      "filename": "snapshot_0042.jpg",
+      "path": "snapshots/snapshot_0042.jpg"
+    },
+    {
+      "index": 42,
+      "timestamp_seconds": 42.0,
+      "filename": "snapshot_0043.jpg",
+      "path": "snapshots/snapshot_0043.jpg"
+    },
+    {
+      "index": 43,
+      "timestamp_seconds": 43.0,
+      "filename": "snapshot_0044.jpg",
+      "path": "snapshots/snapshot_0044.jpg"
+    },
+    {
+      "index": 44,
+      "timestamp_seconds": 44.0,
+      "filename": "snapshot_0045.jpg",
+      "path": "snapshots/snapshot_0045.jpg"
+    },
+    {
+      "index": 45,
+      "timestamp_seconds": 45.0,
+      "filename": "snapshot_0046.jpg",
+      "path": "snapshots/snapshot_0046.jpg"
+    },
+    {
+      "index": 46,
+      "timestamp_seconds": 46.0,
+      "filename": "snapshot_0047.jpg",
+      "path": "snapshots/snapshot_0047.jpg"
+    },
+    {
+      "index": 47,
+      "timestamp_seconds": 47.0,
+      "filename": "snapshot_0048.jpg",
+      "path": "snapshots/snapshot_0048.jpg"
+    },
+    {
+      "index": 48,
+      "timestamp_seconds": 48.0,
+      "filename": "snapshot_0049.jpg",
+      "path": "snapshots/snapshot_0049.jpg"
+    },
+    {
+      "index": 49,
+      "timestamp_seconds": 49.0,
+      "filename": "snapshot_0050.jpg",
+      "path": "snapshots/snapshot_0050.jpg"
+    },
+    {
+      "index": 50,
+      "timestamp_seconds": 50.0,
+      "filename": "snapshot_0051.jpg",
+      "path": "snapshots/snapshot_0051.jpg"
+    },
+    {
+      "index": 51,
+      "timestamp_seconds": 51.0,
+      "filename": "snapshot_0052.jpg",
+      "path": "snapshots/snapshot_0052.jpg"
+    },
+    {
+      "index": 52,
+      "timestamp_seconds": 52.0,
+      "filename": "snapshot_0053.jpg",
+      "path": "snapshots/snapshot_0053.jpg"
+    }
+  ]
+}

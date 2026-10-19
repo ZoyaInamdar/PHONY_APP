@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "record_type": "raw_detections",
+  "film_id": "sintel_trailer",
+  "synthetic": false,
+  "total_detections": 9,
+  "detections": [
+    {
+      "start": 1.8,
+      "end": 3.4,
+      "trigger": "loud_spike",
+      "score": 0.979,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 5.1,
+      "end": 7.4,
+      "trigger": "loud_spike",
+      "score": 0.669,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 9.3,
+      "end": 10.6,
+      "trigger": "loud_spike",
+      "score": 0.77,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 16.6,
+      "end": 16.8,
+      "trigger": "loud_spike",
+      "score": 0.468,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 16.9,
+      "end": 17.0,
+      "trigger": "loud_spike",
+      "score": 0.458,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 17.1,
+      "end": 17.3,
+      "trigger": "loud_spike",
+      "score": 0.453,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 17.5,
+      "end": 17.6,
+      "trigger": "loud_spike",
+      "score": 0.406,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 40.4,
+      "end": 40.5,
+      "trigger": "loud_spike",
+      "score": 0.404,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 46.9,
+      "end": 48.6,
+      "trigger": "loud_spike",
+      "score": 0.548,
+      "source": "loudness_detector"
+    }
+  ]
+}

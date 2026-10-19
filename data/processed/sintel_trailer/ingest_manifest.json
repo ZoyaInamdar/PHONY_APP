@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel_trailer",
+  "pipeline_stage": "ingestion",
+  "status": "complete",
+  "created_at": "2026-10-19T17:19:17.626687+00:00",
+  "source_media": {
+    "path": "/Users/zoya/Desktop/PHONY_APP/data/media/sintel_trailer.mp4",
+    "filename": "sintel_trailer.mp4",
+    "size_bytes": 4372373,
+    "container_duration_seconds": 52.208333,
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+    "video_stream_count": 1,
+    "audio_stream_count": 1
+  },
+  "normalized_video": {
+    "path": "normalized.mp4",
+    "codec": "h264",
+    "pixel_format": "yuv420p",
+    "width": 854,
+    "height": 480,
+    "fps": 24.0,
+    "duration_seconds": 52.208333,
+    "frame_count": 1253,
+    "timeline_start_seconds": 0.0
+  },
+  "audio": {
+    "present": true,
+    "extraction_status": "extracted",
+    "path": "audio_mono_44100.wav",
+    "codec": "pcm_s16le",
+    "sample_rate": 44100,
+    "channels": 1,
+    "duration_seconds": 51.925351,
+    "error": null
+  },
+  "low_res_frames": {
+    "path": "low_res_frames_128x72.rgb",
+    "width": 128,
+    "height": 72,
+    "pixel_format": "rgb24",
+    "fps": 24.0,
+    "frame_count": 1253,
+    "storage_format": "raw_rgb24",
+    "bytes_per_frame": 27648,
+    "total_bytes": 34642944,
+    "frame_loss_count": 0,
+    "loss_policy": "strict_zero_loss"
+  },
+  "snapshots": {
+    "output_dir": "snapshots",
+    "manifest_path": "snapshots/frames_manifest.json",
+    "snapshot_count": 53,
+    "target_fps": 1.0,
+    "max_dimension": 512,
+    "format": "jpeg"
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,9 @@
+{
+  "film_id": "sintel_trailer",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 52.21,
+    "fps": 24.0
+  },
+  "detections": []
+}

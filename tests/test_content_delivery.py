@@ -13,6 +13,7 @@ Covers:
 import json
 from pathlib import Path
 import subprocess
+import sys
 import pytest
 
 
@@ -99,7 +100,7 @@ def test_packaged_indexes_exist_and_pass_validation():
     # Validate Sintel index
     res_sintel = subprocess.run(
         [
-            ".venv\\Scripts\\python.exe",
+            sys.executable,
             str(VALIDATE_SCRIPT),
             "--index", str(SINTEL_INDEX),
             "--config", str(CONFIG_PATH),
@@ -115,7 +116,7 @@ def test_packaged_indexes_exist_and_pass_validation():
     # Validate Tears of Steel index
     res_tos = subprocess.run(
         [
-            ".venv\\Scripts\\python.exe",
+            sys.executable,
             str(VALIDATE_SCRIPT),
             "--index", str(TOS_INDEX),
             "--config", str(CONFIG_PATH),

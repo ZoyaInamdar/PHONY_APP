@@ -5,17 +5,29 @@ import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Tile} from './components/Tile';
 import {tiles} from './data/tiles';
 import {PlayerScreen} from './components/PlayerScreen';
+import {SettingsScreen} from './components/SettingsScreen';
+import {FILM_CATALOGUE} from './data/filmCatalogue';
 
 export const App = ({
   initialShowPlayer = false,
+  initialShowSettings = false,
+  initialFilmId = 'sintel_trailer',
 }: {
   initialShowPlayer?: boolean;
+  initialShowSettings?: boolean;
+  initialFilmId?: string;
 } = {}) => {
   const [focusedTileId, setFocusedTileId] = useState<string>('home');
   const [showPlayer, setShowPlayer] = useState(initialShowPlayer);
-  const [selectedFilmId, setSelectedFilmId] = useState<string>('sintel');
+  const [showSettings, setShowSettings] = useState(initialShowSettings);
+  const [selectedFilmId, setSelectedFilmId] = useState<string>(initialFilmId);
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
 
   const focusedTile = tiles.find((t) => t.id === focusedTileId);
+
+  if (showSettings) {
+    return <SettingsScreen onBack={() => setShowSettings(false)} />;
+  }
 
   if (showPlayer) {
     return (
@@ -72,10 +84,18 @@ export const App = ({
             onPress={() => {
               if (tile.id === 'get-started' || tile.id === 'sintel') {
                 setSelectedFilmId('sintel');
+                setCatalogueError(null);
                 setShowPlayer(true);
               } else if (tile.id === 'tears-of-steel') {
                 setSelectedFilmId('tears_of_steel');
+                setCatalogueError(null);
                 setShowPlayer(true);
+              } else if (tile.id === 'debug') {
+                setShowSettings(true);
+              } else if (tile.id === 'learn-more') {
+                setSelectedFilmId((prev) =>
+                  prev === 'sintel' ? 'tears_of_steel' : 'sintel',
+                );
               }
             }}
             testID={`tile-${tile.id}`}

@@ -3387,7 +3387,7 @@ describe('PlayerScreen Component Tests', () => {
         resolveStoragePromise = resolve;
       });
 
-      jest.spyOn(AsyncStorage, 'getItem').mockImplementation((key) => {
+      const getItemSpy = jest.spyOn(AsyncStorage, 'getItem').mockImplementation((key) => {
         if (key === STORAGE_KEYS.USER_PROFILE) {
           return delayedPromise as any;
         }
@@ -3411,7 +3411,7 @@ describe('PlayerScreen Component Tests', () => {
       expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
       expect(getByText('Cues: Verify')).toBeTruthy();
 
-      jest.restoreAllMocks();
+      getItemSpy.mockRestore();
     });
 
     it('E. Explicit initial profile: explicit prop is preserved against conflicting saved profile', async () => {

@@ -15,35 +15,52 @@
       "subtitles": [
         {
           "language": "en",
-          "source_url": "https://durian.blender.org/sharing/",
-          "license_name": "CC BY 3.0",
+          "source_url": "https://download.blender.org/demo/movies/Sintel.2010.720p.mkv.zip",
+          "license_name": "Creative Commons Attribution 3.0 (CC BY 3.0)",
           "license_url": "https://durian.blender.org/sharing/",
           "attribution": "(CC) Blender Foundation | durian.blender.org",
-          "verification_date": "2026-10-17",
-          "sha256": "4ed7e1f1bc5ff69fe33606960e4c048ba6766237bf33b132fef76e1a92cb64b2"
+          "verification_date": "2026-10-19",
+          "sha256": "4ed7e1f1bc5ff69fe33606960e4c048ba6766237bf33b132fef76e1a92cb64b2",
+          "status": "verified (Blender Open Movie sharing terms cover all film assets including subtitles)"
         }
       ]
+    },
+    {
+      "film_id": "sintel_trailer",
+      "title": "Sintel (Official Web Trailer)",
+      "media": {
+        "source_url": "https://media.w3.org/2010/05/sintel/trailer.mp4",
+        "license_name": "Creative Commons Attribution 3.0 (CC BY 3.0)",
+        "license_url": "https://durian.blender.org/sharing/",
+        "attribution": "(CC) Blender Foundation | durian.blender.org",
+        "verification_date": "2026-10-19",
+        "sha256": "b670602fa00934ca27c4351bb0efe7ea7a07fae57284e44226025eeed7c51254",
+        "status": "verified"
+      },
+      "subtitles": []
     },
     {
       "film_id": "tears_of_steel",
       "title": "Tears of Steel",
       "media": {
         "source_url": "https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov",
-        "license_name": "CC BY 3.0",
+        "license_name": "Creative Commons Attribution 3.0 (CC BY 3.0)",
         "license_url": "https://mango.blender.org/sharing/",
         "attribution": "(CC) Blender Foundation | mango.blender.org",
         "verification_date": "2026-10-17",
-        "sha256": "328253280A05E6B14A92F1F43D818D9B7D38AB5D3F6D5D98606198FD3DAEF2FF"
+        "sha256": "328253280A05E6B14A92F1F43D818D9B7D38AB5D3F6D5D98606198FD3DAEF2FF",
+        "status": "verified (media asset not stored locally in git)"
       },
       "subtitles": [
         {
           "language": "en",
           "source_url": "https://download.blender.org/demo/movies/ToS/subtitles/TOS-en.srt",
-          "license_name": "CC BY 3.0",
+          "license_name": "Creative Commons Attribution 3.0 (CC BY 3.0)",
           "license_url": "https://mango.blender.org/sharing/",
-          "attribution": "CC BY 3.0",
-          "verification_date": "2026-10-17",
-          "sha256": "CE9578F6FE098A5821045A38884B229160F9E7BA27890448A92F5BE330C6E6FE"
+          "attribution": "(CC) Blender Foundation | mango.blender.org",
+          "verification_date": "2026-10-19",
+          "sha256": "CE9578F6FE098A5821045A38884B229160F9E7BA27890448A92F5BE330C6E6FE",
+          "status": "verified (Blender Open Movie sharing terms cover all film assets including subtitles)"
         }
       ]
     }

@@ -184,3 +184,15 @@ Status: **Software integration complete; device smoke test blocked (no SDK).**
 
 Run `npm test` (now with `forceExit: true`) to verify the full suite exits cleanly.
 Then confirm rendering and contract questions with Person B and Person C.
+
+
+## 2026-10-19 — Person A results command and evaluation harness runner
+
+### Friction encountered & resolution
+1. **System Python vs. Virtualenv execution:**
+   - Problem: Running `python3 scripts/results.py` under the global system Python (`/opt/homebrew/bin/python3`) failed immediately with `ModuleNotFoundError: No module named 'yaml'`, as project dependencies (`PyYAML`, `jsonschema`, etc.) are installed in `.venv`.
+   - Resolution: Added automatic self-re-execution logic at the entry point of `scripts/results.py` that transparently delegates to `.venv/bin/python` if the executing interpreter lacks required packages. `npm run results` now succeeds out of the box regardless of system PATH.
+
+2. **Python 3.14 metadata deprecation:**
+   - Problem: Direct access to `jsonschema.__version__` emitted a `DeprecationWarning` under Python 3.14.
+   - Resolution: Updated `get_library_versions()` to prefer `importlib.metadata.version()` before falling back to module attributes.

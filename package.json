@@ -20,7 +20,8 @@
     "test:snapshot": "jest --colors --updateSnapshot --config jest.config.json",
     "test": "jest --runInBand --config jest.config.js",
     "test:coverage": "jest --coverage --config jest.config.js",
-    "typecheck": "tsc --noEmit --project tsconfig.engine.json"
+    "typecheck": "tsc --noEmit --project tsconfig.engine.json",
+    "results": "python3 scripts/results.py"
   },
   "dependencies": {
     "@amazon-devices/react-native-kepler": "^2.0.0",

@@ -139,13 +139,19 @@ def validate_dataset(clips_dir: Path | str = DEFAULT_CLIPS_DIR) -> Dict[str, Any
             errors.append(f"Non-canonical trigger '{trig}' for clip {clip_name}")
 
         # Check numeric interval
-        try:
-            st = float(start_str)
-            en = float(end_str)
-            if st < 0.0 or en <= st:
-                invalid_intervals.append((clip_name, st, en))
-        except (ValueError, TypeError):
-            invalid_intervals.append((clip_name, start_str, end_str))
+        start_raw = str(start_str).strip()
+        end_raw = str(end_str).strip()
+        if not start_raw and not end_raw and "negative" in clip_name:
+            # Explicit negative control: trigger is never active in this clip
+            pass
+        else:
+            try:
+                st = float(start_str)
+                en = float(end_str)
+                if st < 0.0 or en <= st:
+                    invalid_intervals.append((clip_name, st, en))
+            except (ValueError, TypeError):
+                invalid_intervals.append((clip_name, start_str, end_str))
 
         # Check flashing actual_rate
         if trig == "flashing":
@@ -203,10 +209,14 @@ def validate_dataset(clips_dir: Path | str = DEFAULT_CLIPS_DIR) -> Dict[str, Any
     if len(speech_labels) != 3:
         errors.append(f"speech_triggers_test.mp4 expected 3 profanity labels, found {len(speech_labels)}")
 
-    # 7. Negative controls not in labels
+    # 7. Negative controls not in labels (unless explicit negative control with empty interval)
     for r in label_rows:
         c = r.get("clip", "")
-        if "negative" in c or "detail" in c or "sync" in c:
+        start_raw = str(r.get("start", "")).strip()
+        end_raw = str(r.get("end", "")).strip()
+        if "negative" in c and (start_raw or end_raw):
+            errors.append(f"Negative/utility clip '{c}' accidentally labeled with active interval in labels.csv")
+        elif "detail" in c or "sync" in c:
             errors.append(f"Negative/utility clip '{c}' accidentally labeled in labels.csv")
 
     report = {

@@ -1,0 +1,24 @@
+{
+  "film_id": "sintel_trailer",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 52.21,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 8.64,
+      "end": 9.6,
+      "trigger": "explosion",
+      "score": 0.8318,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 8.64,
+      "end": 9.6,
+      "trigger": "gunshot",
+      "score": 0.7502,
+      "source": "audio_event_classifier"
+    }
+  ]
+}

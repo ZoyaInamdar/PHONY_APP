@@ -1,0 +1,17 @@
+{
+  "film_id": "sintel_trailer",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 52.21,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 29.917,
+      "end": 30.958,
+      "trigger": "flashing",
+      "score": 0.4058,
+      "source": "flash_detector"
+    }
+  ]
+}

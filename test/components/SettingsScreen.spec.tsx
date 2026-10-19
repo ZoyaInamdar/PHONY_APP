@@ -126,4 +126,47 @@ describe('Person B - SettingsScreen UI Component', () => {
       setItemSpy.mockRestore();
     });
   });
+
+  describe('10-foot UI TV Focus & D-pad Trapping Prevention', () => {
+    it('ensures all volume reduction picker options have explicit D-pad escape routes', () => {
+      const { getByTestId } = render(
+        <SettingsScreen
+          reductionPickerNextFocusUp="custom-up-anchor"
+          reductionPickerNextFocusDown="custom-down-anchor"
+        />,
+      );
+
+      for (const gain of REDUCTION_GAIN_OPTIONS) {
+        const percent = Math.round(gain * 100);
+        const button = getByTestId(`reduction-option-${percent}`);
+        expect(button.props.nextFocusUp).toBe('custom-up-anchor');
+        expect(button.props.nextFocusDown).toBe('custom-down-anchor');
+      }
+    });
+
+    it('ensures all blur calibration picker options have explicit D-pad escape routes', () => {
+      const { getByTestId } = render(
+        <SettingsScreen
+          blurPickerNextFocusUp="custom-blur-up"
+          blurPickerNextFocusDown="custom-blur-down"
+        />,
+      );
+
+      for (const mode of BLUR_MODE_OPTIONS) {
+        const button = getByTestId(`blur-option-${mode}`);
+        expect(button.props.nextFocusUp).toBe('custom-blur-up');
+        expect(button.props.nextFocusDown).toBe('custom-blur-down');
+      }
+    });
+
+    it('mounts with TVFocusGuideViews having autoFocus configured for smooth container entry', () => {
+      const { getByTestId } = render(<SettingsScreen />);
+      const reductionContainer = getByTestId('reduction-picker-container');
+      const blurContainer = getByTestId('blur-picker-container');
+
+      expect(reductionContainer.props.autoFocus).toBe(true);
+      expect(blurContainer.props.autoFocus).toBe(true);
+    });
+  });
 });
+

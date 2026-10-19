@@ -152,6 +152,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [blurMode, setBlurMode] = useState<BlurModeOption>('standard');
   const [focusedId, setFocusedId] = useState<string>('settings-back-button');
   const [saveStatusMessage, setSaveStatusMessage] = useState<string>('');
+  const [, setFocusReady] = useState<boolean>(false);
 
   const isMountedRef = useRef<boolean>(true);
   const optionsRef = useRef<ViewerOptions>(options);
@@ -169,6 +170,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const blurOptionStandardRef = useRef<any>(null);
   const visualProtectionRef = useRef<any>(null);
   const categoryFlashingRef = useRef<any>(null);
+
+  // Re-render once after initial mount to bind fully resolved component refs
+  // to native D-pad nextFocusUp / nextFocusDown targets
+  useEffect(() => {
+    setFocusReady(true);
+  }, []);
 
   // TV remote hardware back button listener
   useEffect(() => {
@@ -395,7 +402,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* SECTION 2: VOLUME REDUCTION PICKER */}
         <TVFocusGuideView
           style={styles.sectionCard}
-          testID="reduction-picker-container">
+          testID="reduction-picker-container"
+          autoFocus={true}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionHeader}>AUDIO VOLUME REDUCTION</Text>
             <TouchableOpacity
@@ -438,7 +446,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             accessible={true}
             accessibilityRole="radiogroup"
             accessibilityLabel="Volume Reduction Level Options">
-            {REDUCTION_GAIN_OPTIONS.map((gain, index) => {
+            {REDUCTION_GAIN_OPTIONS.map((gain) => {
               const isSelected = Math.abs(options.reduceGain - gain) < 0.01;
               const itemId = `reduction-option-${Math.round(gain * 100)}`;
               const isFocused = focusedId === itemId;
@@ -458,11 +466,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Reduction Gain ${percent} percent`}
                   isTVSelectable={true}
+                  // Explicit escape routes for every picker item to prevent horizontal D-pad focus trapping
                   nextFocusUp={
-                    reductionPickerNextFocusUp ?? reductionToggleRef.current
+                    reductionPickerNextFocusUp !== undefined
+                      ? reductionPickerNextFocusUp
+                      : reductionToggleRef.current
                   }
                   nextFocusDown={
-                    reductionPickerNextFocusDown ?? blurOptionStandardRef.current
+                    reductionPickerNextFocusDown !== undefined
+                      ? reductionPickerNextFocusDown
+                      : blurOptionStandardRef.current
                   }
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() =>
@@ -472,15 +485,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       reduceEnabled: true,
                     }))
                   }
-                  activeOpacity={0.8}
-                  // Extension hooks for Person C focus chaining
-                  {...(index === 0 && reductionPickerNextFocusUp !== undefined
-                    ? { nextFocusUp: reductionPickerNextFocusUp }
-                    : {})}
-                  {...(index === REDUCTION_GAIN_OPTIONS.length - 1 &&
-                  reductionPickerNextFocusDown !== undefined
-                    ? { nextFocusDown: reductionPickerNextFocusDown }
-                    : {})}>
+                  activeOpacity={0.8}>
                   <Text
                     style={[
                       styles.pickerButtonText,
@@ -511,7 +516,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </TVFocusGuideView>
 
         {/* SECTION 3: SPATIAL BLUR CALIBRATION & PREVIEW */}
-        <TVFocusGuideView style={styles.sectionCard} testID="blur-picker-container">
+        <TVFocusGuideView
+          style={styles.sectionCard}
+          testID="blur-picker-container"
+          autoFocus={true}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionHeader}>SPATIAL BLUR CALIBRATION</Text>
             <Text style={styles.semanticsBadge}>SPATIAL FILTER (VISUAL)</Text>
@@ -531,7 +539,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             accessible={true}
             accessibilityRole="radiogroup"
             accessibilityLabel="Blur Protection Intensity Options">
-            {BLUR_MODE_OPTIONS.map((mode, index) => {
+            {BLUR_MODE_OPTIONS.map((mode) => {
               const isSelected = blurMode === mode;
               const itemId = `blur-option-${mode}`;
               const isFocused = focusedId === itemId;
@@ -550,23 +558,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Blur Intensity: ${mode}`}
                   isTVSelectable={true}
+                  // Explicit escape routes for every picker item to prevent horizontal D-pad focus trapping
                   nextFocusUp={
-                    blurPickerNextFocusUp ?? reductionOption30Ref.current
+                    blurPickerNextFocusUp !== undefined
+                      ? blurPickerNextFocusUp
+                      : reductionOption30Ref.current
                   }
                   nextFocusDown={
-                    blurPickerNextFocusDown ?? visualProtectionRef.current
+                    blurPickerNextFocusDown !== undefined
+                      ? blurPickerNextFocusDown
+                      : visualProtectionRef.current
                   }
                   onFocus={() => setFocusedId(itemId)}
                   onPress={() => setBlurMode(mode)}
-                  activeOpacity={0.8}
-                  // Extension hooks for Person C focus chaining
-                  {...(index === 0 && blurPickerNextFocusUp !== undefined
-                    ? { nextFocusUp: blurPickerNextFocusUp }
-                    : {})}
-                  {...(index === BLUR_MODE_OPTIONS.length - 1 &&
-                  blurPickerNextFocusDown !== undefined
-                    ? { nextFocusDown: blurPickerNextFocusDown }
-                    : {})}>
+                  activeOpacity={0.8}>
                   <Text
                     style={[
                       styles.pickerButtonText,

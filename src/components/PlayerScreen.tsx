@@ -154,18 +154,19 @@ export function sanitizeViewerOptions(
   return result;
 }
 
-export const PlayerScreen = ({
-  onBack,
-  cues: customCues,
-  options: customOptions,
-  initialProfile = 'verification',
-  testVideoUrl,
-  alternateBlurredVideoUrl,
-  blurSwitchTimeoutMs = 500,
-  rampDurationMs,
-  devHarnessMode = false,
-  initialHarnessScenario = 0,
-}: PlayerScreenProps) => {
+export const PlayerScreen = (props: PlayerScreenProps) => {
+  const {
+    onBack,
+    cues: customCues,
+    options: customOptions,
+    initialProfile = 'standard',
+    testVideoUrl,
+    alternateBlurredVideoUrl,
+    blurSwitchTimeoutMs = 500,
+    rampDurationMs,
+    devHarnessMode = false,
+    initialHarnessScenario = 0,
+  } = props;
   const rampDuration =
     rampDurationMs !== undefined
       ? rampDurationMs
@@ -302,6 +303,7 @@ export const PlayerScreen = ({
   // Storage synchronization and race-condition guard refs
   const isMountedRef = useRef<boolean>(true);
   const hasUserModifiedOptionsRef = useRef<boolean>(false);
+  const hasUserModifiedProfileRef = useRef<boolean>(props.initialProfile !== undefined);
   const latestSavePayloadRef = useRef<ViewerOptions | null>(null);
   const isSavingRef = useRef<boolean>(false);
 
@@ -1471,27 +1473,52 @@ export const PlayerScreen = ({
     });
   };
 
-  // Restore saved viewer preferences from AsyncStorage on mount
+  // Restore saved viewer preferences & profile from AsyncStorage on mount
   useEffect(() => {
     isMountedRef.current = true;
 
     (async () => {
       try {
-        const saved = await getItem<unknown>(STORAGE_KEYS.USER_SETTINGS);
+        const [savedSettings, savedProfile] = await Promise.all([
+          getItem<unknown>(STORAGE_KEYS.USER_SETTINGS),
+          getItem<string>(STORAGE_KEYS.USER_PROFILE),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        let activeOptions = viewerOptionsRef.current;
         if (
-          isMountedRef.current &&
           !hasUserModifiedOptionsRef.current &&
-          saved !== null &&
-          saved !== undefined
+          savedSettings !== null &&
+          savedSettings !== undefined
         ) {
-          const merged = sanitizeViewerOptions(saved, viewerOptionsRef.current);
+          const merged = sanitizeViewerOptions(savedSettings, viewerOptionsRef.current);
           setViewerOptions(merged);
           viewerOptionsRef.current = merged;
+          activeOptions = merged;
+        }
 
-          const video = videoRef.current;
-          if (video) {
-            applyTriggerActions(video.currentTime, true, merged);
-          }
+        let updatedCues = activeCuesRef.current;
+        if (
+          !hasUserModifiedProfileRef.current &&
+          savedProfile &&
+          (savedProfile === 'standard' ||
+            savedProfile === 'verification' ||
+            savedProfile === 'skip_verification')
+        ) {
+          const nextProf = savedProfile as PlayerProfile;
+          setProfile(nextProf);
+          updatedCues = computeActiveCues(
+            isDevHarnessOpenRef.current,
+            selectedHarnessScenarioIndexRef.current,
+            nextProf,
+          );
+          activeCuesRef.current = updatedCues;
+        }
+
+        const video = videoRef.current;
+        if (video) {
+          applyTriggerActions(video.currentTime, true, activeOptions, updatedCues);
         }
       } catch (e) {
         console.error('Failed to restore viewer options from storage', e);
@@ -1504,6 +1531,7 @@ export const PlayerScreen = ({
   }, []);
 
   const toggleProfile = () => {
+    hasUserModifiedProfileRef.current = true;
     const nextProfile: PlayerProfile =
       profile === 'verification'
         ? 'standard'
@@ -1511,6 +1539,9 @@ export const PlayerScreen = ({
         ? 'skip_verification'
         : 'verification';
     setProfile(nextProfile);
+    setItem(STORAGE_KEYS.USER_PROFILE, nextProfile).catch((err) => {
+      console.error('[PlayerScreen] Failed to persist profile to storage', err);
+    });
     lastActiveCuesRef.current = '';
     lastWarnCueIdsRef.current = '';
     setWarningStatus('');

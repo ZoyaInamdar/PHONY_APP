@@ -37,6 +37,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.classify_audio_events import classify_audio_events
 from scripts.detect_flashing import detect_flashing
+from scripts.detect_jump_scare import detect_jump_scare
 from scripts.detect_loudness import (
     DEFAULT_CONFIG_PATH,
     detect_loudness_from_wav,
@@ -144,9 +145,9 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "component": "compound_detector",
         "modality": "multimodal",
         "owner": "Person B and Person C",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unimplemented",
+        "status": "available",
+        "script": "scripts/detect_jump_scare.py",
+        "method": "multimodal_compound_heuristic",
     },
 }
 
@@ -663,6 +664,17 @@ def run_detector_for_clip(
         filtered_detections = [d for d in raw_detections if d.get("trigger") == trigger]
         merged_detections = merge_detections(
             detections=filtered_detections,
+            config=config,
+        )
+        return merged_detections
+
+    elif trigger == "jump_scare":
+        raw_detections = detect_jump_scare(
+            clip_file,
+            config=config,
+        )
+        merged_detections = merge_detections(
+            detections=raw_detections,
             config=config,
         )
         return merged_detections

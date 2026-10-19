@@ -35,6 +35,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.classify_audio_events import classify_audio_events
+from scripts.detect_flashing import detect_flashing
 from scripts.detect_loudness import (
     DEFAULT_CONFIG_PATH,
     detect_loudness_from_wav,
@@ -94,33 +96,33 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "component": "flash_detector",
         "modality": "visual",
         "owner": "Person A",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unimplemented",
+        "status": "available",
+        "script": "scripts/detect_flashing.py",
+        "method": "rule_based_signal_processing",
     },
     "gunshot": {
         "component": "audio_event_classifier",
         "modality": "audio",
         "owner": "Person A",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unresolved_ml_backend",
+        "status": "available",
+        "script": "scripts/classify_audio_events.py",
+        "method": "pretrained_audio_classification",
     },
     "explosion": {
         "component": "audio_event_classifier",
         "modality": "audio",
         "owner": "Person A",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unresolved_ml_backend",
+        "status": "available",
+        "script": "scripts/classify_audio_events.py",
+        "method": "pretrained_audio_classification",
     },
     "scream": {
         "component": "audio_event_classifier",
         "modality": "audio",
         "owner": "Person A",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unresolved_ml_backend",
+        "status": "available",
+        "script": "scripts/classify_audio_events.py",
+        "method": "pretrained_audio_classification",
     },
     "spider": {
         "component": "spider_detector",
@@ -506,18 +508,24 @@ def audit_annotation_coverage(
 
     # Record unsupported triggers
     for trig, info in DETECTOR_REGISTRY.items():
-        if info["status"] != "available":
+        if info["status"] != "available" or (supported_triggers is not None and trig not in supported_triggers):
             # Count how many labels exist in labels.csv for this unsupported trigger
             gt_count = sum(
                 sum(1 for row in rows if row["trigger"] == trig)
                 for rows in labels_by_clip.values()
             )
+            reason = "Detector implementation not available in repository."
+            if info["status"] == "unresolved":
+                reason = "Audio classifier backend unresolved: deep learning runtimes (torch/tensorflow/onnxruntime) are unavailable on Python 3.14 on macOS arm64 without binary compilation."
+            elif info["status"] == "available":
+                reason = "Detector available but excluded from target evaluation triggers."
+
             audit["unsupported_triggers"][trig] = {
                 "component": info["component"],
                 "status": info["status"],
                 "owner": info["owner"],
                 "ground_truth_events_in_labels_csv": gt_count,
-                "reason": "Detector implementation not available in repository.",
+                "reason": reason,
             }
 
     # Audit coverage for supported triggers
@@ -631,6 +639,30 @@ def run_detector_for_clip(
         raw_detections = adapt_subtitle_cues_to_raw_detections(cue_dicts)
         merged_detections = merge_detections(
             detections=raw_detections,
+            config=config,
+        )
+        return merged_detections
+
+    elif trigger == "flashing":
+        raw_detections = detect_flashing(
+            clip_file,
+            config=config,
+        )
+        merged_detections = merge_detections(
+            detections=raw_detections,
+            config=config,
+        )
+        return merged_detections
+
+    elif trigger in ("gunshot", "explosion", "scream"):
+        raw_detections = classify_audio_events(
+            audio_path=clip_file,
+            backend="YAMNet",
+            config=config,
+        )
+        filtered_detections = [d for d in raw_detections if d.get("trigger") == trigger]
+        merged_detections = merge_detections(
+            detections=filtered_detections,
             config=config,
         )
         return merged_detections

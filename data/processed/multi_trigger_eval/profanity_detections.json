@@ -2,15 +2,15 @@
   "provenance": {
     "stage": "subtitles",
     "status": "ok",
-    "source_file": "data/test_clips/multi_trigger_test.srt",
-    "wordlist_path": "data/profanity_wordlist.txt",
+    "source_file": "/Users/zoya/Desktop/PHONY_APP/data/test_clips/multi_trigger_test.srt",
+    "wordlist_path": "/Users/zoya/Desktop/PHONY_APP/data/profanity_wordlist.txt",
     "evidence_type": "subtitle_text",
     "timing_type": "estimated",
     "libs": {
       "pysrt": "1.1.2",
-      "python": "3.10.11"
+      "python": "3.14.3"
     },
-    "timestamp_utc": "2026-10-17T06:49:21.012790+00:00"
+    "timestamp_utc": "2026-10-19T05:56:31.791662+00:00"
   },
   "detections": [
     {

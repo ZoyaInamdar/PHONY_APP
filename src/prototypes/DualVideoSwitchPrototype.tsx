@@ -46,8 +46,8 @@ export interface DualVideoSwitchPrototypeProps {
  * 9. Both players are properly paused and deinitialized on unmount.
  */
 export const DualVideoSwitchPrototype: React.FC<DualVideoSwitchPrototypeProps> = ({
-  cleanSrc = 'data/test_clips/proto_clean.mp4',
-  blurredSrc = 'data/test_clips/proto_blurred.mp4',
+  cleanSrc = 'data/prototypes/proto_clean.mp4',
+  blurredSrc = 'data/prototypes/proto_blurred.mp4',
   blurStart = 3.0,
   blurEnd = 6.0,
   seekTimeoutMs = 500,

@@ -28,10 +28,10 @@ All samples and synthesis procedures are released under permissive or public-dom
 - **Source**: Synthetic acoustic model combining low-frequency sub-bass shockwave (45 Hz fundamental sweep down to 20 Hz) layered with multi-band filtered brown noise with exponential decay ($e^{-t / 0.4}$).
 - **License**: **CC0 1.0 Universal (Public Domain Dedication)**
 - **Redistribution**: Unrestricted; generated deterministically on-device.
-- **Reference / Alternative Download**:
-  - Source: Wikimedia Commons / Freesound CC0 Sound Collection
-  - File: `explosion_cc0.wav`
-  - License: Creative Commons CC0 1.0
+- **Reference / External Validation Sample**:
+  - Source: Freesound (Sound #156031 by Iwiploppenisse)
+  - File: `explosion_freesound_156031` (see `docs/licenses/natural_audio_provenance.json`)
+  - License: **Creative Commons Attribution 4.0 International (CC BY 4.0)** (requires attribution to Iwiploppenisse)
 
 ### 1.3 Human Scream (`scream`)
 - **Trigger ID**: `scream` (Canonical `config.yaml` trigger)
@@ -40,10 +40,10 @@ All samples and synthesis procedures are released under permissive or public-dom
 - **Source**: Synthesized vocal tract formant model with pitch modulation ($f_0 \approx 750\text{ Hz}$ sweeping to $950\text{ Hz}$) and formants at $F_1 = 800\text{ Hz}$, $F_2 = 1800\text{ Hz}$, $F_3 = 2800\text{ Hz}$, layered with vocal turbulence noise.
 - **License**: **CC0 1.0 Universal (Public Domain Dedication)**
 - **Redistribution**: Unrestricted; generated deterministically on-device.
-- **Reference / Alternative Download**:
-  - Source: OpenGameArt / Freesound CC0 Public Domain
-  - File: `human_scream_cc0.wav`
-  - License: Creative Commons CC0 1.0
+- **Reference / External Validation Sample**:
+  - Source: OpenGameArt (from "Screaming" by Dan Knoflicek / Macro)
+  - File: `scream_dan_knoflicek_3` (see `docs/licenses/natural_audio_provenance.json`)
+  - License: **Creative Commons Attribution 3.0 Unported (CC-BY 3.0)** (requires attribution: "SFX by Dan Knoflicek")
 
 ---
 

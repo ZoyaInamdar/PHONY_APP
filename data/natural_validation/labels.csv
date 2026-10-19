@@ -1,0 +1,3 @@
+clip,trigger,start,end,labeller,actual_rate
+explosion_freesound_156031.wav,explosion,0.050,3.200,independent_acoustic_annotation,
+scream_dan_knoflicek_3.wav,scream,0.000,1.650,independent_acoustic_annotation,

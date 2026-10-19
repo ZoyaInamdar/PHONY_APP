@@ -1,0 +1,44 @@
+{
+  "generator_version": 1,
+  "clip_count": 2,
+  "clips": [
+    {
+      "clip_name": "explosion_freesound_156031.wav",
+      "duration": 7.636,
+      "fps": 0.0,
+      "width": 0,
+      "height": 0,
+      "trigger": "explosion",
+      "start": 0.05,
+      "end": 3.2,
+      "labeller": "independent_acoustic_annotation",
+      "metadata": {
+        "event_type": "explosion",
+        "modality": "audio",
+        "source": "Freesound #156031 by Iwiploppenisse (CC BY 4.0)",
+        "triggers": [
+          "explosion"
+        ]
+      }
+    },
+    {
+      "clip_name": "scream_dan_knoflicek_3.wav",
+      "duration": 1.723,
+      "fps": 0.0,
+      "width": 0,
+      "height": 0,
+      "trigger": "scream",
+      "start": 0.0,
+      "end": 1.65,
+      "labeller": "independent_acoustic_annotation",
+      "metadata": {
+        "event_type": "scream",
+        "modality": "audio",
+        "source": "OpenGameArt Screaming (Dan Knoflicek / CC-BY 3.0)",
+        "triggers": [
+          "scream"
+        ]
+      }
+    }
+  ]
+}

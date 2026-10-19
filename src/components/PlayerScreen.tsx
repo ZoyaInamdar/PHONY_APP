@@ -326,6 +326,7 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isContentHidden, setIsContentHidden] = useState(false);
+  const [visualProtectionType, setVisualProtectionType] = useState<'hide' | 'blur'>('hide');
   const [activeActionStatus, setActiveActionStatus] = useState<string>('');
   const [warningStatus, setWarningStatus] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(0);
@@ -629,6 +630,7 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
       setIsBlurActive(false);
       isContentHiddenRef.current = true;
       setIsContentHidden(true);
+      setVisualProtectionType('blur');
       recordBlurCueAction('blacked_out', targetTime);
       return;
     }
@@ -1038,7 +1040,30 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
       );
       isContentHiddenRef.current = targetHide;
       setIsContentHidden(targetHide);
-    } else if (actions.visualAction === 'dim') {
+    }
+
+    if (targetHide) {
+      const activeCueList = currentCues.filter((c) =>
+        actions.activeCueIds.includes(c.id),
+      );
+      const isBlurTrigger = activeCueList.some(
+        (c) =>
+          c.trigger === 'spider' ||
+          c.trigger === 'flashing' ||
+          c.action === 'blur' ||
+          c.action === 'hide' ||
+          c.source === 'visual',
+      );
+      const isBlurMode =
+        isVegaBlurFallback ||
+        (actions.visualAction === 'blur' && !actions.hide) ||
+        isBlurTrigger;
+      setVisualProtectionType(isBlurMode ? 'blur' : 'hide');
+    } else {
+      setVisualProtectionType('hide');
+    }
+
+    if (actions.visualAction === 'dim') {
       if (cuesChanged || isSeek) {
         console.warn(
           `[Trigger] Unsupported visual action "${actions.visualAction}" requested on current renderer for cue(s): [${activeCueIdsKey}]. Preserving original cue metadata without mapping to hide.`,
@@ -1835,17 +1860,53 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
           />
         )}
 
-        {/* Fallback visual overlay rendered when visual hiding is triggered */}
+        {/* Fallback visual overlay rendered when visual hiding or blur fallback is triggered */}
         {isContentHidden && (
           <View
-            style={styles.hiddenOverlay}
+            style={
+              visualProtectionType === 'blur'
+                ? styles.blurFallbackOverlay
+                : styles.hiddenOverlay
+            }
             testID="trigger-hidden-overlay"
-            accessibilityLabel="Visual content hidden due to trigger-aware filter">
-            <Text style={styles.hiddenOverlayIcon}>🛡️</Text>
-            <Text style={styles.hiddenOverlayTitle}>Visual Content Hidden</Text>
-            <Text style={styles.hiddenOverlaySubtitle}>
-              Protection active for sensitive visual trigger
-            </Text>
+            accessibilityLabel={
+              visualProtectionType === 'blur'
+                ? 'Visual blur protection active for sensitive visual trigger'
+                : 'Visual content hidden due to trigger-aware filter'
+            }>
+            {visualProtectionType === 'blur' ? (
+              <View style={styles.blurCard} testID="blur-protection-card">
+                <Text style={styles.blurOverlayIcon}>🌫️</Text>
+                <Text style={styles.blurOverlayTitle}>Visual Blur Active</Text>
+                <Text style={styles.blurOverlaySubtitle}>
+                  {(() => {
+                    const currentTriggers = activeCues
+                      .filter(
+                        (c) =>
+                          c.source === 'visual' &&
+                          currentTime >= c.start &&
+                          currentTime < c.end,
+                      )
+                      .map((c) => c.trigger)
+                      .filter((t): t is string => typeof t === 'string' && t.length > 0);
+                    return currentTriggers.length > 0
+                      ? `Frosted blur protection active (${currentTriggers.join(', ')})`
+                      : 'Frosted blur protection active for sensitive scene';
+                  })()}
+                </Text>
+                <View style={styles.blurBadge}>
+                  <Text style={styles.blurBadgeText}>BLUR PROTECTION</Text>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.hiddenOverlayIcon}>🛡️</Text>
+                <Text style={styles.hiddenOverlayTitle}>Visual Content Hidden</Text>
+                <Text style={styles.hiddenOverlaySubtitle}>
+                  Protection active for sensitive visual trigger
+                </Text>
+              </>
+            )}
           </View>
         )}
       </View>
@@ -2611,6 +2672,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
     textAlign: 'center',
+  },
+  blurFallbackOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 10,
+  },
+  blurCard: {
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
+    borderColor: '#38BDF8',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 600,
+  },
+  blurOverlayIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  blurOverlayTitle: {
+    color: '#F8FAFC',
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  blurOverlaySubtitle: {
+    color: '#94A3B8',
+    fontSize: 15,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  blurBadge: {
+    marginTop: 14,
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: 'rgba(56, 189, 248, 0.5)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  blurBadgeText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   warningBanner: {
     backgroundColor: '#7C2D12',

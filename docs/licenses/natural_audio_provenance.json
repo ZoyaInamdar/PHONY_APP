@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Natural Audio Validation Sample Provenance",
+  "description": "Provenance, license verification, checksums, and attribution notices for external audio samples used in natural-audio detector validation.",
+  "schema_version": 1,
+  "retrieval_date": "2026-10-19",
+  "samples": [
+    {
+      "trigger": "explosion",
+      "asset_name": "explosion_freesound_156031",
+      "source_title": "Explosion",
+      "source_url": "https://freesound.org/people/Iwiploppenisse/sounds/156031/",
+      "direct_download_url": "https://cdn.freesound.org/previews/156/156031_2703579-hq.mp3",
+      "creator": "Iwiploppenisse",
+      "license_name": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "\"Explosion\" by Iwiploppenisse (https://freesound.org/people/Iwiploppenisse/sounds/156031/), licensed under CC BY 4.0. Incorporates elements from HerbertBoland (CinematicBoomNorm), themfish (glasshouse), and ljudman (grenade).",
+      "modification_notice": "Transcoded from 44.1 kHz stereo MP3 preview to 16 kHz mono 16-bit PCM WAV using ffmpeg for standardized YAMNet ML inference.",
+      "raw_file": {
+        "path": "data/natural_validation/raw/explosion_freesound_156031_raw.mp3",
+        "format": "mp3",
+        "channels": 2,
+        "sample_rate_hz": 44100,
+        "duration_seconds": 7.636,
+        "size_bytes": 176361,
+        "sha256": "a0ae839f71605caad04595e3e4adb6c7901359bbe87807814e9f82d1eefc20bf"
+      },
+      "evaluation_file": {
+        "path": "data/natural_validation/audio/explosion_freesound_156031.wav",
+        "format": "wav (pcm_s16le)",
+        "channels": 1,
+        "sample_rate_hz": 16000,
+        "duration_seconds": 7.636,
+        "size_bytes": 244400,
+        "sha256": "8c087470fe0261dd7f201dba0f5412dc1fecd74a4ebf4ab6fa797036c4b3a62d"
+      }
+    },
+    {
+      "trigger": "scream",
+      "asset_name": "scream_dan_knoflicek_3",
+      "source_title": "Screaming (Scream 3.wav)",
+      "source_url": "https://opengameart.org/content/screaming",
+      "direct_download_url": "https://opengameart.org/sites/default/files/Scream%203.wav",
+      "creator": "Dan Knoflicek (uploaded by Macro)",
+      "license_name": "Creative Commons Attribution 3.0 Unported (CC-BY 3.0)",
+      "license_url": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": "\"Scream 3.wav\" from \"Screaming\" by Dan Knoflicek (uploaded by Macro, https://opengameart.org/content/screaming), licensed under CC-BY 3.0. Attribution requested: \"SFX by Dan Knoflicek\".",
+      "modification_notice": "Transcoded from 44.1 kHz 24-bit mono PCM WAV to 16 kHz 16-bit mono PCM WAV using ffmpeg for standardized YAMNet ML inference.",
+      "raw_file": {
+        "path": "data/natural_validation/raw/scream_dan_knoflicek_3_raw.wav",
+        "format": "wav (pcm_s24le)",
+        "channels": 1,
+        "sample_rate_hz": 44100,
+        "duration_seconds": 1.723,
+        "size_bytes": 228042,
+        "sha256": "3e6c1965b8cffa6a80c72bb63c6fbc16ea602aa0c1baff0490dc4307dded28c6"
+      },
+      "evaluation_file": {
+        "path": "data/natural_validation/audio/scream_dan_knoflicek_3.wav",
+        "format": "wav (pcm_s16le)",
+        "channels": 1,
+        "sample_rate_hz": 16000,
+        "duration_seconds": 1.723,
+        "size_bytes": 55192,
+        "sha256": "d28fee8140d9475f32e4349d94c2284ff234cfe43c278832547cb43dce387b5f"
+      }
+    }
+  ]
+}

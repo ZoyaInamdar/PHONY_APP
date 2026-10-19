@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "evaluation_timestamp_utc": "2026-10-19T06:48:02.670972+00:00",
+  "parameters": {
+    "iou_threshold": 0.5,
+    "matching_strategy": "one_to_one_greedy_highest_iou",
+    "tie_breaking": "highest_iou_desc_pred_start_asc_gt_start_asc",
+    "null_representation": "null_for_undefined_divisions"
+  },
+  "coverage_audit": {
+    "total_clips_in_manifest": 2,
+    "total_annotated_clips": 2,
+    "per_trigger_coverage": {
+      "explosion": {
+        "positive_clips": [
+          "explosion_freesound_156031.wav"
+        ],
+        "negative_control_clips": [],
+        "uncovered_clips": [
+          "scream_dan_knoflicek_3.wav"
+        ],
+        "total_evaluable_clips": 1
+      },
+      "scream": {
+        "positive_clips": [
+          "scream_dan_knoflicek_3.wav"
+        ],
+        "negative_control_clips": [],
+        "uncovered_clips": [
+          "explosion_freesound_156031.wav"
+        ],
+        "total_evaluable_clips": 1
+      }
+    },
+    "unsupported_triggers": {
+      "loud_spike": {
+        "component": "loudness_detector",
+        "status": "available",
+        "owner": "Person B",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector available but excluded from target evaluation triggers."
+      },
+      "profanity": {
+        "component": "profanity_detector",
+        "status": "available",
+        "owner": "Person C",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector available but excluded from target evaluation triggers."
+      },
+      "flashing": {
+        "component": "flash_detector",
+        "status": "available",
+        "owner": "Person A",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector available but excluded from target evaluation triggers."
+      },
+      "gunshot": {
+        "component": "audio_event_classifier",
+        "status": "available",
+        "owner": "Person A",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector available but excluded from target evaluation triggers."
+      },
+      "spider": {
+        "component": "spider_detector",
+        "status": "missing_detector",
+        "owner": "Person A",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector implementation not available in repository."
+      },
+      "fast_motion": {
+        "component": "motion_detector",
+        "status": "missing_detector",
+        "owner": "Person C",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector implementation not available in repository."
+      },
+      "jump_scare": {
+        "component": "compound_detector",
+        "status": "missing_detector",
+        "owner": "Person B and Person C",
+        "ground_truth_events_in_labels_csv": 0,
+        "reason": "Detector implementation not available in repository."
+      }
+    }
+  },
+  "summary": {
+    "evaluated_triggers": [
+      "explosion",
+      "scream"
+    ],
+    "unsupported_triggers": [
+      "fast_motion",
+      "flashing",
+      "gunshot",
+      "jump_scare",
+      "loud_spike",
+      "profanity",
+      "spider"
+    ],
+    "total_clips_evaluated": 2,
+    "counts": {
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 2
+    },
+    "dataset_micro_metrics": {
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 2,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null
+    },
+    "dataset_macro_metrics": {
+      "precision": null,
+      "recall": 0.0,
+      "f1": null
+    }
+  },
+  "per_trigger": {
+    "explosion": {
+      "trigger": "explosion",
+      "status": "evaluated",
+      "component": "audio_event_classifier",
+      "modality": "audio",
+      "clips_evaluated_count": 1,
+      "positive_clips_count": 1,
+      "negative_control_clips_count": 0,
+      "counts": {
+        "ground_truth_events": 1,
+        "predicted_events": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1
+      },
+      "micro_metrics": {
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
+      },
+      "macro_metrics": {
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
+      },
+      "temporal_metrics": {
+        "mean_iou": null,
+        "mean_onset_error": null,
+        "mean_offset_error": null,
+        "mean_abs_onset_error": null,
+        "mean_abs_offset_error": null
+      }
+    },
+    "scream": {
+      "trigger": "scream",
+      "status": "evaluated",
+      "component": "audio_event_classifier",
+      "modality": "audio",
+      "clips_evaluated_count": 1,
+      "positive_clips_count": 1,
+      "negative_control_clips_count": 0,
+      "counts": {
+        "ground_truth_events": 1,
+        "predicted_events": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1
+      },
+      "micro_metrics": {
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
+      },
+      "macro_metrics": {
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
+      },
+      "temporal_metrics": {
+        "mean_iou": null,
+        "mean_onset_error": null,
+        "mean_offset_error": null,
+        "mean_abs_onset_error": null,
+        "mean_abs_offset_error": null
+      }
+    }
+  },
+  "per_clip": [
+    {
+      "clip_name": "explosion_freesound_156031.wav",
+      "trigger": "explosion",
+      "ground_truth_count": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
+        {
+          "clip": "explosion_freesound_156031.wav",
+          "trigger": "explosion",
+          "start": 0.05,
+          "end": 3.2,
+          "labeller": "independent_acoustic_annotation",
+          "actual_rate": null
+        }
+      ],
+      "metadata": {
+        "clip_name": "explosion_freesound_156031.wav",
+        "duration": 7.636,
+        "fps": 0.0,
+        "width": 0,
+        "height": 0,
+        "trigger": "explosion",
+        "start": 0.05,
+        "end": 3.2,
+        "labeller": "independent_acoustic_annotation",
+        "metadata": {
+          "event_type": "explosion",
+          "modality": "audio",
+          "source": "Freesound #156031 by Iwiploppenisse (CC BY 4.0)",
+          "triggers": [
+            "explosion"
+          ]
+        }
+      }
+    },
+    {
+      "clip_name": "scream_dan_knoflicek_3.wav",
+      "trigger": "scream",
+      "ground_truth_count": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
+        {
+          "clip": "scream_dan_knoflicek_3.wav",
+          "trigger": "scream",
+          "start": 0.0,
+          "end": 1.65,
+          "labeller": "independent_acoustic_annotation",
+          "actual_rate": null
+        }
+      ],
+      "metadata": {
+        "clip_name": "scream_dan_knoflicek_3.wav",
+        "duration": 1.723,
+        "fps": 0.0,
+        "width": 0,
+        "height": 0,
+        "trigger": "scream",
+        "start": 0.0,
+        "end": 1.65,
+        "labeller": "independent_acoustic_annotation",
+        "metadata": {
+          "event_type": "scream",
+          "modality": "audio",
+          "source": "OpenGameArt Screaming (Dan Knoflicek / CC-BY 3.0)",
+          "triggers": [
+            "scream"
+          ]
+        }
+      }
+    }
+  ]
+}

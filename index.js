@@ -1,3 +1,4 @@
+import React from 'react';
 import { AppRegistry, LogBox } from 'react-native';
 import { App } from './src/App';
 import { name as appName } from './app.json';
@@ -6,4 +7,6 @@ import { name as appName } from './app.json';
 // not working currently.
 LogBox.ignoreAllLogs();
 
-AppRegistry.registerComponent(appName, () => App);
+const Root = () => <App initialShowPlayer={true} />;
+
+AppRegistry.registerComponent(appName, () => Root);

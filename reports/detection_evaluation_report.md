@@ -1,6 +1,6 @@
 # Detector Evaluation Report — Trigger-Aware Player (PHONY_APP)
 
-**Generated:** 2026-10-16T17:17:13.031163+00:00  
+**Generated:** 2026-10-19T05:56:38.390735+00:00  
 **Evaluator Role:** Person B — Media Ingestion, Packaging, and Pipeline Integration  
 **Matching Policy:** One-to-one temporal matching with $\text{tIoU} \ge 0.5$  
 
@@ -14,8 +14,8 @@ This report benchmarks the offline detectors implemented in the repository again
 
 | Metric Category | Precision | Recall | F1 Score | Notes |
 | :--- | :---: | :---: | :---: | :--- |
-| **Dataset Micro-Average** | 50.0% | 40.0% | 44.4% | Pooled TP=2, FP=2, FN=3 across all evaluated triggers |
-| **Dataset Macro-Average** | 50.0% | 41.7% | 45.0% | Unweighted mean across evaluated triggers |
+| **Dataset Micro-Average** | 83.3% | 55.6% | 66.7% | Pooled TP=15, FP=3, FN=12 across all evaluated triggers |
+| **Dataset Macro-Average** | 62.5% | 27.4% | 65.4% | Unweighted mean across evaluated triggers |
 
 ---
 
@@ -39,8 +39,12 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 
 | Trigger | Component | Modality | Clips | GT Events | Preds | TP | FP | FN | Micro Precision | Micro Recall | Micro F1 | Mean IoU | Mean \|Onset Err\| |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `loud_spike` | loudness_detector | audio | 7 | 2 | 2 | 1 | 1 | 1 | 50.0% | 50.0% | 50.0% | 0.6667 | 0.0000s |
+| `explosion` | audio_event_classifier | audio | 7 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
+| `flashing` | flash_detector | visual | 21 | 16 | 13 | 13 | 0 | 3 | 100.0% | 81.2% | 89.7% | 0.9952 | 0.0000s |
+| `gunshot` | audio_event_classifier | audio | 7 | 2 | 1 | 1 | 0 | 1 | 100.0% | 50.0% | 66.7% | 0.5208 | 0.0600s |
+| `loud_spike` | loudness_detector | audio | 7 | 2 | 2 | 0 | 2 | 2 | 0.0% | 0.0% | *null* | *null* | *null*s |
 | `profanity` | profanity_detector | subtitles | 6 | 3 | 2 | 1 | 1 | 2 | 50.0% | 33.3% | 40.0% | 1.0000 | 0.0000s |
+| `scream` | audio_event_classifier | audio | 7 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
 
 ---
 
@@ -48,7 +52,42 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 
 | Clip Name | Trigger | Role / Type | GT Count | Pred Count | TP | FP | FN | Precision | Recall | F1 | Mean IoU |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `audio_loud_spike_isolated.mp4` | `loud_spike` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 0.6667 |
+| `audio_explosion_test.mp4` | `explosion` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `audio_multi_event_mix.mp4` | `explosion` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `audio_negative_ambient.mp4` | `explosion` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_negative_dialogue.mp4` | `explosion` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_slow_fade.mp4` | `explosion` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_smooth_gradient.mp4` | `explosion` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_static.mp4` | `explosion` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_area_small_patch_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_contrast_005_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_contrast_010_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 0.9375 |
+| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `audio_negative_ambient.mp4` | `flashing` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_negative_dialogue.mp4` | `flashing` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_slow_fade.mp4` | `flashing` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_smooth_gradient.mp4` | `flashing` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_static.mp4` | `flashing` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_gunshot_test.mp4` | `gunshot` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 0.5208 |
+| `audio_multi_event_mix.mp4` | `gunshot` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `audio_negative_ambient.mp4` | `gunshot` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_negative_dialogue.mp4` | `gunshot` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_slow_fade.mp4` | `gunshot` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_smooth_gradient.mp4` | `gunshot` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_static.mp4` | `gunshot` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_loud_spike_isolated.mp4` | `loud_spike` | test_clip | 1 | 1 | 0 | 1 | 1 | 0.0% | 0.0% | *null* | *null* |
 | `audio_loud_spike_test.mp4` | `loud_spike` | test_clip | 1 | 1 | 0 | 1 | 1 | 0.0% | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `loud_spike` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `loud_spike` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
@@ -61,18 +100,48 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 | `video_negative_slow_fade.mp4` | `profanity` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `profanity` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `profanity` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_multi_event_mix.mp4` | `scream` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `audio_scream_test.mp4` | `scream` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `audio_negative_ambient.mp4` | `scream` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `audio_negative_dialogue.mp4` | `scream` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_slow_fade.mp4` | `scream` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_smooth_gradient.mp4` | `scream` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `video_negative_static.mp4` | `scream` | test_clip | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 
 ### Individual Event Matches & Boundary Exactness
 
 | Clip | Trigger | Match Type | Pred Interval | GT Interval | tIoU | Onset Error | Offset Error |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `audio_loud_spike_isolated.mp4` | `loud_spike` | Matched TP | [1.500, 1.700) | [1.500, 1.800) | 0.6667 | +0.000s | -0.100s |
+| `audio_explosion_test.mp4` | `explosion` | Unmatched FN | — | [1.000, 3.200) | 0.0000 | — | — |
+| `audio_multi_event_mix.mp4` | `explosion` | Unmatched FN | — | [6.000, 8.200) | 0.0000 | — | — |
+| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
+| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
+| `flash_area_small_patch_24fps_4hz_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_contrast_005_24fps_4hz_full.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_contrast_010_24fps_4hz_full.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | Matched TP | [1.000, 2.875) | [1.000, 3.000) | 0.9375 | +0.000s | -0.125s |
+| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.560) | [1.000, 3.560) | 1.0000 | +0.000s | +0.000s |
+| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 5.267) | [1.000, 5.267) | 1.0000 | +0.000s | +0.000s |
+| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.333) | [1.000, 2.333) | 1.0000 | +0.000s | +0.000s |
+| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.920) | [1.000, 2.920) | 1.0000 | +0.000s | +0.000s |
+| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.133) | [1.000, 3.133) | 1.0000 | +0.000s | +0.000s |
+| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.133) | [1.000, 3.133) | 1.0000 | +0.000s | +0.000s |
+| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 5.000) | [1.000, 5.000) | 1.0000 | +0.000s | +0.000s |
+| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.667) | [1.000, 3.667) | 1.0000 | +0.000s | +0.000s |
+| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
+| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.333) | [1.000, 2.333) | 1.0000 | +0.000s | +0.000s |
+| `audio_gunshot_test.mp4` | `gunshot` | Matched TP | [1.440, 2.400) | [1.500, 2.000) | 0.5208 | -0.060s | +0.400s |
+| `audio_multi_event_mix.mp4` | `gunshot` | Unmatched FN | — | [1.000, 1.500) | 0.0000 | — | — |
+| `audio_loud_spike_isolated.mp4` | `loud_spike` | Unmatched FP | [1.500, 1.600) | — | 0.0000 | — | — |
+| `audio_loud_spike_isolated.mp4` | `loud_spike` | Unmatched FN | — | [1.500, 1.800) | 0.0000 | — | — |
 | `audio_loud_spike_test.mp4` | `loud_spike` | Unmatched FP | [2.000, 2.100) | — | 0.0000 | — | — |
 | `audio_loud_spike_test.mp4` | `loud_spike` | Unmatched FN | — | [2.000, 2.500) | 0.0000 | — | — |
 | `speech_triggers_test.mp4` | `profanity` | Matched TP | [1.000, 3.500) | [1.000, 3.500) | 1.0000 | +0.000s | +0.000s |
 | `speech_triggers_test.mp4` | `profanity` | Unmatched FP | [7.000, 12.500) | — | 0.0000 | — | — |
 | `speech_triggers_test.mp4` | `profanity` | Unmatched FN | — | [7.000, 9.500) | 0.0000 | — | — |
 | `speech_triggers_test.mp4` | `profanity` | Unmatched FN | — | [10.500, 12.500) | 0.0000 | — | — |
+| `audio_multi_event_mix.mp4` | `scream` | Unmatched FN | — | [3.000, 4.500) | 0.0000 | — | — |
+| `audio_scream_test.mp4` | `scream` | Unmatched FN | — | [1.200, 2.700) | 0.0000 | — | — |
 
 ---
 
@@ -82,10 +151,6 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 
 | Trigger | Component | Owner | Status | GT Labels in labels.csv | Reason / Blocking Dependency |
 | :--- | :--- | :--- | :---: | :---: | :--- |
-| `flashing` | flash_detector | Person A | **MISSING_DETECTOR** | 16 | Detector implementation not available in repository. |
-| `gunshot` | audio_event_classifier | Person A | **MISSING_DETECTOR** | 2 | Detector implementation not available in repository. |
-| `explosion` | audio_event_classifier | Person A | **MISSING_DETECTOR** | 2 | Detector implementation not available in repository. |
-| `scream` | audio_event_classifier | Person A | **MISSING_DETECTOR** | 2 | Detector implementation not available in repository. |
 | `spider` | spider_detector | Person A | **MISSING_DETECTOR** | 0 | Detector implementation not available in repository. |
 | `fast_motion` | motion_detector | Person C | **MISSING_DETECTOR** | 0 | Detector implementation not available in repository. |
 | `jump_scare` | compound_detector | Person B and Person C | **MISSING_DETECTOR** | 0 | Detector implementation not available in repository. |

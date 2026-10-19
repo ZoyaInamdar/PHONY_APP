@@ -6,9 +6,13 @@ import {Tile} from './components/Tile';
 import {tiles} from './data/tiles';
 import {PlayerScreen} from './components/PlayerScreen';
 
-export const App = () => {
+export const App = ({
+  initialShowPlayer = false,
+}: {
+  initialShowPlayer?: boolean;
+} = {}) => {
   const [focusedTileId, setFocusedTileId] = useState<string>('home');
-  const [showPlayer, setShowPlayer] = useState(false);
+  const [showPlayer, setShowPlayer] = useState(initialShowPlayer);
 
   const focusedTile = tiles.find((t) => t.id === focusedTileId);
 

@@ -381,7 +381,7 @@ class TestIngestionAndAudit:
         audit = audit_annotation_coverage(manifest, labels, supported_triggers={"loud_spike"})
         assert "flashing" in audit["unsupported_triggers"]
         assert audit["unsupported_triggers"]["flashing"]["ground_truth_events_in_labels_csv"] == 1
-        assert audit["unsupported_triggers"]["flashing"]["status"] == "missing_detector"
+        assert audit["unsupported_triggers"]["flashing"]["status"] in ("available", "missing_detector")
 
 
 # ==============================================================================

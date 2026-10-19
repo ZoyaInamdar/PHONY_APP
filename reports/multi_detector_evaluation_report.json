@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "evaluation_type": "same_timeline_multi_detector_evaluation",
-  "evaluation_timestamp_utc": "2026-10-17T06:54:33.208966+00:00",
+  "evaluation_timestamp_utc": "2026-10-19T05:56:33.322589+00:00",
   "film_id": "multi_trigger_test",
   "duration_seconds": 15.0,
   "parameters": {

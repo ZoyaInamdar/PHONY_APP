@@ -1263,7 +1263,7 @@ describe('PlayerScreen Component Tests', () => {
         <PlayerScreen onBack={onBack} />,
       );
 
-      // Default profile is 'standard' (production index)
+      // Canonical default profile is 'standard' (production index)
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
       expect(getByText('Cues: Index')).toBeTruthy();
 
@@ -1280,6 +1280,7 @@ describe('PlayerScreen Component Tests', () => {
       // Pressing again returns to 'standard'
       fireEvent.press(getByText('Cues: Skip'));
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Cues: Index')).toBeTruthy();
 
       // Can also be directly opted into via initialProfile prop
       const { getByText: getByTextDirect } = render(
@@ -3320,99 +3321,155 @@ describe('PlayerScreen Component Tests', () => {
     });
   });
 
-  describe('Canonical Standard Profile and Storage Alignment', () => {
-    it('falls back to canonical standard profile (Sintel Index) on fresh launch when no saved profile exists', async () => {
+  describe('Player Profile Consistency, Restoration, and Race Conditions', () => {
+    it('A. Fresh-launch default: with no explicit initialProfile and empty storage, uses standard', async () => {
+      await AsyncStorage.clear();
       const onBack = jest.fn();
       const { getByText } = render(<PlayerScreen onBack={onBack} />);
 
-      // On fresh launch without storage, canonical default is standard (Sintel Index)
+      // Must be Sintel Index / standard profile
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
       expect(getByText('Cues: Index')).toBeTruthy();
     });
 
-    it('restores saved profile from STORAGE_KEYS.USER_PROFILE on mount', async () => {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.USER_PROFILE,
-        JSON.stringify('verification'),
-      );
-
-      const onBack = jest.fn();
-      const { getByText, findByText } = render(<PlayerScreen onBack={onBack} />);
-
-      // Awaits async mount restoration
-      const badge = await findByText(/Profile: Verification Cues/i);
-      expect(badge).toBeTruthy();
-      expect(getByText('Cues: Verify')).toBeTruthy();
-    });
-
-    it('restores saved skip_verification profile from STORAGE_KEYS.USER_PROFILE on mount', async () => {
+    it('B. Saved-profile restoration: restores valid saved profile on mount', async () => {
       await AsyncStorage.setItem(
         STORAGE_KEYS.USER_PROFILE,
         JSON.stringify('skip_verification'),
       );
-
-      const onBack = jest.fn();
-      const { getByText, findByText } = render(<PlayerScreen onBack={onBack} />);
-
-      const badge = await findByText(/Profile: Skip Verification/i);
-      expect(badge).toBeTruthy();
-      expect(getByText('Cues: Skip')).toBeTruthy();
-    });
-
-    it('persists profile changes to STORAGE_KEYS.USER_PROFILE when user toggles profile', async () => {
       const onBack = jest.fn();
       const { getByText } = render(<PlayerScreen onBack={onBack} />);
 
-      // Starts on standard
-      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
-
-      // Toggle from standard -> verification
       await act(async () => {
-        fireEvent.press(getByText('Cues: Index'));
+        await Promise.resolve();
       });
-      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
 
-      let stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-      expect(JSON.parse(stored || 'null')).toBe('verification');
-
-      // Toggle from verification -> skip_verification
-      await act(async () => {
-        fireEvent.press(getByText('Cues: Verify'));
-      });
       expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
-
-      stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-      expect(JSON.parse(stored || 'null')).toBe('skip_verification');
+      expect(getByText('Cues: Skip')).toBeTruthy();
     });
 
-    it('prevents slow AsyncStorage restoration from overwriting an explicit initialProfile prop', async () => {
-      // Storage contains 'standard', but caller explicitly specified 'verification'
-      await AsyncStorage.setItem(
+    it('C. Toggle persistence: persists selected profile to storage through full 3-profile cycle', async () => {
+      await AsyncStorage.clear();
+      const setItemSpy = jest.spyOn(AsyncStorage, 'setItem');
+      const onBack = jest.fn();
+      const { getByText } = render(<PlayerScreen onBack={onBack} />);
+
+      // Starts at standard -> cycle to verification
+      fireEvent.press(getByText('Cues: Index'));
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify('verification'),
+      );
+
+      // Cycle to skip_verification
+      fireEvent.press(getByText('Cues: Verify'));
+      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify('skip_verification'),
+      );
+
+      // Cycle back to standard
+      fireEvent.press(getByText('Cues: Skip'));
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(setItemSpy).toHaveBeenCalledWith(
         STORAGE_KEYS.USER_PROFILE,
         JSON.stringify('standard'),
       );
 
+      setItemSpy.mockRestore();
+    });
+
+    it('D. Asynchronous race safety: user change before delayed storage read resolves is preserved', async () => {
+      let resolveStoragePromise: (val: any) => void;
+      const delayedPromise = new Promise((resolve) => {
+        resolveStoragePromise = resolve;
+      });
+
+      jest.spyOn(AsyncStorage, 'getItem').mockImplementation((key) => {
+        if (key === STORAGE_KEYS.USER_PROFILE) {
+          return delayedPromise as any;
+        }
+        return Promise.resolve(null);
+      });
+
+      const onBack = jest.fn();
+      const { getByText } = render(<PlayerScreen onBack={onBack} />);
+
+      // User changes profile to 'verification' BEFORE storage read finishes
+      fireEvent.press(getByText('Cues: Index'));
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+
+      // Now resolve delayed storage with an older/stale 'skip_verification' profile
+      await act(async () => {
+        resolveStoragePromise!(JSON.stringify('skip_verification'));
+        await Promise.resolve();
+      });
+
+      // User's active choice must NOT be overwritten by stale read!
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText('Cues: Verify')).toBeTruthy();
+
+      jest.restoreAllMocks();
+    });
+
+    it('E. Explicit initial profile: explicit prop is preserved against conflicting saved profile', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify('skip_verification'),
+      );
       const onBack = jest.fn();
       const { getByText } = render(
         <PlayerScreen onBack={onBack} initialProfile="verification" />,
       );
 
-      // Flush all pending microtasks / async effects
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        await Promise.resolve();
       });
 
-      // Explicit prop takes precedence over stored profile
+      // Explicit initialProfile="verification" must win over stored "skip_verification"
       expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
       expect(getByText('Cues: Verify')).toBeTruthy();
     });
 
-    it('prevents slow AsyncStorage restoration from overwriting an early user profile toggle', async () => {
+    it('F. Invalid saved value: invalid stored profile safely falls back to standard', async () => {
       await AsyncStorage.setItem(
         STORAGE_KEYS.USER_PROFILE,
-        JSON.stringify('standard'),
+        JSON.stringify('corrupted_unknown_profile'),
       );
+      const onBack = jest.fn();
+      const { getByText } = render(<PlayerScreen onBack={onBack} />);
 
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Cues: Index')).toBeTruthy();
+    });
+
+    it('safely handles malformed, outdated, or corrupted stored profile data with fallback to standard', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify('CORRUPTED_NON_EXISTENT_PROFILE_DATA'),
+      );
+      const onBack = jest.fn();
+      const { getByText } = render(<PlayerScreen onBack={onBack} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Cues: Index')).toBeTruthy();
+    });
+
+    it('prevents slow AsyncStorage restoration from overwriting user selection with timer delay', async () => {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify('skip_verification'),
+      );
       const onBack = jest.fn();
       const { getByText } = render(<PlayerScreen onBack={onBack} />);
 
@@ -3433,22 +3490,117 @@ describe('PlayerScreen Component Tests', () => {
       expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
     });
 
-    it('safely handles malformed, outdated, or corrupted stored profile data with fallback to standard', async () => {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.USER_PROFILE,
-        JSON.stringify('CORRUPTED_NON_EXISTENT_PROFILE_DATA'),
+    it('G. Initial-only prop: rerender with different initialProfile preserves initial-only contract', async () => {
+      await AsyncStorage.clear();
+      const onBack = jest.fn();
+      const { getByText, rerender } = render(
+        <PlayerScreen onBack={onBack} initialProfile="standard" />,
       );
 
-      const onBack = jest.fn();
-      const { getByText } = render(<PlayerScreen onBack={onBack} />);
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      });
-
-      // Safe fallback to canonical standard profile without crash
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
       expect(getByText('Cues: Index')).toBeTruthy();
+
+      // Parent rerenders passing a different initialProfile prop
+      rerender(<PlayerScreen onBack={onBack} initialProfile="verification" />);
+
+      // Under the initial-only contract, initialProfile applies only on mount; rerender is ignored
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Cues: Index')).toBeTruthy();
+    });
+
+    it('H. Manual toggle preservation: manual selection preserved across parent rerender with different initialProfile', async () => {
+      await AsyncStorage.clear();
+      const onBack = jest.fn();
+      const { getByText, rerender } = render(
+        <PlayerScreen onBack={onBack} initialProfile="standard" />,
+      );
+
+      // User manually toggles from standard to verification
+      fireEvent.press(getByText('Cues: Index'));
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText('Cues: Verify')).toBeTruthy();
+
+      // Parent rerenders with initialProfile="skip_verification"
+      rerender(
+        <PlayerScreen onBack={onBack} initialProfile="skip_verification" />,
+      );
+
+      // Manual user selection must not be overwritten by parent rerender
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText('Cues: Verify')).toBeTruthy();
+    });
+  });
+
+  describe('Film Loading, Catalogue Selection, and Switching', () => {
+    it('loads Sintel by default with correct title, badge, and film control', () => {
+      const onBack = jest.fn();
+      const { getByTestId, getByText } = render(<PlayerScreen onBack={onBack} />);
+
+      expect(getByTestId('player-title').props.children).toContain('Sintel');
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+      expect(getByText('Film: Sintel')).toBeTruthy();
+    });
+
+    it('loads Tears of Steel when filmId="tears_of_steel" is passed', () => {
+      const onBack = jest.fn();
+      const { getByTestId, getByText } = render(
+        <PlayerScreen onBack={onBack} filmId="tears_of_steel" />,
+      );
+
+      expect(getByTestId('player-title').props.children).toContain('Tears of Steel');
+      expect(getByText(/Profile: Tears of Steel Index/i)).toBeTruthy();
+      expect(getByText('Film: Tears of Steel')).toBeTruthy();
+    });
+
+    it('displays error banner and does not fall back when an unknown filmId is provided', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByText } = render(
+        <PlayerScreen onBack={onBack} filmId="unknown_movie" />,
+      );
+
+      const errorBanner = getByTestId('index-error-banner');
+      expect(errorBanner).toBeTruthy();
+      expect(getByTestId('index-error-text').props.children).toContain('Unknown film ID: "unknown_movie"');
+      // Must not silently fall back to Sintel or Tears of Steel title
+      expect(getByTestId('player-title').props.children).not.toContain('Sintel');
+      expect(getByTestId('player-title').props.children).not.toContain('Tears of Steel');
+    });
+
+    it('switches film when the film toggle control is pressed and resets playback state', () => {
+      const onBack = jest.fn();
+      const { getByText, getByTestId } = render(<PlayerScreen onBack={onBack} />);
+
+      expect(getByText('Film: Sintel')).toBeTruthy();
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+
+      // Toggle to Tears of Steel
+      fireEvent.press(getByText('Film: Sintel'));
+
+      expect(getByText('Film: Tears of Steel')).toBeTruthy();
+      expect(getByTestId('player-title').props.children).toContain('Tears of Steel');
+      expect(getByText(/Profile: Tears of Steel Index/i)).toBeTruthy();
+
+      // Toggle back to Sintel
+      fireEvent.press(getByText('Film: Tears of Steel'));
+
+      expect(getByText('Film: Sintel')).toBeTruthy();
+      expect(getByTestId('player-title').props.children).toContain('Sintel');
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+    });
+
+    it('clears stale error banner when switching from an unknown film to a valid film via prop', () => {
+      const onBack = jest.fn();
+      const { getByTestId, queryByTestId, rerender } = render(
+        <PlayerScreen onBack={onBack} filmId="unknown_movie" />,
+      );
+
+      expect(getByTestId('index-error-banner')).toBeTruthy();
+
+      // Parent updates filmId prop to a valid film
+      rerender(<PlayerScreen onBack={onBack} filmId="sintel" />);
+
+      expect(queryByTestId('index-error-banner')).toBeNull();
+      expect(getByTestId('player-title').props.children).toContain('Sintel');
     });
   });
 });

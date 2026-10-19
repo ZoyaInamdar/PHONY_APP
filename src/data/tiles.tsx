@@ -24,12 +24,22 @@ export const tiles: TileData[] = [
   },
   {
     id: 'get-started',
-    label: 'Get\nstarted',
-    accessibilityLabel: 'Get started',
+    label: 'Sintel\n(Film 1)',
+    accessibilityLabel: 'Watch Sintel',
     description: (
       <>
-        Edit <Text style={descStyles.bold}>App.tsx</Text> for live changes.
-        {'\n'}Not seeing updates? Check Fast Refresh is enabled.
+        Watch <Text style={descStyles.bold}>Sintel</Text> (52s trailer) with trigger protections enabled.
+      </>
+    ),
+    icon: require('../assets/get-started.png'),
+  },
+  {
+    id: 'tears-of-steel',
+    label: 'Tears of\nSteel',
+    accessibilityLabel: 'Watch Tears of Steel',
+    description: (
+      <>
+        Watch <Text style={descStyles.bold}>Tears of Steel</Text> (734s demo) with trigger protections enabled.
       </>
     ),
     icon: require('../assets/get-started.png'),

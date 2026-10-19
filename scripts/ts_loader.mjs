@@ -51,5 +51,14 @@ export const PlaybackSessionPayload = {};
       source: (result.source || '') + dummyExports,
     };
   }
+  let source = result.source ? String(result.source) : '';
+  if (source.includes('require(') && !source.includes('__customCreateRequire')) {
+    source = `import { createRequire as __customCreateRequire } from 'node:module';\nconst require = __customCreateRequire(import.meta.url);\n` + source;
+    return {
+      format: result.format,
+      shortCircuit: true,
+      source,
+    };
+  }
   return result;
 }

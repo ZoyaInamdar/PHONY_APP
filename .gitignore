@@ -45,4 +45,4 @@ data/media/
 
 # Local logs
 logs/
-
+.venv/

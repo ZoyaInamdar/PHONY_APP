@@ -1362,3 +1362,294 @@ def test_cli_multi_detector_conflicting_film_id_rejected(tmp_path: Path):
 
     # Output file must not have been created
     assert not output_file.exists(), "CLI created an output file despite conflicting film IDs."
+
+
+# ==============================================================================
+# 9. Packaging Edge-Case Hardening (Person B Audit)
+# ==============================================================================
+
+def test_overlapping_cues_different_triggers_co_temporal_and_containment():
+    """Case 1: Overlapping cues with different triggers (co-temporal, partial, and containment).
+
+    Verifies:
+    - Cues with identical time intervals but different triggers are both preserved.
+    - Cues with one completely contained inside another of a different trigger are preserved.
+    - Cues are never cross-merged or assigned the wrong trigger.
+    - Deterministic sorting by (start, end, trigger, source) is maintained.
+    - Unique cue IDs are generated without collision.
+    """
+    raw_data = {
+        "film_id": "overlap_audit",
+        "timeline": {"duration_seconds": 30.0},
+        "detections": [
+            # Co-temporal: exact same interval [5.0, 10.0), two different canonical triggers
+            {"start": 5.0, "end": 10.0, "trigger": "flashing", "score": 0.9, "source": "flash_detector"},
+            {"start": 5.0, "end": 10.0, "trigger": "loud_spike", "score": 0.85, "source": "loudness_detector"},
+            # Containment: spider [2.0, 15.0) completely contains scream [6.0, 8.0)
+            {"start": 2.0, "end": 15.0, "trigger": "spider", "score": 0.92, "source": "spider_detector"},
+            {"start": 6.0, "end": 8.0, "trigger": "scream", "score": 0.78, "source": "audio_clf"},
+            # Partial overlap: gunshot [12.0, 18.0) overlaps explosion [14.0, 20.0)
+            {"start": 12.0, "end": 18.0, "trigger": "gunshot", "score": 0.95, "source": "audio_clf"},
+            {"start": 14.0, "end": 20.0, "trigger": "explosion", "score": 0.88, "source": "audio_clf"},
+        ],
+    }
+
+    index_data = package_cues(raw_data, film_id="overlap_audit", duration_seconds=30.0)
+
+    cues = index_data["cues"]
+    assert len(cues) == 6
+
+    # Verify triggers are preserved exactly
+    triggers = [c["trigger"] for c in cues]
+    assert sorted(triggers) == sorted(["flashing", "loud_spike", "spider", "scream", "gunshot", "explosion"])
+
+    # Verify chronological ordering by (start, end, trigger, source)
+    # 1. spider [2.0, 15.0)
+    assert cues[0]["trigger"] == "spider" and cues[0]["start"] == 2.0 and cues[0]["end"] == 15.0
+    # 2 & 3. flashing and loud_spike both start at 5.0 and end at 10.0; sorted alphabetically by trigger
+    assert cues[1]["start"] == 5.0 and cues[1]["end"] == 10.0 and cues[1]["trigger"] == "flashing"
+    assert cues[2]["start"] == 5.0 and cues[2]["end"] == 10.0 and cues[2]["trigger"] == "loud_spike"
+    # 4. scream [6.0, 8.0)
+    assert cues[3]["trigger"] == "scream" and cues[3]["start"] == 6.0 and cues[3]["end"] == 8.0
+    # 5. gunshot [12.0, 18.0)
+    assert cues[4]["trigger"] == "gunshot" and cues[4]["start"] == 12.0 and cues[4]["end"] == 18.0
+    # 6. explosion [14.0, 20.0)
+    assert cues[5]["trigger"] == "explosion" and cues[5]["start"] == 14.0 and cues[5]["end"] == 20.0
+
+    # Verify distinct collision-safe IDs
+    cue_ids = [c["id"] for c in cues]
+    assert len(cue_ids) == len(set(cue_ids))
+    assert "cue_overlap_audit_flashing_005000_010000" in cue_ids
+    assert "cue_overlap_audit_loud_spike_005000_010000" in cue_ids
+
+
+def test_deterministic_cue_ids_stability_under_permutations():
+    """Case 2: Stable deterministic IDs under arbitrary input permutations and key ordering.
+
+    Verifies:
+    - Packaging the exact same detections in different permutations yields identical cue IDs.
+    - Cue ID generation is purely deterministic and free from random or timestamp drift.
+    - Film ID whitespace/casing normalization in IDs behaves consistently.
+    """
+    dets = [
+        {"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.8, "source": "src1"},
+        {"start": 4.5, "end": 7.25, "trigger": "flashing", "score": 0.9, "source": "src2"},
+        {"start": 8.0, "end": 12.0, "trigger": "profanity", "score": 1.0, "source": "src3"},
+        {"start": 15.0, "end": 20.0, "trigger": "spider", "score": 0.7, "source": "src4"},
+    ]
+
+    expected_ids = [
+        "cue_determinism_test_loud_spike_001000_003000",
+        "cue_determinism_test_flashing_004500_007250",
+        "cue_determinism_test_profanity_008000_012000",
+        "cue_determinism_test_spider_015000_020000",
+    ]
+
+    # Run in forward, reverse, and multiple random permutations
+    permutations = [
+        dets,
+        list(reversed(dets)),
+        [dets[2], dets[0], dets[3], dets[1]],
+        [dets[3], dets[1], dets[2], dets[0]],
+    ]
+
+    for perm in permutations:
+        res = package_cues(
+            {"detections": perm},
+            film_id="Determinism Test",
+            duration_seconds=25.0,
+        )
+        actual_ids = [c["id"] for c in res["cues"]]
+        assert actual_ids == expected_ids
+
+
+def test_invalid_intervals_rejection_matrix():
+    """Case 3: Comprehensive rejection matrix for invalid intervals and malformed timestamps.
+
+    Verifies:
+    - start > end (inverted interval)
+    - start == end (zero duration)
+    - negative start or negative end
+    - non-numeric string, boolean, None, NaN, and Inf timestamps
+    - missing start or end fields
+    - invalid scores and empty sources
+    - Packager NEVER silently clamps or repairs invalid data.
+    """
+    base_valid = {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}
+
+    invalid_cases = [
+        # Inverted intervals
+        ({"start": 5.0, "end": 2.0}, "strictly greater than 'start'"),
+        ({"start": 10.0, "end": 9.999}, "strictly greater than 'start'"),
+        # Zero duration
+        ({"start": 3.0, "end": 3.0}, "strictly greater than 'start'"),
+        # Negative timestamps
+        ({"start": -0.001, "end": 2.0}, "must be >= 0.0"),
+        ({"start": -5.0, "end": -1.0}, "must be >= 0.0"),
+        # Non-numeric types
+        ({"start": "1.0", "end": 2.0}, "must be a finite number"),
+        ({"start": 1.0, "end": "2.0"}, "must be a finite number"),
+        ({"start": None, "end": 2.0}, "must be a finite number"),
+        ({"start": 1.0, "end": None}, "must be a finite number"),
+        # Booleans (subclass of int in Python, must be explicitly rejected)
+        ({"start": True, "end": 2.0}, "must be a finite number"),
+        ({"start": 1.0, "end": False}, "must be a finite number"),
+        # Non-finite values
+        ({"start": float("nan"), "end": 2.0}, "must be a finite number"),
+        ({"start": 1.0, "end": float("nan")}, "must be a finite number"),
+        ({"start": float("-inf"), "end": 2.0}, "must be a finite number"),
+        ({"start": 1.0, "end": float("inf")}, "must be a finite number"),
+        # Missing required fields
+        ({"_drop": "start"}, "missing required field 'start'"),
+        ({"_drop": "end"}, "missing required field 'end'"),
+        ({"_drop": "source"}, "missing required field 'source'"),
+        ({"_drop": "trigger"}, "missing required field 'trigger'"),
+        ({"_drop": "score"}, "missing required field 'score'"),
+        # Invalid scores
+        ({"score": -0.1}, r"must be in \[0\.0, 1\.0\]"),
+        ({"score": 1.05}, r"must be in \[0\.0, 1\.0\]"),
+        ({"score": "high"}, "must be a finite number"),
+        ({"score": True}, "must be a finite number"),
+        # Empty or invalid sources
+        ({"source": ""}, "must be a non-empty string"),
+        ({"source": "   "}, "must be a non-empty string"),
+        ({"source": 123}, "must be a non-empty string"),
+    ]
+
+    for override, match_pattern in invalid_cases:
+        det = dict(base_valid)
+        if "_drop" in override:
+            det.pop(override["_drop"], None)
+        else:
+            det.update(override)
+
+        with pytest.raises(ValueError, match=match_pattern):
+            package_cues(
+                raw_data={"detections": [det]},
+                film_id="inv_test",
+                duration_seconds=10.0,
+            )
+
+
+def test_cues_extending_beyond_media_duration_boundaries():
+    """Case 4: Cues extending beyond media duration and exact boundary behavior.
+
+    Verifies:
+    - Cue ending exactly at duration_seconds (half-open [start, duration)) is ACCEPTED.
+    - Cue with end > duration_seconds is REJECTED.
+    - Cue with start >= duration_seconds is REJECTED.
+    - Authoritative media duration precedence: explicit parameter vs input timeline.
+    """
+    film_duration = 20.0
+
+    # 1. Exact boundary: end == duration_seconds passes
+    exact_cue = {"start": 15.0, "end": film_duration, "trigger": "loud_spike", "score": 0.8, "source": "src"}
+    res_exact = package_cues(
+        raw_data={"detections": [exact_cue]},
+        film_id="duration_boundary",
+        duration_seconds=film_duration,
+    )
+    assert len(res_exact["cues"]) == 1
+    assert res_exact["cues"][0]["end"] == film_duration
+
+    # 2. End strictly exceeding duration: rejected
+    over_end_cue = {"start": 15.0, "end": 20.001, "trigger": "loud_spike", "score": 0.8, "source": "src"}
+    with pytest.raises(ValueError, match="exceeds declared film duration"):
+        package_cues(
+            raw_data={"detections": [over_end_cue]},
+            film_id="duration_boundary",
+            duration_seconds=film_duration,
+        )
+
+    # 3. Start at duration (zero length in-bounds, ends beyond): rejected
+    start_at_dur_cue = {"start": 20.0, "end": 22.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}
+    with pytest.raises(ValueError, match="exceeds declared film duration"):
+        package_cues(
+            raw_data={"detections": [start_at_dur_cue]},
+            film_id="duration_boundary",
+            duration_seconds=film_duration,
+        )
+
+    # 4. Start strictly beyond duration: rejected
+    start_past_dur_cue = {"start": 25.0, "end": 30.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}
+    with pytest.raises(ValueError, match="exceeds declared film duration"):
+        package_cues(
+            raw_data={"detections": [start_past_dur_cue]},
+            film_id="duration_boundary",
+            duration_seconds=film_duration,
+        )
+
+    # 5. Authoritative parameter overrides input dict duration
+    # Input claims duration 50.0, but explicit parameter is 20.0 -> cue ending at 25.0 must be rejected
+    with pytest.raises(ValueError, match="exceeds declared film duration"):
+        package_cues(
+            raw_data={
+                "timeline": {"duration_seconds": 50.0},
+                "detections": [{"start": 10.0, "end": 25.0, "trigger": "loud_spike", "score": 0.8, "source": "src"}],
+            },
+            film_id="duration_boundary",
+            duration_seconds=20.0,  # Authoritative override
+        )
+
+
+def test_provenance_preservation_across_distinct_sources_and_merges():
+    """Case 5: Provenance (source) preservation across detectors and merge operations.
+
+    Verifies:
+    - Packaged cues strictly retain their original detector 'source'.
+    - Provenance is not replaced with generic 'detector' or confused with 'trigger'.
+    - Merged contiguous detections retain their common 'source'.
+    - Adjacent/overlapping detections with different sources never merge and retain respective sources.
+    - Output conforms to index schema requiring non-empty string 'source'.
+    """
+    raw_detections = [
+        # Two mergeable cues from source 'audio_pipeline_v1'
+        {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.8, "source": "audio_pipeline_v1"},
+        {"start": 2.5, "end": 3.5, "trigger": "loud_spike", "score": 0.9, "source": "audio_pipeline_v1"},
+        # Overlapping cue with same trigger 'loud_spike' but different source 'hardware_mic_sensor' -> MUST NOT MERGE
+        {"start": 2.0, "end": 4.0, "trigger": "loud_spike", "score": 0.95, "source": "hardware_mic_sensor"},
+        # Visual detector cue
+        {"start": 5.0, "end": 7.0, "trigger": "spider", "score": 0.85, "source": "visual_yolo_detector"},
+        # Profanity detector cue
+        {"start": 8.0, "end": 10.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
+    ]
+
+    res = package_cues(
+        raw_data={"detections": raw_detections},
+        film_id="provenance_test",
+        duration_seconds=15.0,
+    )
+
+    cues = res["cues"]
+    # We expect:
+    # 1. Merged loud_spike from audio_pipeline_v1: [1.0, 3.5) score=0.9, source='audio_pipeline_v1'
+    # 2. Distinct loud_spike from hardware_mic_sensor: [2.0, 4.0) score=0.95, source='hardware_mic_sensor'
+    # 3. spider from visual_yolo_detector: [5.0, 7.0) score=0.85, source='visual_yolo_detector'
+    # 4. profanity from profanity_detector: [8.0, 10.0) score=1.0, source='profanity_detector'
+    assert len(cues) == 4
+
+    # Verify every cue has 'source' and NOT 'detector'
+    for cue in cues:
+        assert "source" in cue
+        assert "detector" not in cue
+        assert isinstance(cue["source"], str) and cue["source"]
+
+    # Cue 1: Merged audio_pipeline_v1
+    assert cues[0]["start"] == 1.0 and cues[0]["end"] == 3.5
+    assert cues[0]["trigger"] == "loud_spike"
+    assert cues[0]["source"] == "audio_pipeline_v1"
+    assert cues[0]["score"] == 0.9
+
+    # Cue 2: hardware_mic_sensor
+    assert cues[1]["start"] == 2.0 and cues[1]["end"] == 4.0
+    assert cues[1]["trigger"] == "loud_spike"
+    assert cues[1]["source"] == "hardware_mic_sensor"
+    assert cues[1]["score"] == 0.95
+
+    # Cue 3: visual_yolo_detector
+    assert cues[2]["trigger"] == "spider"
+    assert cues[2]["source"] == "visual_yolo_detector"
+
+    # Cue 4: profanity_detector
+    assert cues[3]["trigger"] == "profanity"
+    assert cues[3]["source"] == "profanity_detector"

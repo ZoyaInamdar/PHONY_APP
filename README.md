@@ -357,3 +357,108 @@ python scripts/generate_test_clips.py --negatives-only # Negative video gradient
 >
 > **Role in Pipeline:** These synthetic clips establish the **idealized upper bound of detector performance** and provide zero-regression smoke testing. High precision and recall on synthetic benchmarks are necessary but not sufficient for real-media deployment.
 
+---
+
+## 10. Reproducible Multi-Detector Demo Pipeline (Person B)
+
+A single command executes the complete multi-detector demonstration pipeline end-to-end:
+1. Audio extraction via FFmpeg (44.1kHz mono 16-bit PCM WAV).
+2. Audio loudness spike detection (`scripts/detect_loudness.py`).
+3. Subtitle parsing & profanity detection (`scripts/parse_subtitles.py`).
+4. Multi-detector cue packaging into unified index (`scripts/package_cues.py`).
+5. Schema and domain validation (`scripts/validate_index.py`).
+6. Same-timeline multi-trigger evaluation (`scripts/evaluate_detections.py`).
+7. Dataset-wide detector benchmark report generation (`scripts/evaluate_detections.py`).
+
+### Prerequisites
+- Python 3.10+
+- `ffmpeg` executable on system `PATH` (required for audio extraction from video container)
+- Baseline input assets in `data/test_clips/` (`multi_trigger_test.mp4`, `multi_trigger_test.srt`, `labels.csv`)
+
+### Execution Command
+```bash
+python scripts/run_multi_detector_pipeline.py
+```
+
+### Options & Flags
+- `--dry-run`: Prints the planned stages and commands without executing them.
+- `--skip-dataset-eval`: Runs only the same-timeline evaluation for `multi_trigger_test` (skipping dataset-wide benchmark).
+- `--generate-media`: Prepends synthetic test-clip generation if source media needs to be refreshed.
+
+### Output Isolation
+All intermediate and processed detector outputs are strictly isolated to:
+`data/processed/multi_trigger_eval/`
+(`audio.wav`, `loudness_detections.json`, `profanity_detections.json`, `index.json`)
+Reports are generated to:
+- `reports/multi_detector_evaluation_report.md` (and `.json`)
+- `reports/detection_evaluation_report.md` (and `.json`)
+
+Root-level indexes (`data/index.json`) and source media are never overwritten.
+
+---
+
+## 11. Content Delivery & Two-Film Catalogue (Person B)
+
+The Trigger-Aware Player supports demo content and packaged detection indexes for two selectable open-movie films licensed under Creative Commons Attribution 3.0 (Blender Foundation):
+
+| Film Metadata | Film 1: Sintel (`sintel`) | Film 2: Tears of Steel (`tears_of_steel`) |
+|---|---|---|
+| **Film ID** | `sintel` | `tears_of_steel` |
+| **Title** | *Sintel* | *Tears of Steel* |
+| **Duration & FPS** | 52.0s @ 24.0 fps (Trailer demo) | 734.167s @ 24.0 fps (Full film demo) |
+| **Stream / Media URL** | `https://media.w3.org/2010/05/sintel/trailer.mp4` | `https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov` |
+| **Packaged Index** | `data/index.json` (7 cues) | `data/tears_of_steel_index.json` (6 cues) |
+| **Subtitles** | `data/subtitles/sintel.srt` | `data/subtitles/tears_of_steel.srt` |
+| **Rights / License** | CC BY 3.0 Blender Foundation | CC BY 3.0 Blender Foundation |
+
+### Architecture & Catalogue Abstraction
+
+Content metadata and index resolution are centralized in [`src/data/catalogue.ts`](src/data/catalogue.ts):
+- `getAllFilms()`: Returns all discoverable film catalogue entries.
+- `getFilm(filmId)`: Returns metadata for a specific film; throws descriptive error if `filmId` is unknown.
+- `getFilmMetadata(filmId)`: Safe non-throwing lookup.
+- `loadFilmIndex(filmId)`: Loads and strictly validates the packaged index against `schema/index.schema.json` and checks that the index `film_id` strictly matches the requested film to prevent cross-film contamination.
+- `loadFilmCues(filmId)`: Loads and adapts trigger cues using configured trigger policies.
+
+Backward-compatible helpers in [`src/data/playbackCues.ts`](src/data/playbackCues.ts):
+- `sintelIndexCues`: Pre-adapted cues for *Sintel*.
+- `tearsOfSteelIndexCues`: Pre-adapted cues for *Tears of Steel*.
+- `getCuesForFilm(filmId)`: Dynamic lookup resolving cues by film ID.
+
+### Packaging a Film Index
+
+To package detections for a film using the standard Person B packaging script:
+
+```bash
+# Package Tears of Steel detections into schema-compliant index
+python scripts/package_cues.py \
+  --input data/processed/tears_of_steel/raw_detections.json \
+  --output data/tears_of_steel_index.json \
+  --film-id tears_of_steel \
+  --duration 734.167 \
+  --fps 24.0 \
+  --config config.yaml \
+  --schema schema/index.schema.json
+```
+
+### Validating Packaged Indexes
+
+```bash
+# Validate Sintel index
+python scripts/validate_index.py --index data/index.json
+
+# Validate Tears of Steel index
+python scripts/validate_index.py --index data/tears_of_steel_index.json
+```
+
+### Film Selection & Cue Isolation Rules
+
+1. **Clean Slate on Switch**: Switching films via home screen tiles (`App.tsx`) or the in-player `Film: Sintel / Film: Tears of Steel` toggle (`PlayerScreen.tsx`) immediately cancels in-flight volume ramps, resets `PlaybackState`, clears active prompt dialogs, resets elapsed playback time, and unloads previous cues.
+2. **Zero Silent Fallback**: If an unknown film ID is selected or a film's index file is missing/malformed, the player displays an `Index Load Error` banner (`index-error-banner`) and stops playback rather than silently defaulting to another film's cues.
+
+### Running Content Delivery Tests
+
+```bash
+pytest tests/test_content_delivery.py -v
+```
+

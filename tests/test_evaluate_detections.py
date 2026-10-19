@@ -809,3 +809,292 @@ class TestEvaluateIndex:
         assert "loud_spike" in md_content
         assert "profanity" in md_content
 
+
+# ==============================================================================
+# 8. Evaluation Harness Regression Edge Cases (Person B)
+# ==============================================================================
+
+class TestEvaluatorRegressionEdgeCases:
+    """Regression tests for evaluation harness edge cases.
+
+    Covers:
+    1. Short predicted interval below tIoU threshold (< 0.5): 0 TP, 1 FP, 1 FN.
+    2. Prediction spanning two ground-truth events: matches at most 1 GT; remaining GT is FN.
+    3. Duplicate predictions competing for one GT event: at most 1 TP; second is FP.
+    4. Exact tIoU threshold boundary: exact 0.500 matches (TP); 0.495 fails to match (FP/FN).
+    5. Empty predictions with ground-truth: TP=0, FP=0, FN=len(GT), recall=0.0, precision/F1=null.
+    6. Empty ground-truth with predictions: TP=0, FP=len(preds), FN=0, precision=0.0, recall/F1=null.
+    7. Negative-control clips: clean negative control (all null) and negative control with false alarms.
+    8. Canonical trigger identity: identical intervals with mismatched trigger IDs must not match.
+    """
+
+    def test_short_prediction_below_tiou_threshold(self):
+        """Case 1: Short predicted interval below tIoU threshold (< 0.5) yields 0 TP, 1 FP, 1 FN."""
+        # GT event: [1.0, 5.0) (len = 4.0s)
+        # Prediction: [1.0, 1.5) (len = 0.5s)
+        # Intersection = 0.5s, Union = 4.0s -> tIoU = 0.5 / 4.0 = 0.125 < 0.5
+        gts = [{"start": 1.0, "end": 5.0, "trigger": "loud_spike", "id": "gt_long"}]
+        preds = [{"start": 1.0, "end": 1.5, "trigger": "loud_spike", "score": 0.85, "id": "pred_short"}]
+
+        iou = compute_temporal_iou(preds[0]["start"], preds[0]["end"], gts[0]["start"], gts[0]["end"])
+        assert iou == pytest.approx(0.125)
+        assert iou < DEFAULT_IOU_THRESHOLD
+
+        # 1-to-1 matching verification
+        res_match = match_events_one_to_one(preds, gts, iou_threshold=0.5)
+        assert res_match["true_positives"] == 0
+        assert res_match["false_positives"] == 1
+        assert res_match["false_negatives"] == 1
+        assert len(res_match["matches"]) == 0
+        assert len(res_match["unmatched_predictions"]) == 1
+        assert res_match["unmatched_predictions"][0]["id"] == "pred_short"
+        assert len(res_match["unmatched_ground_truth"]) == 1
+        assert res_match["unmatched_ground_truth"][0]["id"] == "gt_long"
+
+        # Clip evaluation verification
+        res_clip = evaluate_clip("clip_short.mp4", "loud_spike", preds, gts, iou_threshold=0.5)
+        assert res_clip["true_positives"] == 0
+        assert res_clip["false_positives"] == 1
+        assert res_clip["false_negatives"] == 1
+        assert res_clip["precision"] == 0.0
+        assert res_clip["recall"] == 0.0
+        assert res_clip["f1"] is None
+        assert res_clip["mean_iou"] is None
+
+    def test_prediction_spanning_two_ground_truth_events(self):
+        """Case 2: One prediction spanning two ground-truth events matches at most one; other is FN."""
+        # GT1: [1.0, 2.5) (len 1.5)
+        # GT2: [2.6, 3.0) (len 0.4)
+        # Pred: [1.0, 2.8) (len 1.8) spanning across both GT events
+        # With GT1: intersection = 1.5, union = 1.8 -> tIoU = 1.5 / 1.8 = 0.8333 >= 0.5
+        # With GT2: intersection = 0.2, union = 2.0 -> tIoU = 0.2 / 2.0 = 0.1000 < 0.5
+        gts = [
+            {"start": 1.0, "end": 2.5, "trigger": "loud_spike", "id": "gt_first"},
+            {"start": 2.6, "end": 3.0, "trigger": "loud_spike", "id": "gt_second"},
+        ]
+        preds = [
+            {"start": 1.0, "end": 2.8, "trigger": "loud_spike", "score": 0.9, "id": "pred_span"},
+        ]
+
+        res = match_events_one_to_one(preds, gts, iou_threshold=0.5)
+        # Exactly one GT matched, second GT remains unmatched FN
+        assert res["true_positives"] == 1
+        assert res["false_positives"] == 0
+        assert res["false_negatives"] == 1
+        assert len(res["matches"]) == 1
+        assert res["matches"][0]["prediction"]["id"] == "pred_span"
+        assert res["matches"][0]["ground_truth"]["id"] == "gt_first"
+        assert len(res["unmatched_ground_truth"]) == 1
+        assert res["unmatched_ground_truth"][0]["id"] == "gt_second"
+
+        # Also test where prediction spans two separated GTs and satisfies neither (< 0.5 for both)
+        gts_wide = [
+            {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "id": "gt_w1"},
+            {"start": 4.0, "end": 5.0, "trigger": "loud_spike", "id": "gt_w2"},
+        ]
+        preds_wide = [
+            {"start": 1.0, "end": 5.0, "trigger": "loud_spike", "score": 0.9, "id": "pred_wide"},
+        ]
+        res_wide = match_events_one_to_one(preds_wide, gts_wide, iou_threshold=0.5)
+        assert res_wide["true_positives"] == 0
+        assert res_wide["false_positives"] == 1
+        assert res_wide["false_negatives"] == 2
+
+    def test_duplicate_predictions_competing_for_single_ground_truth(self):
+        """Case 3: Duplicate predictions competing for one GT event match at most 1 TP; second is FP."""
+        gt = [{"start": 0.0, "end": 4.0, "trigger": "loud_spike", "id": "gt_target"}]
+        # Two competing predictions with equal exact overlap (tIoU = 3/4 = 0.75) to GT:
+        # pred_a: [0.0, 3.0) -> inter=3.0, union=4.0 -> tIoU = 0.75 exactly
+        # pred_b: [1.0, 4.0) -> inter=3.0, union=4.0 -> tIoU = 0.75 exactly
+        pred_a = {"start": 0.0, "end": 3.0, "trigger": "loud_spike", "score": 0.95, "id": "pred_a"}
+        pred_b = {"start": 1.0, "end": 4.0, "trigger": "loud_spike", "score": 0.85, "id": "pred_b"}
+
+        # Regardless of input ordering, tie-breaking must be strictly deterministic
+        # Tie-breaker key: (-iou, p_start, g_start, p_idx, g_idx)
+        # Both have iou = 0.75; pred_a has earlier start (0.0 vs 1.0), so pred_a wins
+        for preds_order in ([pred_a, pred_b], [pred_b, pred_a]):
+            res = match_events_one_to_one(preds_order, gt, iou_threshold=0.5)
+            assert res["true_positives"] == 1
+            assert res["false_positives"] == 1
+            assert res["false_negatives"] == 0
+            assert len(res["matches"]) == 1
+            assert res["matches"][0]["prediction"]["id"] == "pred_a"
+            assert len(res["unmatched_predictions"]) == 1
+            assert res["unmatched_predictions"][0]["id"] == "pred_b"
+
+        # Clip evaluation check
+        res_clip = evaluate_clip("clip_dup.mp4", "loud_spike", [pred_a, pred_b], gt, iou_threshold=0.5)
+        assert res_clip["true_positives"] == 1
+        assert res_clip["false_positives"] == 1
+        assert res_clip["false_negatives"] == 0
+        assert res_clip["precision"] == 0.5  # 1 / (1 + 1)
+        assert res_clip["recall"] == 1.0     # 1 / (1 + 0)
+        assert res_clip["f1"] == pytest.approx(2.0 / 3.0, abs=1e-4)
+
+    def test_exact_tiou_threshold_boundary_decision(self):
+        """Case 4: Exact tIoU threshold boundary: exact 0.500 is TP; 0.495 is FP and FN."""
+        gt = [{"start": 1.0, "end": 3.0, "trigger": "loud_spike", "id": "gt_ref"}]  # len = 2.0
+
+        # Exact 0.500 boundary: [1.0, 2.0) len 1.0 -> inter=1.0, union=2.0 -> tIoU = 0.5000
+        pred_exact = [{"start": 1.0, "end": 2.0, "trigger": "loud_spike", "id": "pred_exact"}]
+        iou_exact = compute_temporal_iou(1.0, 2.0, 1.0, 3.0)
+        assert iou_exact == pytest.approx(0.5000)
+        assert iou_exact >= DEFAULT_IOU_THRESHOLD
+
+        res_exact = match_events_one_to_one(pred_exact, gt, iou_threshold=0.5)
+        assert res_exact["true_positives"] == 1
+        assert res_exact["false_positives"] == 0
+        assert res_exact["false_negatives"] == 0
+        assert len(res_exact["matches"]) == 1
+        assert res_exact["matches"][0]["iou"] == 0.5
+
+        # Just below boundary (0.495): [1.0, 1.99) len 0.99 -> inter=0.99, union=2.0 -> tIoU = 0.4950
+        pred_below = [{"start": 1.0, "end": 1.99, "trigger": "loud_spike", "id": "pred_below"}]
+        iou_below = compute_temporal_iou(1.0, 1.99, 1.0, 3.0)
+        assert iou_below == pytest.approx(0.4950)
+        assert iou_below < DEFAULT_IOU_THRESHOLD
+
+        res_below = match_events_one_to_one(pred_below, gt, iou_threshold=0.5)
+        assert res_below["true_positives"] == 0
+        assert res_below["false_positives"] == 1
+        assert res_below["false_negatives"] == 1
+        assert len(res_below["matches"]) == 0
+        assert len(res_below["unmatched_predictions"]) == 1
+        assert len(res_below["unmatched_ground_truth"]) == 1
+
+    def test_empty_predictions_with_ground_truth(self):
+        """Case 5: Empty predictions with GT: TP=0, FP=0, FN=len(GT), recall=0.0, precision/F1=null."""
+        gts = [
+            {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "id": "gt_1"},
+            {"start": 4.0, "end": 5.0, "trigger": "loud_spike", "id": "gt_2"},
+        ]
+        preds: List[Dict[str, Any]] = []
+
+        res_match = match_events_one_to_one(preds, gts, iou_threshold=0.5)
+        assert res_match["true_positives"] == 0
+        assert res_match["false_positives"] == 0
+        assert res_match["false_negatives"] == 2
+        assert len(res_match["matches"]) == 0
+        assert len(res_match["unmatched_predictions"]) == 0
+        assert len(res_match["unmatched_ground_truth"]) == 2
+
+        metrics = calculate_classification_metrics(tp=0, fp=0, fn=2)
+        assert metrics["precision"] is None
+        assert metrics["recall"] == 0.0
+        assert metrics["f1"] is None
+
+        res_clip = evaluate_clip("clip_miss.mp4", "loud_spike", preds, gts, iou_threshold=0.5)
+        assert res_clip["true_positives"] == 0
+        assert res_clip["false_positives"] == 0
+        assert res_clip["false_negatives"] == 2
+        assert res_clip["precision"] is None
+        assert res_clip["recall"] == 0.0
+        assert res_clip["f1"] is None
+        assert res_clip["mean_iou"] is None
+
+    def test_empty_ground_truth_with_predictions(self):
+        """Case 6: Empty ground truth with predictions: TP=0, FP=len(preds), FN=0, precision=0.0, recall/F1=null."""
+        gts: List[Dict[str, Any]] = []
+        preds = [
+            {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "id": "pred_1"},
+            {"start": 3.0, "end": 4.0, "trigger": "loud_spike", "id": "pred_2"},
+        ]
+
+        res_match = match_events_one_to_one(preds, gts, iou_threshold=0.5)
+        assert res_match["true_positives"] == 0
+        assert res_match["false_positives"] == 2
+        assert res_match["false_negatives"] == 0
+        assert len(res_match["matches"]) == 0
+        assert len(res_match["unmatched_predictions"]) == 2
+        assert len(res_match["unmatched_ground_truth"]) == 0
+
+        metrics = calculate_classification_metrics(tp=0, fp=2, fn=0)
+        assert metrics["precision"] == 0.0
+        assert metrics["recall"] is None
+        assert metrics["f1"] is None
+
+        res_clip = evaluate_clip("clip_spurious.mp4", "loud_spike", preds, gts, iou_threshold=0.5)
+        assert res_clip["true_positives"] == 0
+        assert res_clip["false_positives"] == 2
+        assert res_clip["false_negatives"] == 0
+        assert res_clip["precision"] == 0.0
+        assert res_clip["recall"] is None
+        assert res_clip["f1"] is None
+        assert res_clip["mean_iou"] is None
+
+    def test_negative_control_clips(self):
+        """Case 7: Negative controls: clean yields all null metrics; false alarms yield precision=0.0, recall/F1=null."""
+        # 7a: Clean negative control (0 GT, 0 predictions)
+        clean_match = match_events_one_to_one([], [], iou_threshold=0.5)
+        assert clean_match["true_positives"] == 0
+        assert clean_match["false_positives"] == 0
+        assert clean_match["false_negatives"] == 0
+
+        clean_metrics = calculate_classification_metrics(tp=0, fp=0, fn=0)
+        assert clean_metrics["precision"] is None
+        assert clean_metrics["recall"] is None
+        assert clean_metrics["f1"] is None
+
+        clean_clip = evaluate_clip("clean_negative.mp4", "loud_spike", [], [], iou_threshold=0.5)
+        assert clean_clip["true_positives"] == 0
+        assert clean_clip["false_positives"] == 0
+        assert clean_clip["false_negatives"] == 0
+        assert clean_clip["precision"] is None
+        assert clean_clip["recall"] is None
+        assert clean_clip["f1"] is None
+        assert clean_clip["mean_iou"] is None
+
+        # 7b: Negative control with false alarm predictions (0 GT, 1+ predictions)
+        spurious_preds = [{"start": 2.0, "end": 3.0, "trigger": "loud_spike", "id": "false_alarm"}]
+        fa_match = match_events_one_to_one(spurious_preds, [], iou_threshold=0.5)
+        assert fa_match["true_positives"] == 0
+        assert fa_match["false_positives"] == 1
+        assert fa_match["false_negatives"] == 0
+
+        fa_metrics = calculate_classification_metrics(tp=0, fp=1, fn=0)
+        assert fa_metrics["precision"] == 0.0
+        assert fa_metrics["recall"] is None
+        assert fa_metrics["f1"] is None
+
+        fa_clip = evaluate_clip("fa_negative.mp4", "loud_spike", spurious_preds, [], iou_threshold=0.5)
+        assert fa_clip["true_positives"] == 0
+        assert fa_clip["false_positives"] == 1
+        assert fa_clip["false_negatives"] == 0
+        assert fa_clip["precision"] == 0.0
+        assert fa_clip["recall"] is None
+        assert fa_clip["f1"] is None
+
+    def test_canonical_trigger_identity_mismatch(self):
+        """Case 8: Identical time intervals with mismatched trigger IDs must not match."""
+        # Exact same interval [1.0, 3.0), but different trigger IDs
+        pred_profanity = [{"start": 1.0, "end": 3.0, "trigger": "profanity", "id": "p_prof"}]
+        gt_loud_spike = [{"start": 1.0, "end": 3.0, "trigger": "loud_spike", "id": "gt_spike"}]
+
+        # Direct 1-to-1 matching rejects mismatched triggers
+        res = match_events_one_to_one(pred_profanity, gt_loud_spike, iou_threshold=0.5)
+        assert res["true_positives"] == 0
+        assert res["false_positives"] == 1
+        assert res["false_negatives"] == 1
+        assert len(res["matches"]) == 0
+        assert res["unmatched_predictions"][0]["id"] == "p_prof"
+        assert res["unmatched_ground_truth"][0]["id"] == "gt_spike"
+
+        # Multi-trigger list isolation in evaluate_clip
+        mixed_preds = [
+            {"start": 1.0, "end": 3.0, "trigger": "flashing"},
+            {"start": 4.0, "end": 6.0, "trigger": "loud_spike"},
+        ]
+        mixed_gts = [
+            {"start": 1.0, "end": 3.0, "trigger": "loud_spike"},
+            {"start": 4.0, "end": 6.0, "trigger": "profanity"},
+        ]
+
+        # Evaluating for loud_spike: pred at 4.0 does NOT match gt at 1.0
+        res_spike = evaluate_clip("clip_mixed.mp4", "loud_spike", mixed_preds, mixed_gts)
+        assert res_spike["ground_truth_count"] == 1   # gt at [1.0, 3.0)
+        assert res_spike["prediction_count"] == 1     # pred at [4.0, 6.0)
+        assert res_spike["true_positives"] == 0
+        assert res_spike["false_positives"] == 1
+        assert res_spike["false_negatives"] == 1
+        assert res_spike["precision"] == 0.0
+        assert res_spike["recall"] == 0.0

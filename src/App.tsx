@@ -13,11 +13,17 @@ export const App = ({
 } = {}) => {
   const [focusedTileId, setFocusedTileId] = useState<string>('home');
   const [showPlayer, setShowPlayer] = useState(initialShowPlayer);
+  const [selectedFilmId, setSelectedFilmId] = useState<string>('sintel');
 
   const focusedTile = tiles.find((t) => t.id === focusedTileId);
 
   if (showPlayer) {
-    return <PlayerScreen onBack={() => setShowPlayer(false)} />;
+    return (
+      <PlayerScreen
+        filmId={selectedFilmId}
+        onBack={() => setShowPlayer(false)}
+      />
+    );
   }
 
   return (
@@ -64,7 +70,11 @@ export const App = ({
             onFocus={() => setFocusedTileId(tile.id)}
             onBlur={() => {}}
             onPress={() => {
-              if (tile.id === 'get-started') {
+              if (tile.id === 'get-started' || tile.id === 'sintel') {
+                setSelectedFilmId('sintel');
+                setShowPlayer(true);
+              } else if (tile.id === 'tears-of-steel') {
+                setSelectedFilmId('tears_of_steel');
                 setShowPlayer(true);
               }
             }}

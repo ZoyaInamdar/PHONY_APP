@@ -1,11 +1,12 @@
 import { Cue, DEFAULT_VIEWER_OPTIONS, ViewerOptions } from '../engine/types';
 import { adaptPackagedIndex } from '../engine/packagedIndexAdapter';
+import { DEFAULT_TRIGGER_POLICIES } from './defaultTriggerPolicies';
 
-// Load default detection index and policies
+// Load default detection index
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const sintelIndexJson = require('../../data/index.json');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const triggerPoliciesJson = require('../../test/fixtures/triggerPolicies.json');
+const tearsOfSteelIndexJson = require('../../data/tears_of_steel_index.json');
 
 /**
  * Standard cues adapted from the repository's packaged index (data/index.json)
@@ -13,8 +14,29 @@ const triggerPoliciesJson = require('../../test/fixtures/triggerPolicies.json');
  */
 export const sintelIndexCues: Cue[] = adaptPackagedIndex(
   sintelIndexJson,
-  triggerPoliciesJson.policies,
+  DEFAULT_TRIGGER_POLICIES,
 );
+
+/**
+ * Standard cues adapted from Tears of Steel packaged index (data/tears_of_steel_index.json).
+ */
+export const tearsOfSteelIndexCues: Cue[] = adaptPackagedIndex(
+  tearsOfSteelIndexJson,
+  DEFAULT_TRIGGER_POLICIES,
+);
+
+/**
+ * Resolves cues for a given film_id from the film catalogue.
+ */
+export function getCuesForFilm(filmId: string): Cue[] {
+  if (filmId === 'sintel') {
+    return sintelIndexCues;
+  }
+  if (filmId === 'tears_of_steel') {
+    return tearsOfSteelIndexCues;
+  }
+  throw new Error(`Unknown film ID: "${filmId}". Supported films: "sintel", "tears_of_steel".`);
+}
 
 /**
  * Temporary, deterministic test cue fixture specifically crafted to verify:

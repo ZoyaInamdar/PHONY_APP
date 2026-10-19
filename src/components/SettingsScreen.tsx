@@ -137,7 +137,7 @@ export function sanitizeViewerOptions(
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onBack,
   initialOptions,
-  initialProfile = 'standard',
+  initialProfile,
   onSave,
   testID = 'settings-screen',
   blurPickerNextFocusUp,
@@ -148,7 +148,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [options, setOptions] = useState<ViewerOptions>(
     initialOptions ? sanitizeViewerOptions(initialOptions) : DEFAULT_VIEWER_OPTIONS,
   );
-  const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
+  const hasExplicitInitialProfileRef = useRef<boolean>(initialProfile !== undefined);
+  const hasUserModifiedProfileRef = useRef<boolean>(false);
+  const hasUserModifiedOptionsRef = useRef<boolean>(false);
+  const [profile, setProfile] = useState<PlayerProfile>(initialProfile ?? 'standard');
   const [blurMode, setBlurMode] = useState<BlurModeOption>('standard');
   const [focusedId, setFocusedId] = useState<string>('settings-back-button');
   const [saveStatusMessage, setSaveStatusMessage] = useState<string>('');
@@ -211,18 +214,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         if (!isMountedRef.current) return;
 
-        if (savedSettings !== null && savedSettings !== undefined) {
+        if (
+          !hasUserModifiedOptionsRef.current &&
+          savedSettings !== null &&
+          savedSettings !== undefined
+        ) {
           const merged = sanitizeViewerOptions(savedSettings, optionsRef.current);
-          setOptions(merged);
-          optionsRef.current = merged;
+          if (isMountedRef.current && !hasUserModifiedOptionsRef.current) {
+            setOptions(merged);
+            optionsRef.current = merged;
+          }
         }
 
         if (
+          !hasExplicitInitialProfileRef.current &&
+          !hasUserModifiedProfileRef.current &&
           savedProfile &&
           PLAYER_PROFILES.includes(savedProfile as PlayerProfile)
         ) {
-          setProfile(savedProfile as PlayerProfile);
-          profileRef.current = savedProfile as PlayerProfile;
+          if (
+            isMountedRef.current &&
+            !hasExplicitInitialProfileRef.current &&
+            !hasUserModifiedProfileRef.current
+          ) {
+            setProfile(savedProfile as PlayerProfile);
+            profileRef.current = savedProfile as PlayerProfile;
+          }
         }
       } catch (err) {
         console.error('[SettingsScreen] Failed to load settings from storage', err);
@@ -245,10 +262,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         if (onSave) {
           onSave(nextOptions, nextProfile);
         }
-        setSaveStatusMessage('Settings saved');
+        if (isMountedRef.current) {
+          setSaveStatusMessage('Settings saved');
+        }
       } catch (err) {
         console.error('[SettingsScreen] Failed to persist settings', err);
-        setSaveStatusMessage('Save error');
+        if (isMountedRef.current) {
+          setSaveStatusMessage('Save error');
+        }
       }
     },
     [onSave],
@@ -256,6 +277,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const handleUpdateOptions = useCallback(
     (updater: (prev: ViewerOptions) => ViewerOptions) => {
+      hasUserModifiedOptionsRef.current = true;
       setOptions((prev) => {
         const next = updater(prev);
         optionsRef.current = next;
@@ -268,6 +290,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const handleProfileChange = useCallback(
     (nextProfile: PlayerProfile) => {
+      hasUserModifiedProfileRef.current = true;
       setProfile(nextProfile);
       profileRef.current = nextProfile;
       persistChanges(optionsRef.current, nextProfile);
@@ -276,6 +299,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   );
 
   const handleResetDefaults = useCallback(() => {
+    hasUserModifiedOptionsRef.current = true;
+    hasUserModifiedProfileRef.current = true;
     const defaults = { ...DEFAULT_VIEWER_OPTIONS };
     const defaultProfile: PlayerProfile = 'standard';
     setOptions(defaults);

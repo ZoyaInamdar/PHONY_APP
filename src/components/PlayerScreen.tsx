@@ -23,6 +23,10 @@ import {
   verificationTestCues,
 } from '../data/playbackCues';
 import {
+  getFilmMetadata,
+  loadFilmCues,
+} from '../data/catalogue';
+import {
   PROMPT_HARNESS_SCENARIOS,
   PromptScenario,
 } from '../data/promptHarnessScenarios';
@@ -55,10 +59,23 @@ export const DEFAULT_RAMP_DURATION_MS = 150;
 export const CONTAINER_PADDING_HORIZONTAL = 48;
 export const VIDEO_FRAME_HEIGHT = 400;
 
-export type PlayerProfile = 'verification' | 'standard' | 'skip_verification';
+export const PLAYER_PROFILES = [
+  'standard',
+  'verification',
+  'skip_verification',
+] as const;
+export type PlayerProfile = (typeof PLAYER_PROFILES)[number];
+
+export function isValidPlayerProfile(value: unknown): value is PlayerProfile {
+  return (
+    typeof value === 'string' &&
+    (value === 'standard' || value === 'verification' || value === 'skip_verification')
+  );
+}
 
 export interface PlayerScreenProps {
   onBack: () => void;
+  filmId?: string;
   cues?: Cue[];
   options?: Partial<ViewerOptions>;
   initialProfile?: PlayerProfile;
@@ -154,19 +171,19 @@ export function sanitizeViewerOptions(
   return result;
 }
 
-export const PlayerScreen = (props: PlayerScreenProps) => {
-  const {
-    onBack,
-    cues: customCues,
-    options: customOptions,
-    initialProfile = 'standard',
-    testVideoUrl,
-    alternateBlurredVideoUrl,
-    blurSwitchTimeoutMs = 500,
-    rampDurationMs,
-    devHarnessMode = false,
-    initialHarnessScenario = 0,
-  } = props;
+export const PlayerScreen = ({
+  onBack,
+  filmId: initialFilmId = 'sintel',
+  cues: customCues,
+  options: customOptions,
+  initialProfile,
+  testVideoUrl,
+  alternateBlurredVideoUrl,
+  blurSwitchTimeoutMs = 500,
+  rampDurationMs,
+  devHarnessMode = false,
+  initialHarnessScenario = 0,
+}: PlayerScreenProps) => {
   const rampDuration =
     rampDurationMs !== undefined
       ? rampDurationMs
@@ -211,8 +228,68 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   const blurFallbackActiveRef = useRef<boolean>(false);
   const lastBlurActiveRef = useRef<boolean>(false);
 
+  // Selected film from catalogue
+  const [currentFilmId, setCurrentFilmId] = useState<string>(initialFilmId);
+
+  // Look up film metadata from catalogue
+  const filmMetadata = getFilmMetadata(currentFilmId);
+
+  // Load cues for standard index profile with strict validation (no silent fallback)
+  let standardIndexCues: Cue[] = [];
+  let indexLoadError: string | null = null;
+  if (!filmMetadata) {
+    indexLoadError = `Unknown film ID: "${currentFilmId}". No matching entry found in catalogue.`;
+  } else {
+    try {
+      standardIndexCues = loadFilmCues(currentFilmId);
+    } catch (err: any) {
+      indexLoadError = `Failed to load packaged index for "${currentFilmId}": ${err?.message ?? err}`;
+    }
+  }
+
+  useEffect(() => {
+    if (initialFilmId && initialFilmId !== currentFilmId) {
+      handleFilmSwitch(initialFilmId);
+    }
+  }, [initialFilmId]);
+
   // Selected trigger cues & profile
-  const [profile, setProfile] = useState<PlayerProfile>(initialProfile);
+  const hasExplicitInitialProfileRef = useRef<boolean>(initialProfile !== undefined);
+  const [profile, setProfile] = useState<PlayerProfile>(initialProfile ?? 'standard');
+  const profileRef = useRef<PlayerProfile>(profile);
+  profileRef.current = profile;
+  const hasUserModifiedProfileRef = useRef<boolean>(false);
+
+  // initialProfile seeds the profile state on mount; subsequent rerenders follow the initial-only contract
+
+  // Serialized persistence worker for user profile to prevent out-of-order writes
+  const latestSaveProfilePayloadRef = useRef<PlayerProfile | null>(null);
+  const isSavingProfileRef = useRef<boolean>(false);
+
+  const persistProfile = (profileToSave: PlayerProfile) => {
+    latestSaveProfilePayloadRef.current = profileToSave;
+    if (isSavingProfileRef.current) {
+      return;
+    }
+    isSavingProfileRef.current = true;
+
+    (async () => {
+      try {
+        while (latestSaveProfilePayloadRef.current !== null) {
+          const payload = latestSaveProfilePayloadRef.current;
+          latestSaveProfilePayloadRef.current = null;
+          await setItem(STORAGE_KEYS.USER_PROFILE, payload);
+        }
+      } catch (e) {
+        console.error('Failed to save user profile to storage', e);
+      } finally {
+        isSavingProfileRef.current = false;
+        if (latestSaveProfilePayloadRef.current !== null) {
+          persistProfile(latestSaveProfilePayloadRef.current);
+        }
+      }
+    })();
+  };
 
   // Developer prompt test harness state
   const [isDevHarnessOpen, setIsDevHarnessOpen] = useState<boolean>(devHarnessMode);
@@ -226,7 +303,7 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   const getProfileCues = (p: PlayerProfile): Cue[] => {
     switch (p) {
       case 'standard':
-        return sintelIndexCues;
+        return standardIndexCues;
       case 'skip_verification':
         return skipVerificationTestCues;
       case 'verification':
@@ -303,7 +380,6 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   // Storage synchronization and race-condition guard refs
   const isMountedRef = useRef<boolean>(true);
   const hasUserModifiedOptionsRef = useRef<boolean>(false);
-  const hasUserModifiedProfileRef = useRef<boolean>(props.initialProfile !== undefined);
   const latestSavePayloadRef = useRef<ViewerOptions | null>(null);
   const isSavingRef = useRef<boolean>(false);
 
@@ -365,7 +441,7 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
 
   const promptButtonToFocus = isSkipEligible ? focusedPromptButton : 'continue';
 
-  const videoSource = testVideoUrl ?? DEFAULT_VIDEO_URL;
+  const videoSource = testVideoUrl ?? filmMetadata?.video_url ?? DEFAULT_VIDEO_URL;
 
   // Derived video layout dimensions to satisfy W3CMedia Video numeric prop contract
   const initialWindowWidth = Dimensions.get('window').width;
@@ -1506,12 +1582,12 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
       try {
         const [savedSettings, savedProfile] = await Promise.all([
           getItem<unknown>(STORAGE_KEYS.USER_SETTINGS),
-          getItem<string>(STORAGE_KEYS.USER_PROFILE),
+          getItem<unknown>(STORAGE_KEYS.USER_PROFILE),
         ]);
 
         if (!isMountedRef.current) return;
 
-        let activeOptions = viewerOptionsRef.current;
+        // 1. Viewer options restoration
         if (
           !hasUserModifiedOptionsRef.current &&
           savedSettings !== null &&
@@ -1520,30 +1596,34 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
           const merged = sanitizeViewerOptions(savedSettings, viewerOptionsRef.current);
           setViewerOptions(merged);
           viewerOptionsRef.current = merged;
-          activeOptions = merged;
+
+          const video = videoRef.current;
+          if (video) {
+            applyTriggerActions(video.currentTime, true, merged);
+          }
         }
 
-        let updatedCues = activeCuesRef.current;
+        // 2. Viewer profile restoration (guarded against explicit initialProfile and user modification)
         if (
+          !hasExplicitInitialProfileRef.current &&
           !hasUserModifiedProfileRef.current &&
-          savedProfile &&
-          (savedProfile === 'standard' ||
-            savedProfile === 'verification' ||
-            savedProfile === 'skip_verification')
+          isValidPlayerProfile(savedProfile)
         ) {
-          const nextProf = savedProfile as PlayerProfile;
-          setProfile(nextProf);
-          updatedCues = computeActiveCues(
+          const restoredProfile: PlayerProfile = savedProfile;
+          setProfile(restoredProfile);
+          profileRef.current = restoredProfile;
+
+          const nextCues = computeActiveCues(
             isDevHarnessOpenRef.current,
             selectedHarnessScenarioIndexRef.current,
-            nextProf,
+            restoredProfile,
           );
-          activeCuesRef.current = updatedCues;
-        }
+          activeCuesRef.current = nextCues;
 
-        const video = videoRef.current;
-        if (video) {
-          applyTriggerActions(video.currentTime, true, activeOptions, updatedCues);
+          const video = videoRef.current;
+          if (video) {
+            applyTriggerActions(video.currentTime, true, viewerOptionsRef.current, nextCues);
+          }
         }
       } catch (e) {
         console.error('Failed to restore viewer preferences from storage', e);
@@ -1555,18 +1635,73 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
     };
   }, []);
 
+  const handleFilmSwitch = (newFilmId: string) => {
+    console.log(`[Player] Switching film from ${currentFilmId} to ${newFilmId}`);
+    cancelVolumeRamp();
+    playbackStateRef.current = new PlaybackState();
+    recordedFallbackCueIdsRef.current.clear();
+    lastActiveCuesRef.current = '';
+    lastWarnCueIdsRef.current = '';
+    activePromptCueRef.current = null;
+    setActivePromptCue(null);
+    dismissedPromptCueIdsRef.current.clear();
+    setActiveActionStatus('');
+    setWarningStatus('');
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setIsContentHidden(false);
+    isContentHiddenRef.current = false;
+    effectiveActionsRef.current = null;
+    lastLoggedSecond.current = -1;
+    setBotheredFeedback('');
+    if (botheredFeedbackTimerRef.current !== null) {
+      clearTimeout(botheredFeedbackTimerRef.current);
+      botheredFeedbackTimerRef.current = null;
+    }
+    if (blurSeekTimeoutRef.current !== null) {
+      clearTimeout(blurSeekTimeoutRef.current);
+      blurSeekTimeoutRef.current = null;
+    }
+    isBlurActiveRef.current = false;
+    setIsBlurActive(false);
+
+    setCurrentFilmId(newFilmId);
+
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.currentTime = 0;
+        video.pause();
+        video.muted = userMutedRef.current;
+        video.volume = userVolumeRef.current;
+      } catch {
+        // ignore in test environments
+      }
+    }
+  };
+
+  const toggleFilm = () => {
+    const nextFilmId = currentFilmId === 'sintel' ? 'tears_of_steel' : 'sintel';
+    handleFilmSwitch(nextFilmId);
+  };
+
+  const getNextProfile = (current: PlayerProfile): PlayerProfile => {
+    switch (current) {
+      case 'standard':
+        return 'verification';
+      case 'verification':
+        return 'skip_verification';
+      case 'skip_verification':
+      default:
+        return 'standard';
+    }
+  };
+
   const toggleProfile = () => {
     hasUserModifiedProfileRef.current = true;
-    const nextProfile: PlayerProfile =
-      profile === 'standard'
-        ? 'verification'
-        : profile === 'verification'
-        ? 'skip_verification'
-        : 'standard';
+    const nextProfile: PlayerProfile = getNextProfile(profileRef.current);
+    profileRef.current = nextProfile;
     setProfile(nextProfile);
-    setItem(STORAGE_KEYS.USER_PROFILE, nextProfile).catch((err) => {
-      console.error('[PlayerScreen] Failed to persist profile to storage', err);
-    });
     lastActiveCuesRef.current = '';
     lastWarnCueIdsRef.current = '';
     setWarningStatus('');
@@ -1587,6 +1722,8 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
     if (video) {
       applyTriggerActions(video.currentTime, true, viewerOptionsRef.current, nextCues);
     }
+
+    persistProfile(nextProfile);
   };
 
   const formatTime = (seconds: number) => {
@@ -1634,16 +1771,25 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Trigger-Aware Player</Text>
-        <Text style={styles.profileBadge}>
+        <Text style={styles.title} testID="player-title">
+          Trigger-Aware Player{filmMetadata ? ` — ${filmMetadata.title}` : ''}
+        </Text>
+        <Text style={styles.profileBadge} testID="player-profile-badge">
           Profile:{' '}
           {profile === 'verification'
             ? 'Verification Cues'
             : profile === 'skip_verification'
             ? 'Skip Verification'
-            : 'Sintel Index'}
+            : `${filmMetadata?.title ?? currentFilmId} Index`}
         </Text>
       </View>
+
+      {indexLoadError && (
+        <View style={styles.indexErrorBanner} testID="index-error-banner" accessibilityRole="alert">
+          <Text style={styles.indexErrorTitle}>⚠️ Index Load Error</Text>
+          <Text style={styles.indexErrorText} testID="index-error-text">{indexLoadError}</Text>
+        </View>
+      )}
 
       <View
         style={styles.videoFrame}
@@ -2160,6 +2306,15 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
           focusable={!isSettingsOpen && !activePromptCue}
         />
         <Control
+          id="film"
+          testID="control-film"
+          label={filmMetadata ? `Film: ${filmMetadata.title}` : `Film: ${currentFilmId}`}
+          onPress={toggleFilm}
+          isFocused={focusedControl === 'film'}
+          onFocus={() => setFocusedControl('film')}
+          focusable={!isSettingsOpen && !activePromptCue}
+        />
+        <Control
           id="profile"
           testID="control-profile"
           label={
@@ -2630,6 +2785,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 14,
     fontWeight: '600',
+  },
+  indexErrorBanner: {
+    backgroundColor: 'rgba(220, 38, 38, 0.95)',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    borderLeftWidth: 6,
+    borderLeftColor: '#EF4444',
+  },
+  indexErrorTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  indexErrorText: {
+    color: '#FEE2E2',
+    fontSize: 14,
+    lineHeight: 20,
   },
   videoFrame: {
     height: 400,

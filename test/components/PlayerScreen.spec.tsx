@@ -17,7 +17,7 @@ import {
   verificationTestCues,
 } from '../../src/data/playbackCues';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../src/storage';
+import { getItem, setItem, STORAGE_KEYS } from '../../src/storage';
 
 describe('PlayerScreen Component Tests', () => {
   beforeEach(async () => {
@@ -77,17 +77,17 @@ describe('PlayerScreen Component Tests', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles profile between verification and standard index', () => {
+  it('toggles profile between standard index and verification cues', () => {
     const onBack = jest.fn();
     const { getByText } = render(
-      <PlayerScreen onBack={onBack} initialProfile="verification" />,
+      <PlayerScreen onBack={onBack} />,
     );
 
-    expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
-    const toggleButton = getByText('Cues: Verify');
+    expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+    const toggleButton = getByText('Cues: Index');
     fireEvent.press(toggleButton);
 
-    expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
+    expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
   });
 
   it('displays fallback overlay when visual hiding cue is triggered', () => {
@@ -1260,26 +1260,26 @@ describe('PlayerScreen Component Tests', () => {
     it('proves the verification profile is opt-in and does not replace default or production profiles', () => {
       const onBack = jest.fn();
       const { getByText } = render(
-        <PlayerScreen onBack={onBack} initialProfile="verification" />,
+        <PlayerScreen onBack={onBack} />,
       );
 
-      // Explicitly selected 'verification' profile
-      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
-      expect(getByText('Cues: Verify')).toBeTruthy();
-
-      // Pressing profile cycles to 'standard' (production index)
-      fireEvent.press(getByText('Cues: Verify'));
+      // Default profile is 'standard' (production index)
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
       expect(getByText('Cues: Index')).toBeTruthy();
 
-      // Pressing again cycles to opt-in 'skip_verification'
+      // Pressing profile cycles to 'verification' (dense test cues)
       fireEvent.press(getByText('Cues: Index'));
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText('Cues: Verify')).toBeTruthy();
+
+      // Pressing again cycles to opt-in 'skip_verification'
+      fireEvent.press(getByText('Cues: Verify'));
       expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
       expect(getByText('Cues: Skip')).toBeTruthy();
 
-      // Pressing again returns to 'verification'
+      // Pressing again returns to 'standard'
       fireEvent.press(getByText('Cues: Skip'));
-      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
+      expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
 
       // Can also be directly opted into via initialProfile prop
       const { getByText: getByTextDirect } = render(
@@ -3366,23 +3366,23 @@ describe('PlayerScreen Component Tests', () => {
       // Starts on standard
       expect(getByText(/Profile: Sintel Index/i)).toBeTruthy();
 
-      // Toggle from standard -> skip_verification
+      // Toggle from standard -> verification
       await act(async () => {
         fireEvent.press(getByText('Cues: Index'));
       });
-      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
-
-      let stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-      expect(JSON.parse(stored || 'null')).toBe('skip_verification');
-
-      // Toggle from skip_verification -> verification
-      await act(async () => {
-        fireEvent.press(getByText('Cues: Skip'));
-      });
       expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
 
-      stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+      let stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
       expect(JSON.parse(stored || 'null')).toBe('verification');
+
+      // Toggle from verification -> skip_verification
+      await act(async () => {
+        fireEvent.press(getByText('Cues: Verify'));
+      });
+      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
+
+      stored = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+      expect(JSON.parse(stored || 'null')).toBe('skip_verification');
     });
 
     it('prevents slow AsyncStorage restoration from overwriting an explicit initialProfile prop', async () => {
@@ -3421,8 +3421,8 @@ describe('PlayerScreen Component Tests', () => {
         fireEvent.press(getByText('Cues: Index'));
       });
 
-      // User switched to skip_verification
-      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
+      // User switched to verification
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
 
       // Flush any in-flight mount restoration
       await act(async () => {
@@ -3430,7 +3430,7 @@ describe('PlayerScreen Component Tests', () => {
       });
 
       // User's toggle is not clobbered by the async storage result
-      expect(getByText(/Profile: Skip Verification/i)).toBeTruthy();
+      expect(getByText(/Profile: Verification Cues/i)).toBeTruthy();
     });
 
     it('safely handles malformed, outdated, or corrupted stored profile data with fallback to standard', async () => {

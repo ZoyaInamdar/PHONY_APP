@@ -1546,7 +1546,7 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
           applyTriggerActions(video.currentTime, true, activeOptions, updatedCues);
         }
       } catch (e) {
-        console.error('Failed to restore viewer options from storage', e);
+        console.error('Failed to restore viewer preferences from storage', e);
       }
     })();
 
@@ -1558,11 +1558,11 @@ export const PlayerScreen = (props: PlayerScreenProps) => {
   const toggleProfile = () => {
     hasUserModifiedProfileRef.current = true;
     const nextProfile: PlayerProfile =
-      profile === 'verification'
-        ? 'standard'
-        : profile === 'standard'
+      profile === 'standard'
+        ? 'verification'
+        : profile === 'verification'
         ? 'skip_verification'
-        : 'verification';
+        : 'standard';
     setProfile(nextProfile);
     setItem(STORAGE_KEYS.USER_PROFILE, nextProfile).catch((err) => {
       console.error('[PlayerScreen] Failed to persist profile to storage', err);

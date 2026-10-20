@@ -1,0 +1,115 @@
+{
+  "film_id": "sintel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 888.032,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 204.96,
+      "end": 205.92,
+      "trigger": "scream",
+      "score": 0.6382,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 270.24,
+      "end": 271.2,
+      "trigger": "gunshot",
+      "score": 0.7603,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 553.44,
+      "end": 554.4,
+      "trigger": "explosion",
+      "score": 0.7728,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 560.16,
+      "end": 561.12,
+      "trigger": "explosion",
+      "score": 0.7281,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 560.16,
+      "end": 561.12,
+      "trigger": "gunshot",
+      "score": 0.7797,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 564.0,
+      "end": 564.96,
+      "trigger": "explosion",
+      "score": 0.786,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 571.68,
+      "end": 572.64,
+      "trigger": "explosion",
+      "score": 0.9026,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 587.52,
+      "end": 588.48,
+      "trigger": "explosion",
+      "score": 0.7274,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 672.0,
+      "end": 672.96,
+      "trigger": "gunshot",
+      "score": 0.672,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 672.48,
+      "end": 673.44,
+      "trigger": "explosion",
+      "score": 0.8138,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 672.48,
+      "end": 673.44,
+      "trigger": "gunshot",
+      "score": 0.832,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 675.84,
+      "end": 676.8,
+      "trigger": "gunshot",
+      "score": 0.7007,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 676.32,
+      "end": 677.28,
+      "trigger": "explosion",
+      "score": 0.7256,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 676.32,
+      "end": 677.28,
+      "trigger": "gunshot",
+      "score": 0.6674,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 676.8,
+      "end": 677.76,
+      "trigger": "explosion",
+      "score": 0.7877,
+      "source": "audio_event_classifier"
+    }
+  ]
+}

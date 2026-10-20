@@ -365,30 +365,7 @@
     "end": 361.0,
     "kind": "speech",
     "text": "...and a dick.",
-    "flagged_words": [
-      {
-        "word": "dick",
-        "char_start": 9,
-        "char_end": 13,
-        "evidence": "subtitle_text",
-        "timing": "estimated",
-        "spoken_confirmed": null
-      }
-    ],
-    "flagged": [
-      {
-        "term_id": "w11",
-        "word": "dick",
-        "char_start": 9,
-        "char_end": 13,
-        "evidence": "subtitle_text",
-        "timing": "estimated",
-        "start": 360.464,
-        "end": 360.893,
-        "confidence": 1.0,
-        "spoken_confirmed": null
-      }
-    ]
+    "flagged_words": []
   },
   {
     "id": "c47",

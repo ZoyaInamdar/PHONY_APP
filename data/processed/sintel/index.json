@@ -1,0 +1,542 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel",
+  "synthetic": false,
+  "description": "Packaged player cue index for sintel.",
+  "timeline": {
+    "duration_seconds": 888.032,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 24.0
+  },
+  "cues": [
+    {
+      "id": "cue_sintel_loud_spike_001100_002200",
+      "start": 1.1,
+      "end": 2.2,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_007500_007600",
+      "start": 7.5,
+      "end": 7.6,
+      "trigger": "loud_spike",
+      "score": 0.481,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_024900_026600",
+      "start": 24.9,
+      "end": 26.6,
+      "trigger": "loud_spike",
+      "score": 0.584,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_042400_049700",
+      "start": 42.4,
+      "end": 49.7,
+      "trigger": "loud_spike",
+      "score": 0.744,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_042417_047500",
+      "start": 42.417,
+      "end": 47.5,
+      "trigger": "flashing",
+      "score": 0.548,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_052900_053100",
+      "start": 52.9,
+      "end": 53.1,
+      "trigger": "loud_spike",
+      "score": 0.472,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_053833_055958",
+      "start": 53.833,
+      "end": 55.958,
+      "trigger": "flashing",
+      "score": 0.4553,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_101300_101400",
+      "start": 101.3,
+      "end": 101.4,
+      "trigger": "loud_spike",
+      "score": 0.412,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_111600_113200",
+      "start": 111.6,
+      "end": 113.2,
+      "trigger": "loud_spike",
+      "score": 0.957,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_117700_121900",
+      "start": 117.7,
+      "end": 121.9,
+      "trigger": "loud_spike",
+      "score": 0.779,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_129200_130900",
+      "start": 129.2,
+      "end": 130.9,
+      "trigger": "loud_spike",
+      "score": 0.655,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_135000_135600",
+      "start": 135.0,
+      "end": 135.6,
+      "trigger": "loud_spike",
+      "score": 0.686,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_137700_140600",
+      "start": 137.7,
+      "end": 140.6,
+      "trigger": "loud_spike",
+      "score": 0.725,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_143700_143800",
+      "start": 143.7,
+      "end": 143.8,
+      "trigger": "loud_spike",
+      "score": 0.581,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_146500_146600",
+      "start": 146.5,
+      "end": 146.6,
+      "trigger": "loud_spike",
+      "score": 0.562,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_149100_149500",
+      "start": 149.1,
+      "end": 149.5,
+      "trigger": "loud_spike",
+      "score": 0.592,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_153500_154200",
+      "start": 153.5,
+      "end": 154.2,
+      "trigger": "loud_spike",
+      "score": 0.413,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_159500_163100",
+      "start": 159.5,
+      "end": 163.1,
+      "trigger": "loud_spike",
+      "score": 0.892,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_175000_175300",
+      "start": 175.0,
+      "end": 175.3,
+      "trigger": "loud_spike",
+      "score": 0.9,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_180300_184400",
+      "start": 180.3,
+      "end": 184.4,
+      "trigger": "loud_spike",
+      "score": 0.897,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_scream_204960_205920",
+      "start": 204.96,
+      "end": 205.92,
+      "trigger": "scream",
+      "score": 0.6382,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_loud_spike_205100_211700",
+      "start": 205.1,
+      "end": 211.7,
+      "trigger": "loud_spike",
+      "score": 0.706,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_220500_220600",
+      "start": 220.5,
+      "end": 220.6,
+      "trigger": "loud_spike",
+      "score": 0.697,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_242600_246900",
+      "start": 242.6,
+      "end": 246.9,
+      "trigger": "loud_spike",
+      "score": 0.481,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_250875_252958",
+      "start": 250.875,
+      "end": 252.958,
+      "trigger": "flashing",
+      "score": 0.4008,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_254667_255792",
+      "start": 254.667,
+      "end": 255.792,
+      "trigger": "flashing",
+      "score": 0.4115,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_269300_270600",
+      "start": 269.3,
+      "end": 270.6,
+      "trigger": "loud_spike",
+      "score": 0.747,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_gunshot_270240_271200",
+      "start": 270.24,
+      "end": 271.2,
+      "trigger": "gunshot",
+      "score": 0.7603,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_loud_spike_273600_275300",
+      "start": 273.6,
+      "end": 275.3,
+      "trigger": "loud_spike",
+      "score": 0.745,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_279900_280000",
+      "start": 279.9,
+      "end": 280.0,
+      "trigger": "loud_spike",
+      "score": 0.44,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_283500_287700",
+      "start": 283.5,
+      "end": 287.7,
+      "trigger": "loud_spike",
+      "score": 0.548,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_292100_292200",
+      "start": 292.1,
+      "end": 292.2,
+      "trigger": "loud_spike",
+      "score": 0.497,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_314958_317542",
+      "start": 314.958,
+      "end": 317.542,
+      "trigger": "flashing",
+      "score": 0.3913,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_325375_326458",
+      "start": 325.375,
+      "end": 326.458,
+      "trigger": "flashing",
+      "score": 0.4738,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_332125_334083",
+      "start": 332.125,
+      "end": 334.083,
+      "trigger": "flashing",
+      "score": 0.543,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_332900_333100",
+      "start": 332.9,
+      "end": 333.1,
+      "trigger": "loud_spike",
+      "score": 0.432,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_349900_350100",
+      "start": 349.9,
+      "end": 350.1,
+      "trigger": "loud_spike",
+      "score": 0.544,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_353500_354700",
+      "start": 353.5,
+      "end": 354.7,
+      "trigger": "loud_spike",
+      "score": 0.65,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_flashing_434333_435417",
+      "start": 434.333,
+      "end": 435.417,
+      "trigger": "flashing",
+      "score": 0.6288,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_434600_435700",
+      "start": 434.6,
+      "end": 435.7,
+      "trigger": "loud_spike",
+      "score": 0.927,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_445700_446300",
+      "start": 445.7,
+      "end": 446.3,
+      "trigger": "loud_spike",
+      "score": 0.999,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_452600_453900",
+      "start": 452.6,
+      "end": 453.9,
+      "trigger": "loud_spike",
+      "score": 0.811,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_456400_460800",
+      "start": 456.4,
+      "end": 460.8,
+      "trigger": "loud_spike",
+      "score": 0.87,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_502800_506800",
+      "start": 502.8,
+      "end": 506.8,
+      "trigger": "loud_spike",
+      "score": 0.913,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_525400_527200",
+      "start": 525.4,
+      "end": 527.2,
+      "trigger": "loud_spike",
+      "score": 0.822,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_538400_545200",
+      "start": 538.4,
+      "end": 545.2,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_550500_550900",
+      "start": 550.5,
+      "end": 550.9,
+      "trigger": "loud_spike",
+      "score": 0.464,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_explosion_553440_554400",
+      "start": 553.44,
+      "end": 554.4,
+      "trigger": "explosion",
+      "score": 0.7728,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_flashing_559500_560333",
+      "start": 559.5,
+      "end": 560.333,
+      "trigger": "flashing",
+      "score": 0.4069,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_559900_560500",
+      "start": 559.9,
+      "end": 560.5,
+      "trigger": "loud_spike",
+      "score": 0.438,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_gunshot_560160_561120",
+      "start": 560.16,
+      "end": 561.12,
+      "trigger": "gunshot",
+      "score": 0.7797,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_explosion_560160_564960",
+      "start": 560.16,
+      "end": 564.96,
+      "trigger": "explosion",
+      "score": 0.786,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_loud_spike_564900_565400",
+      "start": 564.9,
+      "end": 565.4,
+      "trigger": "loud_spike",
+      "score": 0.524,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_explosion_571680_572640",
+      "start": 571.68,
+      "end": 572.64,
+      "trigger": "explosion",
+      "score": 0.9026,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_explosion_587520_588480",
+      "start": 587.52,
+      "end": 588.48,
+      "trigger": "explosion",
+      "score": 0.7274,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_loud_spike_601000_604600",
+      "start": 601.0,
+      "end": 604.6,
+      "trigger": "loud_spike",
+      "score": 0.592,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_617500_617600",
+      "start": 617.5,
+      "end": 617.6,
+      "trigger": "loud_spike",
+      "score": 0.568,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_622200_627700",
+      "start": 622.2,
+      "end": 627.7,
+      "trigger": "loud_spike",
+      "score": 0.707,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_629900_630000",
+      "start": 629.9,
+      "end": 630.0,
+      "trigger": "loud_spike",
+      "score": 0.421,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_671800_677200",
+      "start": 671.8,
+      "end": 677.2,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_gunshot_672000_677280",
+      "start": 672.0,
+      "end": 677.28,
+      "trigger": "gunshot",
+      "score": 0.832,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_explosion_672480_677760",
+      "start": 672.48,
+      "end": 677.76,
+      "trigger": "explosion",
+      "score": 0.8138,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_sintel_loud_spike_710800_711000",
+      "start": 710.8,
+      "end": 711.0,
+      "trigger": "loud_spike",
+      "score": 0.725,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_740600_740700",
+      "start": 740.6,
+      "end": 740.7,
+      "trigger": "loud_spike",
+      "score": 0.4,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_814100_814300",
+      "start": 814.1,
+      "end": 814.3,
+      "trigger": "loud_spike",
+      "score": 0.43,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_sintel_loud_spike_827500_827700",
+      "start": 827.5,
+      "end": 827.7,
+      "trigger": "loud_spike",
+      "score": 0.453,
+      "source": "loudness_detector"
+    }
+  ]
+}

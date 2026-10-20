@@ -1,6 +1,6 @@
 # Detector Evaluation Report — Trigger-Aware Player (PHONY_APP)
 
-**Generated:** 2026-10-19T18:14:18.191883+00:00  
+**Generated:** 2026-10-20T07:30:40.303583+00:00  
 **Evaluator Role:** Person B — Media Ingestion, Packaging, and Pipeline Integration  
 **Matching Policy:** One-to-one temporal matching with $\text{tIoU} \ge 0.5$  
 
@@ -14,8 +14,8 @@ This report benchmarks the offline detectors implemented in the repository again
 
 | Metric Category | Precision | Recall | F1 Score | Notes |
 | :--- | :---: | :---: | :---: | :--- |
-| **Dataset Micro-Average** | 83.3% | 51.7% | 63.8% | Pooled TP=15, FP=3, FN=14 across all evaluated triggers |
-| **Dataset Macro-Average** | 62.5% | 20.6% | 65.4% | Unweighted mean across evaluated triggers |
+| **Dataset Micro-Average** | 25.0% | 3.5% | 6.1% | Pooled TP=1, FP=3, FN=28 across all evaluated triggers |
+| **Dataset Macro-Average** | 25.0% | 4.2% | 40.0% | Unweighted mean across evaluated triggers |
 
 ---
 
@@ -39,14 +39,14 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 
 | Trigger | Component | Modality | Clips | GT Events | Preds | TP | FP | FN | Micro Precision | Micro Recall | Micro F1 | Mean IoU | Mean \|Onset Err\| |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `explosion` | audio_event_classifier | audio | 7 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
-| `fast_motion` | motion_detector | visual | 6 | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* | *null*s |
-| `flashing` | flash_detector | visual | 21 | 16 | 13 | 13 | 0 | 3 | 100.0% | 81.2% | 89.7% | 0.9952 | 0.0000s |
-| `gunshot` | audio_event_classifier | audio | 7 | 2 | 1 | 1 | 0 | 1 | 100.0% | 50.0% | 66.7% | 0.5208 | 0.0600s |
-| `jump_scare` | compound_detector | multimodal | 6 | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* | *null*s |
-| `loud_spike` | loudness_detector | audio | 7 | 2 | 2 | 0 | 2 | 2 | 0.0% | 0.0% | *null* | *null* | *null*s |
-| `profanity` | profanity_detector | subtitles | 6 | 3 | 2 | 1 | 1 | 2 | 50.0% | 33.3% | 40.0% | 1.0000 | 0.0000s |
-| `scream` | audio_event_classifier | audio | 7 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
+| `explosion` | audio_event_classifier | audio | 9 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
+| `fast_motion` | motion_detector | visual | 8 | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* | *null*s |
+| `flashing` | flash_detector | visual | 23 | 16 | 0 | 0 | 0 | 16 | *null* | 0.0% | *null* | *null* | *null*s |
+| `gunshot` | audio_event_classifier | audio | 9 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
+| `jump_scare` | compound_detector | multimodal | 8 | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* | *null*s |
+| `loud_spike` | loudness_detector | audio | 9 | 2 | 2 | 0 | 2 | 2 | 0.0% | 0.0% | *null* | *null* | *null*s |
+| `profanity` | profanity_detector | subtitles | 8 | 3 | 2 | 1 | 1 | 2 | 50.0% | 33.3% | 40.0% | 1.0000 | 0.0000s |
+| `scream` | audio_event_classifier | audio | 9 | 2 | 0 | 0 | 0 | 2 | *null* | 0.0% | *null* | *null* | *null*s |
 
 ---
 
@@ -58,46 +58,56 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 | `audio_multi_event_mix.mp4` | `explosion` | Composite multi-event au | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `explosion` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `explosion` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `explosion` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `explosion` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `explosion` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `explosion` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `explosion` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `fast_motion_positive.mp4` | `fast_motion` | High-velocity spatial tr | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `fast_motion` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `fast_motion` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `fast_motion` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `fast_motion` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `fast_motion` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `fast_motion` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `fast_motion` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
-| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `flash_area_small_patch_24fps_4hz_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `flash_contrast_005_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `flash_contrast_010_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
-| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 0.9375 |
-| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
-| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 1.0000 |
+| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
+| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `flashing` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `flashing` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `flashing` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `flashing` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `flashing` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `flashing` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `flashing` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
-| `audio_gunshot_test.mp4` | `gunshot` | test_clip | 1 | 1 | 1 | 0 | 0 | 100.0% | 100.0% | 100.0% | 0.5208 |
+| `audio_gunshot_test.mp4` | `gunshot` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_multi_event_mix.mp4` | `gunshot` | Composite multi-event au | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `gunshot` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `gunshot` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `gunshot` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `gunshot` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `gunshot` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `gunshot` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `gunshot` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `jump_scare_positive.mp4` | `jump_scare` | Synchronized 1-frame vis | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `jump_scare` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `jump_scare` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `jump_scare` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `jump_scare` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `jump_scare` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `jump_scare` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `jump_scare` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
@@ -105,12 +115,16 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 | `audio_loud_spike_test.mp4` | `loud_spike` | Quiet background drone w | 1 | 1 | 0 | 1 | 1 | 0.0% | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `loud_spike` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `loud_spike` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `loud_spike` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `loud_spike` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `loud_spike` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `loud_spike` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `loud_spike` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `speech_triggers_test.mp4` | `profanity` | Speech trigger clip with | 3 | 2 | 1 | 1 | 2 | 50.0% | 33.3% | 40.0% | 1.0000 |
 | `audio_negative_ambient.mp4` | `profanity` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `profanity` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `profanity` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `profanity` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `profanity` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `profanity` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `profanity` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
@@ -118,6 +132,8 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 | `audio_scream_test.mp4` | `scream` | test_clip | 1 | 0 | 0 | 0 | 1 | *null* | 0.0% | *null* | *null* |
 | `audio_negative_ambient.mp4` | `scream` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `audio_negative_dialogue.mp4` | `scream` | Negative baseline clip w | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `fast_motion_negative.mp4` | `scream` | Gentle/slow-panning spat | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
+| `jump_scare_negative.mp4` | `scream` | Gradual fade from black  | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_slow_fade.mp4` | `scream` | Slow continuous fade (0. | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_smooth_gradient.mp4` | `scream` | Smooth spatial sinusoida | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
 | `video_negative_static.mp4` | `scream` | Completely static 50% ne | 0 | 0 | 0 | 0 | 0 | *null* | *null* | *null* | *null* |
@@ -129,23 +145,23 @@ Where a metric has a zero denominator (e.g., negative controls with $TP + FP = 0
 | `audio_explosion_test.mp4` | `explosion` | Unmatched FN | — | [1.000, 3.200) | 0.0000 | — | — |
 | `audio_multi_event_mix.mp4` | `explosion` | Unmatched FN | — | [6.000, 8.200) | 0.0000 | — | — |
 | `fast_motion_positive.mp4` | `fast_motion` | Unmatched FN | — | [0.000, 3.000) | 0.0000 | — | — |
-| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
-| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
+| `flash_area_half_24fps_4hz_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_area_quarter_24fps_4hz_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
 | `flash_area_small_patch_24fps_4hz_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
 | `flash_contrast_005_24fps_4hz_full.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
 | `flash_contrast_010_24fps_4hz_full.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
-| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | Matched TP | [1.000, 2.875) | [1.000, 3.000) | 0.9375 | +0.000s | -0.125s |
-| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.560) | [1.000, 3.560) | 1.0000 | +0.000s | +0.000s |
-| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 5.267) | [1.000, 5.267) | 1.0000 | +0.000s | +0.000s |
-| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.333) | [1.000, 2.333) | 1.0000 | +0.000s | +0.000s |
-| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.920) | [1.000, 2.920) | 1.0000 | +0.000s | +0.000s |
-| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.133) | [1.000, 3.133) | 1.0000 | +0.000s | +0.000s |
-| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.133) | [1.000, 3.133) | 1.0000 | +0.000s | +0.000s |
-| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 5.000) | [1.000, 5.000) | 1.0000 | +0.000s | +0.000s |
-| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.667) | [1.000, 3.667) | 1.0000 | +0.000s | +0.000s |
-| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 3.000) | [1.000, 3.000) | 1.0000 | +0.000s | +0.000s |
-| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | Matched TP | [1.000, 2.333) | [1.000, 2.333) | 1.0000 | +0.000s | +0.000s |
-| `audio_gunshot_test.mp4` | `gunshot` | Matched TP | [1.440, 2.400) | [1.500, 2.000) | 0.5208 | -0.060s | +0.400s |
+| `flash_contrast_020_24fps_4hz_full.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_edge_25fps_3hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.560) | 0.0000 | — | — |
+| `flash_edge_30fps_2hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 5.267) | 0.0000 | — | — |
+| `flash_edge_60fps_6hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 2.333) | 0.0000 | — | — |
+| `flash_fps_25fps_4hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 2.920) | 0.0000 | — | — |
+| `flash_fps_30fps_4hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.133) | 0.0000 | — | — |
+| `flash_fps_60fps_4hz_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.133) | 0.0000 | — | — |
+| `flash_rate_2hz_24fps_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 5.000) | 0.0000 | — | — |
+| `flash_rate_3hz_24fps_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.667) | 0.0000 | — | — |
+| `flash_rate_4hz_24fps_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 3.000) | 0.0000 | — | — |
+| `flash_rate_6hz_24fps_full_c050.mp4` | `flashing` | Unmatched FN | — | [1.000, 2.333) | 0.0000 | — | — |
+| `audio_gunshot_test.mp4` | `gunshot` | Unmatched FN | — | [1.500, 2.000) | 0.0000 | — | — |
 | `audio_multi_event_mix.mp4` | `gunshot` | Unmatched FN | — | [1.000, 1.500) | 0.0000 | — | — |
 | `jump_scare_positive.mp4` | `jump_scare` | Unmatched FN | — | [1.500, 1.600) | 0.0000 | — | — |
 | `audio_loud_spike_isolated.mp4` | `loud_spike` | Unmatched FP | [1.500, 1.600) | — | 0.0000 | — | — |

@@ -1,0 +1,73 @@
+{
+  "film_id": "tears_of_steel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 734.167,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 369.12,
+      "end": 370.08,
+      "trigger": "explosion",
+      "score": 0.7388,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 438.24,
+      "end": 439.2,
+      "trigger": "gunshot",
+      "score": 0.8413,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 469.44,
+      "end": 470.4,
+      "trigger": "gunshot",
+      "score": 0.8093,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 489.12,
+      "end": 490.08,
+      "trigger": "explosion",
+      "score": 0.7419,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 493.44,
+      "end": 494.4,
+      "trigger": "explosion",
+      "score": 0.8294,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 493.44,
+      "end": 494.4,
+      "trigger": "gunshot",
+      "score": 0.7617,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 496.8,
+      "end": 497.76,
+      "trigger": "explosion",
+      "score": 0.7431,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 541.44,
+      "end": 542.4,
+      "trigger": "explosion",
+      "score": 0.7059,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 541.44,
+      "end": 542.4,
+      "trigger": "gunshot",
+      "score": 0.7724,
+      "source": "audio_event_classifier"
+    }
+  ]
+}

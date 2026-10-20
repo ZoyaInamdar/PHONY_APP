@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "evaluation_timestamp_utc": "2026-10-19T18:14:18.191883+00:00",
+  "evaluation_timestamp_utc": "2026-10-20T07:30:40.303583+00:00",
   "parameters": {
     "iou_threshold": 0.5,
     "matching_strategy": "one_to_one_greedy_highest_iou",
@@ -19,6 +19,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -29,7 +31,6 @@
           "audio_loud_spike_test.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -47,12 +48,11 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 7
+        "total_evaluable_clips": 9
       },
       "fast_motion": {
         "positive_clips": [
@@ -61,6 +61,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -73,7 +75,6 @@
           "audio_multi_event_mix.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
           "flash_area_small_patch_24fps_4hz_c050.mp4",
@@ -90,12 +91,11 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 6
+        "total_evaluable_clips": 8
       },
       "flashing": {
         "positive_clips": [
@@ -119,6 +119,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -131,14 +133,12 @@
           "audio_multi_event_mix.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 21
+        "total_evaluable_clips": 23
       },
       "gunshot": {
         "positive_clips": [
@@ -148,6 +148,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -158,7 +160,6 @@
           "audio_loud_spike_test.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -176,12 +177,11 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 7
+        "total_evaluable_clips": 9
       },
       "jump_scare": {
         "positive_clips": [
@@ -190,6 +190,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -202,7 +204,6 @@
           "audio_multi_event_mix.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -220,11 +221,10 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 6
+        "total_evaluable_clips": 8
       },
       "loud_spike": {
         "positive_clips": [
@@ -234,6 +234,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -244,7 +246,6 @@
           "audio_multi_event_mix.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -262,12 +263,11 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 7
+        "total_evaluable_clips": 9
       },
       "profanity": {
         "positive_clips": [
@@ -276,6 +276,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -288,7 +290,6 @@
           "audio_multi_event_mix.mp4",
           "audio_scream_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -306,11 +307,10 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 6
+        "total_evaluable_clips": 8
       },
       "scream": {
         "positive_clips": [
@@ -320,6 +320,8 @@
         "negative_control_clips": [
           "audio_negative_ambient.mp4",
           "audio_negative_dialogue.mp4",
+          "fast_motion_negative.mp4",
+          "jump_scare_negative.mp4",
           "video_negative_slow_fade.mp4",
           "video_negative_smooth_gradient.mp4",
           "video_negative_static.mp4"
@@ -330,7 +332,6 @@
           "audio_loud_spike_isolated.mp4",
           "audio_loud_spike_test.mp4",
           "detail_test_pattern.mp4",
-          "fast_motion_negative.mp4",
           "fast_motion_positive.mp4",
           "flash_area_half_24fps_4hz_c050.mp4",
           "flash_area_quarter_24fps_4hz_c050.mp4",
@@ -348,12 +349,11 @@
           "flash_rate_3hz_24fps_full_c050.mp4",
           "flash_rate_4hz_24fps_full_c050.mp4",
           "flash_rate_6hz_24fps_full_c050.mp4",
-          "jump_scare_negative.mp4",
           "jump_scare_positive.mp4",
           "speech_triggers_test.mp4",
           "sync_test.mp4"
         ],
-        "total_evaluable_clips": 7
+        "total_evaluable_clips": 9
       }
     },
     "unsupported_triggers": {
@@ -380,24 +380,24 @@
     "unsupported_triggers": [
       "spider"
     ],
-    "total_clips_evaluated": 67,
+    "total_clips_evaluated": 83,
     "counts": {
-      "true_positives": 15,
+      "true_positives": 1,
       "false_positives": 3,
-      "false_negatives": 14
+      "false_negatives": 28
     },
     "dataset_micro_metrics": {
-      "true_positives": 15,
+      "true_positives": 1,
       "false_positives": 3,
-      "false_negatives": 14,
-      "precision": 0.8333,
-      "recall": 0.5172,
-      "f1": 0.6383
+      "false_negatives": 28,
+      "precision": 0.25,
+      "recall": 0.0345,
+      "f1": 0.0606
     },
     "dataset_macro_metrics": {
-      "precision": 0.625,
-      "recall": 0.2057,
-      "f1": 0.6544
+      "precision": 0.25,
+      "recall": 0.0417,
+      "f1": 0.4
     }
   },
   "per_trigger": {
@@ -406,9 +406,9 @@
       "status": "evaluated",
       "component": "audio_event_classifier",
       "modality": "audio",
-      "clips_evaluated_count": 7,
+      "clips_evaluated_count": 9,
       "positive_clips_count": 2,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 2,
         "predicted_events": 0,
@@ -439,9 +439,9 @@
       "status": "evaluated",
       "component": "motion_detector",
       "modality": "visual",
-      "clips_evaluated_count": 6,
+      "clips_evaluated_count": 8,
       "positive_clips_count": 1,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 1,
         "predicted_events": 0,
@@ -472,32 +472,32 @@
       "status": "evaluated",
       "component": "flash_detector",
       "modality": "visual",
-      "clips_evaluated_count": 21,
+      "clips_evaluated_count": 23,
       "positive_clips_count": 16,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 16,
-        "predicted_events": 13,
-        "true_positives": 13,
+        "predicted_events": 0,
+        "true_positives": 0,
         "false_positives": 0,
-        "false_negatives": 3
+        "false_negatives": 16
       },
       "micro_metrics": {
-        "precision": 1.0,
-        "recall": 0.8125,
-        "f1": 0.8966
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
       },
       "macro_metrics": {
-        "precision": 1.0,
-        "recall": 0.8125,
-        "f1": 1.0
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
       },
       "temporal_metrics": {
-        "mean_iou": 0.9952,
-        "mean_onset_error": 0.0,
-        "mean_offset_error": -0.0096,
-        "mean_abs_onset_error": 0.0,
-        "mean_abs_offset_error": 0.0096
+        "mean_iou": null,
+        "mean_onset_error": null,
+        "mean_offset_error": null,
+        "mean_abs_onset_error": null,
+        "mean_abs_offset_error": null
       }
     },
     "gunshot": {
@@ -505,32 +505,32 @@
       "status": "evaluated",
       "component": "audio_event_classifier",
       "modality": "audio",
-      "clips_evaluated_count": 7,
+      "clips_evaluated_count": 9,
       "positive_clips_count": 2,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 2,
-        "predicted_events": 1,
-        "true_positives": 1,
+        "predicted_events": 0,
+        "true_positives": 0,
         "false_positives": 0,
-        "false_negatives": 1
+        "false_negatives": 2
       },
       "micro_metrics": {
-        "precision": 1.0,
-        "recall": 0.5,
-        "f1": 0.6667
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
       },
       "macro_metrics": {
-        "precision": 1.0,
-        "recall": 0.5,
-        "f1": 1.0
+        "precision": null,
+        "recall": 0.0,
+        "f1": null
       },
       "temporal_metrics": {
-        "mean_iou": 0.5208,
-        "mean_onset_error": -0.06,
-        "mean_offset_error": 0.4,
-        "mean_abs_onset_error": 0.06,
-        "mean_abs_offset_error": 0.4
+        "mean_iou": null,
+        "mean_onset_error": null,
+        "mean_offset_error": null,
+        "mean_abs_onset_error": null,
+        "mean_abs_offset_error": null
       }
     },
     "jump_scare": {
@@ -538,9 +538,9 @@
       "status": "evaluated",
       "component": "compound_detector",
       "modality": "multimodal",
-      "clips_evaluated_count": 6,
+      "clips_evaluated_count": 8,
       "positive_clips_count": 1,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 1,
         "predicted_events": 0,
@@ -571,9 +571,9 @@
       "status": "evaluated",
       "component": "loudness_detector",
       "modality": "audio",
-      "clips_evaluated_count": 7,
+      "clips_evaluated_count": 9,
       "positive_clips_count": 2,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 2,
         "predicted_events": 2,
@@ -604,9 +604,9 @@
       "status": "evaluated",
       "component": "profanity_detector",
       "modality": "subtitles",
-      "clips_evaluated_count": 6,
+      "clips_evaluated_count": 8,
       "positive_clips_count": 1,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 3,
         "predicted_events": 2,
@@ -637,9 +637,9 @@
       "status": "evaluated",
       "component": "audio_event_classifier",
       "modality": "audio",
-      "clips_evaluated_count": 7,
+      "clips_evaluated_count": 9,
       "positive_clips_count": 2,
-      "negative_control_clips_count": 5,
+      "negative_control_clips_count": 7,
       "counts": {
         "ground_truth_events": 2,
         "predicted_events": 0,
@@ -833,6 +833,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "explosion",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "explosion",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {
@@ -1068,6 +1154,92 @@
       }
     },
     {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "fast_motion",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "fast_motion",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
+      }
+    },
+    {
       "clip_name": "video_negative_slow_fade.mp4",
       "trigger": "fast_motion",
       "ground_truth_count": 0,
@@ -1176,45 +1348,30 @@
       "clip_name": "flash_area_half_24fps_4hz_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.0,
-            "trigger": "flashing",
-            "score": 0.6735,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_area_half_24fps_4hz_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": 4.0
-          },
+          "clip": "flash_area_half_24fps_4hz_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": 4.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_area_half_24fps_4hz_c050.mp4",
         "duration": 4.0,
@@ -1250,45 +1407,30 @@
       "clip_name": "flash_area_quarter_24fps_4hz_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.0,
-            "trigger": "flashing",
-            "score": 0.5341,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_area_quarter_24fps_4hz_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": 4.0
-          },
+          "clip": "flash_area_quarter_24fps_4hz_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": 4.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_area_quarter_24fps_4hz_c050.mp4",
         "duration": 4.0,
@@ -1501,45 +1643,30 @@
       "clip_name": "flash_contrast_020_24fps_4hz_full.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 0.9375,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": -0.125,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.125,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 2.875,
-            "trigger": "flashing",
-            "score": 0.6789,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_contrast_020_24fps_4hz_full.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": 4.0
-          },
+          "clip": "flash_contrast_020_24fps_4hz_full.mp4",
           "trigger": "flashing",
-          "iou": 0.9375,
-          "onset_error": 0.0,
-          "offset_error": -0.125,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.125
+          "start": 1.0,
+          "end": 3.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": 4.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_contrast_020_24fps_4hz_full.mp4",
         "duration": 4.0,
@@ -1575,45 +1702,30 @@
       "clip_name": "flash_edge_25fps_3hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.56,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_edge_25fps_3hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.56,
-            "labeller": "synthetic_generator",
-            "actual_rate": 3.125
-          },
+          "clip": "flash_edge_25fps_3hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.56,
+          "labeller": "synthetic_generator",
+          "actual_rate": 3.125
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_edge_25fps_3hz_full_c050.mp4",
         "duration": 4.56,
@@ -1649,45 +1761,30 @@
       "clip_name": "flash_edge_30fps_2hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 5.267,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_edge_30fps_2hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 5.267,
-            "labeller": "synthetic_generator",
-            "actual_rate": 1.875
-          },
+          "clip": "flash_edge_30fps_2hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 5.267,
+          "labeller": "synthetic_generator",
+          "actual_rate": 1.875
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_edge_30fps_2hz_full_c050.mp4",
         "duration": 6.267,
@@ -1723,45 +1820,30 @@
       "clip_name": "flash_edge_60fps_6hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 2.333,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_edge_60fps_6hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 2.333,
-            "labeller": "synthetic_generator",
-            "actual_rate": 6.0
-          },
+          "clip": "flash_edge_60fps_6hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 2.333,
+          "labeller": "synthetic_generator",
+          "actual_rate": 6.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_edge_60fps_6hz_full_c050.mp4",
         "duration": 3.333,
@@ -1797,45 +1879,30 @@
       "clip_name": "flash_fps_25fps_4hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 2.92,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_fps_25fps_4hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 2.92,
-            "labeller": "synthetic_generator",
-            "actual_rate": 4.167
-          },
+          "clip": "flash_fps_25fps_4hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 2.92,
+          "labeller": "synthetic_generator",
+          "actual_rate": 4.167
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_fps_25fps_4hz_full_c050.mp4",
         "duration": 3.92,
@@ -1871,45 +1938,30 @@
       "clip_name": "flash_fps_30fps_4hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.133,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_fps_30fps_4hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.133,
-            "labeller": "synthetic_generator",
-            "actual_rate": 3.75
-          },
+          "clip": "flash_fps_30fps_4hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.133,
+          "labeller": "synthetic_generator",
+          "actual_rate": 3.75
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_fps_30fps_4hz_full_c050.mp4",
         "duration": 4.133,
@@ -1945,45 +1997,30 @@
       "clip_name": "flash_fps_60fps_4hz_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.133,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_fps_60fps_4hz_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.133,
-            "labeller": "synthetic_generator",
-            "actual_rate": 3.75
-          },
+          "clip": "flash_fps_60fps_4hz_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.133,
+          "labeller": "synthetic_generator",
+          "actual_rate": 3.75
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_fps_60fps_4hz_full_c050.mp4",
         "duration": 4.133,
@@ -2019,45 +2056,30 @@
       "clip_name": "flash_rate_2hz_24fps_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 5.0,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_rate_2hz_24fps_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 5.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": 2.0
-          },
+          "clip": "flash_rate_2hz_24fps_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 5.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": 2.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_rate_2hz_24fps_full_c050.mp4",
         "duration": 6.0,
@@ -2093,45 +2115,30 @@
       "clip_name": "flash_rate_3hz_24fps_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.667,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_rate_3hz_24fps_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.667,
-            "labeller": "synthetic_generator",
-            "actual_rate": 3.0
-          },
+          "clip": "flash_rate_3hz_24fps_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.667,
+          "labeller": "synthetic_generator",
+          "actual_rate": 3.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_rate_3hz_24fps_full_c050.mp4",
         "duration": 4.667,
@@ -2167,45 +2174,30 @@
       "clip_name": "flash_rate_4hz_24fps_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 3.0,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_rate_4hz_24fps_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 3.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": 4.0
-          },
+          "clip": "flash_rate_4hz_24fps_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 3.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": 4.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_rate_4hz_24fps_full_c050.mp4",
         "duration": 4.0,
@@ -2241,45 +2233,30 @@
       "clip_name": "flash_rate_6hz_24fps_full_c050.mp4",
       "trigger": "flashing",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 1.0,
-      "mean_onset_error": 0.0,
-      "mean_offset_error": 0.0,
-      "mean_abs_onset_error": 0.0,
-      "mean_abs_offset_error": 0.0,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.0,
-            "end": 2.333,
-            "trigger": "flashing",
-            "score": 0.9393,
-            "source": "flash_detector"
-          },
-          "ground_truth": {
-            "clip": "flash_rate_6hz_24fps_full_c050.mp4",
-            "trigger": "flashing",
-            "start": 1.0,
-            "end": 2.333,
-            "labeller": "synthetic_generator",
-            "actual_rate": 6.0
-          },
+          "clip": "flash_rate_6hz_24fps_full_c050.mp4",
           "trigger": "flashing",
-          "iou": 1.0,
-          "onset_error": 0.0,
-          "offset_error": 0.0,
-          "abs_onset_error": 0.0,
-          "abs_offset_error": 0.0
+          "start": 1.0,
+          "end": 2.333,
+          "labeller": "synthetic_generator",
+          "actual_rate": 6.0
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "flash_rate_6hz_24fps_full_c050.mp4",
         "duration": 3.333,
@@ -2381,6 +2358,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "flashing",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "flashing",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {
@@ -2492,45 +2555,30 @@
       "clip_name": "audio_gunshot_test.mp4",
       "trigger": "gunshot",
       "ground_truth_count": 1,
-      "prediction_count": 1,
-      "true_positives": 1,
+      "prediction_count": 0,
+      "true_positives": 0,
       "false_positives": 0,
-      "false_negatives": 0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "mean_iou": 0.5208,
-      "mean_onset_error": -0.06,
-      "mean_offset_error": 0.4,
-      "mean_abs_onset_error": 0.06,
-      "mean_abs_offset_error": 0.4,
-      "matches": [
+      "false_negatives": 1,
+      "precision": null,
+      "recall": 0.0,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [
         {
-          "prediction": {
-            "start": 1.44,
-            "end": 2.4,
-            "trigger": "gunshot",
-            "score": 0.8081,
-            "source": "audio_event_classifier"
-          },
-          "ground_truth": {
-            "clip": "audio_gunshot_test.mp4",
-            "trigger": "gunshot",
-            "start": 1.5,
-            "end": 2.0,
-            "labeller": "synthetic_generator",
-            "actual_rate": null
-          },
+          "clip": "audio_gunshot_test.mp4",
           "trigger": "gunshot",
-          "iou": 0.5208,
-          "onset_error": -0.06,
-          "offset_error": 0.4,
-          "abs_onset_error": 0.06,
-          "abs_offset_error": 0.4
+          "start": 1.5,
+          "end": 2.0,
+          "labeller": "synthetic_generator",
+          "actual_rate": null
         }
       ],
-      "unmatched_predictions": [],
-      "unmatched_ground_truth": [],
       "metadata": {
         "clip_name": "audio_gunshot_test.mp4",
         "duration": 4.0,
@@ -2669,6 +2717,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "gunshot",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "gunshot",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {
@@ -2904,6 +3038,92 @@
       }
     },
     {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "jump_scare",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "jump_scare",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
+      }
+    },
+    {
       "clip_name": "video_negative_slow_fade.mp4",
       "trigger": "jump_scare",
       "ground_truth_count": 0,
@@ -3030,7 +3250,7 @@
           "start": 1.5,
           "end": 1.6,
           "trigger": "loud_spike",
-          "score": 0.636,
+          "score": 0.573,
           "source": "loudness_detector"
         }
       ],
@@ -3087,7 +3307,7 @@
           "start": 2.0,
           "end": 2.1,
           "trigger": "loud_spike",
-          "score": 0.616,
+          "score": 0.587,
           "source": "loudness_detector"
         }
       ],
@@ -3192,6 +3412,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "loud_spike",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "loud_spike",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {
@@ -3457,6 +3763,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "profanity",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "profanity",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {
@@ -3730,6 +4122,92 @@
           "event_type": "calm_dialogue"
         },
         "description": "Negative baseline clip without acoustic spikes"
+      }
+    },
+    {
+      "clip_name": "fast_motion_negative.mp4",
+      "trigger": "scream",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "fast_motion_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "fast_motion_neg_01",
+          "filename": "fast_motion_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gentle/slow-panning spatial translation at 2px per frame."
+        },
+        "clip_id": "fast_motion_neg_01",
+        "filename": "fast_motion_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
+      }
+    },
+    {
+      "clip_name": "jump_scare_negative.mp4",
+      "trigger": "scream",
+      "ground_truth_count": 0,
+      "prediction_count": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": null,
+      "recall": null,
+      "f1": null,
+      "mean_iou": null,
+      "mean_onset_error": null,
+      "mean_offset_error": null,
+      "mean_abs_onset_error": null,
+      "mean_abs_offset_error": null,
+      "matches": [],
+      "unmatched_predictions": [],
+      "unmatched_ground_truth": [],
+      "metadata": {
+        "clip_name": "jump_scare_negative.mp4",
+        "duration": 3.0,
+        "fps": 30.0,
+        "width": 1280,
+        "height": 720,
+        "trigger": null,
+        "start": null,
+        "end": null,
+        "labeller": "synthetic_generator",
+        "metadata": {
+          "clip_id": "jump_scare_neg_01",
+          "filename": "jump_scare_negative.mp4",
+          "contains_trigger": false,
+          "experimental": true,
+          "description": "Gradual fade from black to dark gray with soft audio swell."
+        },
+        "clip_id": "jump_scare_neg_01",
+        "filename": "jump_scare_negative.mp4",
+        "contains_trigger": false,
+        "experimental": true,
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       }
     },
     {

@@ -1,0 +1,16 @@
+{
+  "provenance": {
+    "stage": "subtitles",
+    "status": "ok",
+    "source_file": "data/subtitles/sintel.srt",
+    "wordlist_path": null,
+    "evidence_type": "subtitle_text",
+    "timing_type": "estimated",
+    "libs": {
+      "pysrt": "1.1.2",
+      "python": "3.14.0"
+    },
+    "timestamp_utc": "2026-10-20T10:50:16.964831+00:00"
+  },
+  "detections": []
+}

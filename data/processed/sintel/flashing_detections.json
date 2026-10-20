@@ -1,0 +1,80 @@
+{
+  "film_id": "sintel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 888.032,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 42.417,
+      "end": 45.833,
+      "trigger": "flashing",
+      "score": 0.548,
+      "source": "flash_detector"
+    },
+    {
+      "start": 47.0,
+      "end": 47.5,
+      "trigger": "flashing",
+      "score": 0.4705,
+      "source": "flash_detector"
+    },
+    {
+      "start": 53.833,
+      "end": 55.958,
+      "trigger": "flashing",
+      "score": 0.4553,
+      "source": "flash_detector"
+    },
+    {
+      "start": 250.875,
+      "end": 252.958,
+      "trigger": "flashing",
+      "score": 0.4008,
+      "source": "flash_detector"
+    },
+    {
+      "start": 254.667,
+      "end": 255.792,
+      "trigger": "flashing",
+      "score": 0.4115,
+      "source": "flash_detector"
+    },
+    {
+      "start": 314.958,
+      "end": 317.542,
+      "trigger": "flashing",
+      "score": 0.3913,
+      "source": "flash_detector"
+    },
+    {
+      "start": 325.375,
+      "end": 326.458,
+      "trigger": "flashing",
+      "score": 0.4738,
+      "source": "flash_detector"
+    },
+    {
+      "start": 332.125,
+      "end": 334.083,
+      "trigger": "flashing",
+      "score": 0.543,
+      "source": "flash_detector"
+    },
+    {
+      "start": 434.333,
+      "end": 435.417,
+      "trigger": "flashing",
+      "score": 0.6288,
+      "source": "flash_detector"
+    },
+    {
+      "start": 559.5,
+      "end": 560.333,
+      "trigger": "flashing",
+      "score": 0.4069,
+      "source": "flash_detector"
+    }
+  ]
+}

@@ -1,0 +1,622 @@
+{
+  "schema_version": 1,
+  "record_type": "raw_detections",
+  "film_id": "tears_of_steel",
+  "synthetic": false,
+  "total_detections": 87,
+  "detections": [
+    {
+      "start": 1.5,
+      "end": 3.2,
+      "trigger": "loud_spike",
+      "score": 0.722,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 5.3,
+      "end": 5.4,
+      "trigger": "loud_spike",
+      "score": 0.432,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 6.9,
+      "end": 7.1,
+      "trigger": "loud_spike",
+      "score": 0.475,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 9.6,
+      "end": 12.6,
+      "trigger": "loud_spike",
+      "score": 0.496,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 61.1,
+      "end": 61.2,
+      "trigger": "loud_spike",
+      "score": 0.425,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 63.9,
+      "end": 64.3,
+      "trigger": "loud_spike",
+      "score": 0.465,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 64.4,
+      "end": 65.1,
+      "trigger": "loud_spike",
+      "score": 0.566,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 65.4,
+      "end": 65.7,
+      "trigger": "loud_spike",
+      "score": 0.475,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 107.9,
+      "end": 108.0,
+      "trigger": "loud_spike",
+      "score": 0.409,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 109.0,
+      "end": 109.3,
+      "trigger": "loud_spike",
+      "score": 0.419,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 109.9,
+      "end": 110.0,
+      "trigger": "loud_spike",
+      "score": 0.418,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 131.4,
+      "end": 131.9,
+      "trigger": "loud_spike",
+      "score": 0.617,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 132.0,
+      "end": 132.3,
+      "trigger": "loud_spike",
+      "score": 0.699,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 132.4,
+      "end": 132.5,
+      "trigger": "loud_spike",
+      "score": 0.415,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 136.6,
+      "end": 136.7,
+      "trigger": "loud_spike",
+      "score": 0.582,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 136.8,
+      "end": 136.9,
+      "trigger": "loud_spike",
+      "score": 0.466,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 137.0,
+      "end": 137.2,
+      "trigger": "loud_spike",
+      "score": 0.581,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 147.4,
+      "end": 148.6,
+      "trigger": "loud_spike",
+      "score": 0.563,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 149.0,
+      "end": 150.0,
+      "trigger": "loud_spike",
+      "score": 0.531,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 150.2,
+      "end": 150.4,
+      "trigger": "loud_spike",
+      "score": 0.48,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 193.7,
+      "end": 193.9,
+      "trigger": "loud_spike",
+      "score": 0.415,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 197.8,
+      "end": 197.9,
+      "trigger": "loud_spike",
+      "score": 0.482,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 198.0,
+      "end": 198.1,
+      "trigger": "loud_spike",
+      "score": 0.523,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 204.2,
+      "end": 204.3,
+      "trigger": "loud_spike",
+      "score": 0.419,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 205.2,
+      "end": 205.4,
+      "trigger": "loud_spike",
+      "score": 0.493,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 235.7,
+      "end": 235.9,
+      "trigger": "loud_spike",
+      "score": 0.449,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 237.7,
+      "end": 237.8,
+      "trigger": "loud_spike",
+      "score": 0.46,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 241.6,
+      "end": 241.8,
+      "trigger": "loud_spike",
+      "score": 0.586,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 254.3,
+      "end": 254.6,
+      "trigger": "loud_spike",
+      "score": 0.686,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 255.6,
+      "end": 255.9,
+      "trigger": "loud_spike",
+      "score": 0.587,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 256.0,
+      "end": 256.7,
+      "trigger": "loud_spike",
+      "score": 0.521,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 256.9,
+      "end": 257.1,
+      "trigger": "loud_spike",
+      "score": 0.451,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 257.5,
+      "end": 257.8,
+      "trigger": "loud_spike",
+      "score": 0.548,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 286.6,
+      "end": 286.7,
+      "trigger": "loud_spike",
+      "score": 0.428,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 287.9,
+      "end": 288.2,
+      "trigger": "loud_spike",
+      "score": 0.525,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 288.7,
+      "end": 288.9,
+      "trigger": "loud_spike",
+      "score": 0.888,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 292.9,
+      "end": 293.3,
+      "trigger": "loud_spike",
+      "score": 0.516,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 294.3,
+      "end": 294.6,
+      "trigger": "loud_spike",
+      "score": 0.657,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 294.7,
+      "end": 295.0,
+      "trigger": "loud_spike",
+      "score": 0.596,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 297.0,
+      "end": 297.2,
+      "trigger": "loud_spike",
+      "score": 0.584,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 297.3,
+      "end": 297.5,
+      "trigger": "loud_spike",
+      "score": 0.484,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 297.7,
+      "end": 297.9,
+      "trigger": "loud_spike",
+      "score": 0.473,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 298.0,
+      "end": 298.1,
+      "trigger": "loud_spike",
+      "score": 0.408,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 299.3,
+      "end": 299.5,
+      "trigger": "loud_spike",
+      "score": 0.486,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 299.8,
+      "end": 299.9,
+      "trigger": "loud_spike",
+      "score": 0.407,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 300.1,
+      "end": 300.5,
+      "trigger": "loud_spike",
+      "score": 0.713,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 301.4,
+      "end": 301.6,
+      "trigger": "loud_spike",
+      "score": 0.664,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 309.1,
+      "end": 309.2,
+      "trigger": "loud_spike",
+      "score": 0.443,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 318.5,
+      "end": 318.6,
+      "trigger": "loud_spike",
+      "score": 0.407,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 319.0,
+      "end": 319.1,
+      "trigger": "loud_spike",
+      "score": 0.519,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 319.6,
+      "end": 319.7,
+      "trigger": "loud_spike",
+      "score": 0.448,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 322.1,
+      "end": 322.3,
+      "trigger": "loud_spike",
+      "score": 0.494,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 336.2,
+      "end": 336.9,
+      "trigger": "loud_spike",
+      "score": 0.537,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 337.0,
+      "end": 337.2,
+      "trigger": "loud_spike",
+      "score": 0.408,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 338.0,
+      "end": 338.4,
+      "trigger": "loud_spike",
+      "score": 0.554,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 362.6,
+      "end": 362.7,
+      "trigger": "loud_spike",
+      "score": 0.418,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 367.4,
+      "end": 367.5,
+      "trigger": "loud_spike",
+      "score": 0.535,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 367.8,
+      "end": 367.9,
+      "trigger": "loud_spike",
+      "score": 0.467,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 368.0,
+      "end": 368.1,
+      "trigger": "loud_spike",
+      "score": 0.415,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 368.2,
+      "end": 368.3,
+      "trigger": "loud_spike",
+      "score": 0.444,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 369.3,
+      "end": 369.8,
+      "trigger": "loud_spike",
+      "score": 0.644,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 369.9,
+      "end": 370.3,
+      "trigger": "loud_spike",
+      "score": 0.443,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 370.5,
+      "end": 370.7,
+      "trigger": "loud_spike",
+      "score": 0.455,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 372.1,
+      "end": 372.4,
+      "trigger": "loud_spike",
+      "score": 0.491,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 416.2,
+      "end": 417.2,
+      "trigger": "loud_spike",
+      "score": 0.586,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 417.3,
+      "end": 417.4,
+      "trigger": "loud_spike",
+      "score": 0.407,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 419.7,
+      "end": 419.9,
+      "trigger": "loud_spike",
+      "score": 0.679,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 424.1,
+      "end": 424.3,
+      "trigger": "loud_spike",
+      "score": 0.53,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 426.0,
+      "end": 426.2,
+      "trigger": "loud_spike",
+      "score": 0.521,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 426.3,
+      "end": 427.2,
+      "trigger": "loud_spike",
+      "score": 0.524,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 427.4,
+      "end": 427.7,
+      "trigger": "loud_spike",
+      "score": 0.497,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 427.9,
+      "end": 428.0,
+      "trigger": "loud_spike",
+      "score": 0.459,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 428.2,
+      "end": 428.3,
+      "trigger": "loud_spike",
+      "score": 0.41,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 521.3,
+      "end": 521.4,
+      "trigger": "loud_spike",
+      "score": 0.42,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 522.7,
+      "end": 523.8,
+      "trigger": "loud_spike",
+      "score": 0.461,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 524.2,
+      "end": 524.3,
+      "trigger": "loud_spike",
+      "score": 0.41,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 538.4,
+      "end": 538.5,
+      "trigger": "loud_spike",
+      "score": 0.44,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 538.7,
+      "end": 538.8,
+      "trigger": "loud_spike",
+      "score": 0.401,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 540.9,
+      "end": 541.6,
+      "trigger": "loud_spike",
+      "score": 0.489,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 541.7,
+      "end": 541.8,
+      "trigger": "loud_spike",
+      "score": 0.417,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 559.2,
+      "end": 559.4,
+      "trigger": "loud_spike",
+      "score": 0.526,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 560.6,
+      "end": 560.9,
+      "trigger": "loud_spike",
+      "score": 0.542,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 562.0,
+      "end": 562.5,
+      "trigger": "loud_spike",
+      "score": 0.537,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 562.6,
+      "end": 563.5,
+      "trigger": "loud_spike",
+      "score": 0.558,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 563.7,
+      "end": 563.9,
+      "trigger": "loud_spike",
+      "score": 0.467,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 568.1,
+      "end": 568.2,
+      "trigger": "loud_spike",
+      "score": 0.435,
+      "source": "loudness_detector"
+    },
+    {
+      "start": 568.9,
+      "end": 569.0,
+      "trigger": "loud_spike",
+      "score": 0.428,
+      "source": "loudness_detector"
+    }
+  ],
+  "timeline": {
+    "duration_seconds": 734.167,
+    "fps": 24.0
+  }
+}

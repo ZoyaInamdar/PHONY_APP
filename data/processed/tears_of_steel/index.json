@@ -11,12 +11,380 @@
   },
   "cues": [
     {
-      "id": "cue_tears_of_steel_profanity_359500_361000",
-      "start": 359.5,
-      "end": 361.0,
-      "trigger": "profanity",
-      "score": 1.0,
-      "source": "profanity_detector"
+      "id": "cue_tears_of_steel_loud_spike_001500_003200",
+      "start": 1.5,
+      "end": 3.2,
+      "trigger": "loud_spike",
+      "score": 0.722,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_005300_007100",
+      "start": 5.3,
+      "end": 7.1,
+      "trigger": "loud_spike",
+      "score": 0.475,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_009600_012600",
+      "start": 9.6,
+      "end": 12.6,
+      "trigger": "loud_spike",
+      "score": 0.496,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_061100_061200",
+      "start": 61.1,
+      "end": 61.2,
+      "trigger": "loud_spike",
+      "score": 0.425,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_063900_065700",
+      "start": 63.9,
+      "end": 65.7,
+      "trigger": "loud_spike",
+      "score": 0.566,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_107900_110000",
+      "start": 107.9,
+      "end": 110.0,
+      "trigger": "loud_spike",
+      "score": 0.419,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_131400_132500",
+      "start": 131.4,
+      "end": 132.5,
+      "trigger": "loud_spike",
+      "score": 0.699,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_136600_137200",
+      "start": 136.6,
+      "end": 137.2,
+      "trigger": "loud_spike",
+      "score": 0.582,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_147400_150400",
+      "start": 147.4,
+      "end": 150.4,
+      "trigger": "loud_spike",
+      "score": 0.563,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_193700_193900",
+      "start": 193.7,
+      "end": 193.9,
+      "trigger": "loud_spike",
+      "score": 0.415,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_197800_198100",
+      "start": 197.8,
+      "end": 198.1,
+      "trigger": "loud_spike",
+      "score": 0.523,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_204200_205400",
+      "start": 204.2,
+      "end": 205.4,
+      "trigger": "loud_spike",
+      "score": 0.493,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_235700_237800",
+      "start": 235.7,
+      "end": 237.8,
+      "trigger": "loud_spike",
+      "score": 0.46,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_241600_241800",
+      "start": 241.6,
+      "end": 241.8,
+      "trigger": "loud_spike",
+      "score": 0.586,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_254300_257800",
+      "start": 254.3,
+      "end": 257.8,
+      "trigger": "loud_spike",
+      "score": 0.686,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_286600_288900",
+      "start": 286.6,
+      "end": 288.9,
+      "trigger": "loud_spike",
+      "score": 0.888,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_292900_301600",
+      "start": 292.9,
+      "end": 301.6,
+      "trigger": "loud_spike",
+      "score": 0.713,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_307708_308500",
+      "start": 307.708,
+      "end": 308.5,
+      "trigger": "flashing",
+      "score": 0.4493,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_309100_309200",
+      "start": 309.1,
+      "end": 309.2,
+      "trigger": "loud_spike",
+      "score": 0.443,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_318500_319700",
+      "start": 318.5,
+      "end": 319.7,
+      "trigger": "loud_spike",
+      "score": 0.519,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_322100_322300",
+      "start": 322.1,
+      "end": 322.3,
+      "trigger": "loud_spike",
+      "score": 0.494,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_336200_338400",
+      "start": 336.2,
+      "end": 338.4,
+      "trigger": "loud_spike",
+      "score": 0.554,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_362600_362700",
+      "start": 362.6,
+      "end": 362.7,
+      "trigger": "loud_spike",
+      "score": 0.418,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_367400_372400",
+      "start": 367.4,
+      "end": 372.4,
+      "trigger": "loud_spike",
+      "score": 0.644,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_explosion_369120_370080",
+      "start": 369.12,
+      "end": 370.08,
+      "trigger": "explosion",
+      "score": 0.7388,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_416200_417400",
+      "start": 416.2,
+      "end": 417.4,
+      "trigger": "loud_spike",
+      "score": 0.586,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_419700_419900",
+      "start": 419.7,
+      "end": 419.9,
+      "trigger": "loud_spike",
+      "score": 0.679,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_424100_428300",
+      "start": 424.1,
+      "end": 428.3,
+      "trigger": "loud_spike",
+      "score": 0.53,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_gunshot_438240_439200",
+      "start": 438.24,
+      "end": 439.2,
+      "trigger": "gunshot",
+      "score": 0.8413,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_464833_466333",
+      "start": 464.833,
+      "end": 466.333,
+      "trigger": "flashing",
+      "score": 0.4051,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_468333_473125",
+      "start": 468.333,
+      "end": 473.125,
+      "trigger": "flashing",
+      "score": 0.4053,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_gunshot_469440_470400",
+      "start": 469.44,
+      "end": 470.4,
+      "trigger": "gunshot",
+      "score": 0.8093,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_483417_485500",
+      "start": 483.417,
+      "end": 485.5,
+      "trigger": "flashing",
+      "score": 0.543,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_explosion_489120_490080",
+      "start": 489.12,
+      "end": 490.08,
+      "trigger": "explosion",
+      "score": 0.7419,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_491583_493333",
+      "start": 491.583,
+      "end": 493.333,
+      "trigger": "flashing",
+      "score": 0.3775,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_gunshot_493440_494400",
+      "start": 493.44,
+      "end": 494.4,
+      "trigger": "gunshot",
+      "score": 0.7617,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_explosion_493440_497760",
+      "start": 493.44,
+      "end": 497.76,
+      "trigger": "explosion",
+      "score": 0.8294,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_521300_524300",
+      "start": 521.3,
+      "end": 524.3,
+      "trigger": "loud_spike",
+      "score": 0.461,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_538400_538800",
+      "start": 538.4,
+      "end": 538.8,
+      "trigger": "loud_spike",
+      "score": 0.44,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_540900_541800",
+      "start": 540.9,
+      "end": 541.8,
+      "trigger": "loud_spike",
+      "score": 0.489,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_explosion_541440_542400",
+      "start": 541.44,
+      "end": 542.4,
+      "trigger": "explosion",
+      "score": 0.7059,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_gunshot_541440_542400",
+      "start": 541.44,
+      "end": 542.4,
+      "trigger": "gunshot",
+      "score": 0.7724,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_559200_563900",
+      "start": 559.2,
+      "end": 563.9,
+      "trigger": "loud_spike",
+      "score": 0.558,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_loud_spike_568100_569000",
+      "start": 568.1,
+      "end": 569.0,
+      "trigger": "loud_spike",
+      "score": 0.435,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_594083_594500",
+      "start": 594.083,
+      "end": 594.5,
+      "trigger": "flashing",
+      "score": 0.5644,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_597625_597917",
+      "start": 597.625,
+      "end": 597.917,
+      "trigger": "flashing",
+      "score": 0.6359,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_tears_of_steel_flashing_604542_604792",
+      "start": 604.542,
+      "end": 604.792,
+      "trigger": "flashing",
+      "score": 0.4773,
+      "source": "flash_detector"
     }
   ]
 }

@@ -1,0 +1,66 @@
+{
+  "film_id": "tears_of_steel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 734.167,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 307.708,
+      "end": 308.5,
+      "trigger": "flashing",
+      "score": 0.4493,
+      "source": "flash_detector"
+    },
+    {
+      "start": 464.833,
+      "end": 466.333,
+      "trigger": "flashing",
+      "score": 0.4051,
+      "source": "flash_detector"
+    },
+    {
+      "start": 468.333,
+      "end": 473.125,
+      "trigger": "flashing",
+      "score": 0.4053,
+      "source": "flash_detector"
+    },
+    {
+      "start": 483.417,
+      "end": 485.5,
+      "trigger": "flashing",
+      "score": 0.543,
+      "source": "flash_detector"
+    },
+    {
+      "start": 491.583,
+      "end": 493.333,
+      "trigger": "flashing",
+      "score": 0.3775,
+      "source": "flash_detector"
+    },
+    {
+      "start": 594.083,
+      "end": 594.5,
+      "trigger": "flashing",
+      "score": 0.5644,
+      "source": "flash_detector"
+    },
+    {
+      "start": 597.625,
+      "end": 597.917,
+      "trigger": "flashing",
+      "score": 0.6359,
+      "source": "flash_detector"
+    },
+    {
+      "start": 604.542,
+      "end": 604.792,
+      "trigger": "flashing",
+      "score": 0.4773,
+      "source": "flash_detector"
+    }
+  ]
+}

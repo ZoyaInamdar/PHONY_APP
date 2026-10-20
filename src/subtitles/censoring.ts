@@ -1,4 +1,4 @@
-import { SubtitleCue, TimedCue } from './types';
+import type { SubtitleCue, TimedCue } from './types';
 
 /**
  * Escapes regex special characters in a string.
@@ -17,7 +17,7 @@ function escapeRegex(str: string): string {
  * - Length > 2: keeps first and last char, replaces middle with '*' (e.g. "damn" -> "d**n")
  */
 export function censorText(text: string, flaggedWords: string[]): string {
-  if (!text) return '';
+  if (typeof text !== 'string' || !text) return '';
   if (!flaggedWords || flaggedWords.length === 0) return text;
 
   let censored = text;
@@ -88,6 +88,7 @@ export function extractFlaggedWords(cue: SubtitleCue | TimedCue): string[] {
       } else if (
         typeof term.char_start === 'number' &&
         typeof term.char_end === 'number' &&
+        typeof cue.text === 'string' &&
         cue.text
       ) {
         words.push(cue.text.substring(term.char_start, term.char_end));

@@ -1,4 +1,4 @@
-import { SubtitleCue } from './types';
+import type { SubtitleCue } from './types';
 import { extractFlaggedWords, processCueText } from './censoring';
 import { resolveActions } from '../engine/resolveActions';
 import { Cue, DEFAULT_VIEWER_OPTIONS, ViewerOptions } from '../engine/types';
@@ -53,10 +53,19 @@ export function getActiveCaption(
 
   const subtitleCues: SubtitleCue[] =
     userSettings?.cues ?? userSettings?.subtitleCues ?? defaultParsedCues;
+  if (!Array.isArray(subtitleCues)) {
+    return null;
+  }
 
   // Find the active subtitle cue at the current playback time [start, end)
   const activeCue = subtitleCues.find(
-    (cue) => cue.start <= currentTime && currentTime < cue.end,
+    (cue) =>
+      cue &&
+      typeof cue === 'object' &&
+      typeof cue.start === 'number' &&
+      typeof cue.end === 'number' &&
+      cue.start <= currentTime &&
+      currentTime < cue.end,
   );
 
   if (!activeCue) {
@@ -103,19 +112,22 @@ export function getActiveCaption(
 
   // If action is demanded for profanity, censor flagged words; otherwise leave speech text uncensored
   const wordsToCensor = isActionDemanded ? flaggedWords : [];
+  const rawText = typeof activeCue.text === 'string' ? activeCue.text : '';
+  const cueKind =
+    activeCue.kind === 'sound_description' ? 'sound_description' : 'speech';
   const processedText = processCueText(
-    activeCue.text,
-    activeCue.kind,
+    rawText,
+    cueKind,
     wordsToCensor,
     replaceSoundDescriptions,
   );
 
   return {
-    id: activeCue.id,
+    id: typeof activeCue.id === 'string' ? activeCue.id : String(activeCue.id ?? ''),
     start: activeCue.start,
     end: activeCue.end,
-    kind: activeCue.kind,
-    rawText: activeCue.text,
+    kind: cueKind,
+    rawText,
     processedText,
     flaggedWords,
     isActionDemanded,

@@ -1,6 +1,10 @@
 import { Cue } from '../engine/types';
+import type { SubtitleCue } from '../subtitles/types';
+import { validateSubtitleCues } from '../subtitles/validation';
 import { adaptPackagedIndex } from '../engine/packagedIndexAdapter';
 import { DEFAULT_TRIGGER_POLICIES } from './defaultTriggerPolicies';
+
+export { validateSubtitleCues };
 
 export interface FilmCatalogueEntry {
   film_id: string;
@@ -11,6 +15,8 @@ export interface FilmCatalogueEntry {
   video_url: string;
   index_path: string;
   loadIndex: () => unknown;
+  subtitles_path?: string | null;
+  loadSubtitles?: () => SubtitleCue[];
 }
 
 export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
@@ -24,6 +30,8 @@ export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
     video_url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
     index_path: 'data/index.json',
     loadIndex: () => require('../../data/index.json'),
+    subtitles_path: 'data/processed/sintel/cues.json',
+    loadSubtitles: () => require('../../data/processed/sintel/cues.json'),
   },
   tears_of_steel: {
     film_id: 'tears_of_steel',
@@ -36,6 +44,8 @@ export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
       'https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov',
     index_path: 'data/tears_of_steel_index.json',
     loadIndex: () => require('../../data/tears_of_steel_index.json'),
+    subtitles_path: 'data/processed/tears_of_steel/cues.json',
+    loadSubtitles: () => require('../../data/processed/tears_of_steel/cues.json'),
   },
 };
 
@@ -112,3 +122,32 @@ export function loadFilmCues(filmId: string, customPolicies?: unknown): Cue[] {
     (customPolicies as any) ?? DEFAULT_TRIGGER_POLICIES;
   return adaptPackagedIndex(rawIndex, policies);
 }
+
+/**
+ * Loads parsed subtitle cues for a given film.
+ * Returns empty array if the film has no subtitle tracks configured.
+ * Never silently falls back to another film's subtitles.
+ */
+export function loadFilmSubtitles(filmId: string): SubtitleCue[] {
+  const entry = getFilm(filmId);
+  if (!entry.loadSubtitles) {
+    return [];
+  }
+  let rawSubtitles: any;
+  try {
+    rawSubtitles = entry.loadSubtitles();
+  } catch (err: any) {
+    throw new Error(
+      `Failed to load subtitles for "${filmId}" from "${entry.subtitles_path}": ${err?.message ?? err}`,
+    );
+  }
+
+  if (!Array.isArray(rawSubtitles)) {
+    throw new Error(
+      `Subtitles for "${filmId}" at "${entry.subtitles_path}" must be an array.`,
+    );
+  }
+
+  return validateSubtitleCues(rawSubtitles, { filmId });
+}
+

@@ -27,7 +27,11 @@ import {loadAndValidateFilmIndex} from '../engine/validatedPlayback';
 import {
   getFilmMetadata,
   loadFilmCues,
+  loadFilmSubtitles,
+  validateSubtitleCues,
 } from '../data/catalogue';
+import type {SubtitleCue} from '../subtitles/types';
+import {CaptionRenderer} from './CaptionRenderer';
 import {
   PROMPT_HARNESS_SCENARIOS,
   PromptScenario,
@@ -79,6 +83,7 @@ export interface PlayerScreenProps {
   onBack: () => void;
   filmId?: string;
   cues?: Cue[];
+  subtitles?: SubtitleCue[];
   options?: Partial<ViewerOptions>;
   initialProfile?: PlayerProfile;
   testVideoUrl?: string;
@@ -179,6 +184,7 @@ export const PlayerScreen = ({
   onBack,
   filmId: initialFilmId = 'sintel',
   cues: customCues,
+  subtitles: customSubtitles,
   options: customOptions,
   initialProfile,
   testVideoUrl,
@@ -242,6 +248,7 @@ export const PlayerScreen = ({
 
   // Load cues for standard index profile with strict validation (no silent fallback)
   let standardIndexCues: Cue[] = [];
+  let filmSubtitles: SubtitleCue[] = [];
   let indexLoadError: string | null = null;
   if (!filmMetadata) {
     indexLoadError = `Unknown film ID: "${currentFilmId}". No matching entry found in catalogue.`;
@@ -250,6 +257,20 @@ export const PlayerScreen = ({
       standardIndexCues = loadFilmCues(currentFilmId);
     } catch (err: any) {
       indexLoadError = `Failed to load packaged index for "${currentFilmId}": ${err?.message ?? err}`;
+    }
+    if (customSubtitles && currentFilmId === initialFilmId) {
+      try {
+        filmSubtitles = validateSubtitleCues(customSubtitles, { filmId: currentFilmId });
+      } catch (err: any) {
+        console.warn(`[PlayerScreen] Invalid custom subtitles for "${currentFilmId}":`, err?.message ?? err);
+        filmSubtitles = [];
+      }
+    } else {
+      try {
+        filmSubtitles = loadFilmSubtitles(currentFilmId);
+      } catch (err: any) {
+        console.warn(`[PlayerScreen] Failed to load subtitles for "${currentFilmId}":`, err);
+      }
     }
   }
 
@@ -2096,6 +2117,16 @@ export const PlayerScreen = ({
             )}
           </View>
         )}
+
+        {/* Film-specific subtitle captions with profanity masking */}
+        <CaptionRenderer
+          currentTime={currentTime}
+          userSettings={{
+            cues: filmSubtitles,
+            engineCues: standardIndexCues,
+            viewerOptions,
+          }}
+        />
       </View>
 
       {/* Heads-up warning banner for warn cues */}

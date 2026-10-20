@@ -33,6 +33,14 @@ export const CueSource = {};
 export const CueStatus = {};
 export const ViewerOptions = {};
 export const EffectiveActions = {};
+export const SubtitleCue = {};
+export const TimedCue = {};
+export const CueKind = {};
+export const FlaggedTerm = {};
+export const FlaggedWordSummary = {};
+export const RawDetection = {};
+export const SubtitlesParseResult = {};
+
 `;
     return {
       format: result.format,

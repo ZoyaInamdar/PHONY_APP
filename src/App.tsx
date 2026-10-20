@@ -6,12 +6,12 @@ import {Tile} from './components/Tile';
 import {tiles} from './data/tiles';
 import {PlayerScreen} from './components/PlayerScreen';
 import {SettingsScreen} from './components/SettingsScreen';
-import {FILM_CATALOGUE} from './data/filmCatalogue';
+import {FILM_CATALOGUE} from './data/catalogue';
 
 export const App = ({
   initialShowPlayer = false,
   initialShowSettings = false,
-  initialFilmId = 'sintel_trailer',
+  initialFilmId = 'sintel',
 }: {
   initialShowPlayer?: boolean;
   initialShowSettings?: boolean;

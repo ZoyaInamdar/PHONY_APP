@@ -1,6 +1,6 @@
 # Multi-Detector Same-Timeline Evaluation Report — Trigger-Aware Player
 
-**Generated:** 2026-10-19T05:56:33.322589+00:00  
+**Generated:** 2026-10-20T07:21:59.238108+00:00  
 **Evaluator Role:** Person B — Media Ingestion, Packaging, and Pipeline Integration  
 **Film ID:** `multi_trigger_test` (15.000 seconds)  
 **Matching Policy:** One-to-one temporal matching with $\text{tIoU} \ge 0.5$  

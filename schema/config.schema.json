@@ -76,25 +76,31 @@
       "type": "object",
       "required": [
         "flashing",
-        "loud_spike",
+        "profanity",
         "gunshot",
         "explosion",
         "scream",
-        "profanity",
+        "loud_spike",
+        "sustained_loudness",
         "spider",
+        "insect",
         "fast_motion",
-        "jump_scare"
+        "jump_scare",
+        "visible_blood"
       ],
       "properties": {
         "flashing": { "$ref": "#/$defs/trigger_definition" },
-        "loud_spike": { "$ref": "#/$defs/trigger_definition" },
+        "profanity": { "$ref": "#/$defs/trigger_definition" },
         "gunshot": { "$ref": "#/$defs/trigger_definition" },
         "explosion": { "$ref": "#/$defs/trigger_definition" },
         "scream": { "$ref": "#/$defs/trigger_definition" },
-        "profanity": { "$ref": "#/$defs/trigger_definition" },
+        "loud_spike": { "$ref": "#/$defs/trigger_definition" },
+        "sustained_loudness": { "$ref": "#/$defs/trigger_definition" },
         "spider": { "$ref": "#/$defs/trigger_definition" },
+        "insect": { "$ref": "#/$defs/trigger_definition" },
         "fast_motion": { "$ref": "#/$defs/trigger_definition" },
-        "jump_scare": { "$ref": "#/$defs/trigger_definition" }
+        "jump_scare": { "$ref": "#/$defs/trigger_definition" },
+        "visible_blood": { "$ref": "#/$defs/trigger_definition" }
       },
       "additionalProperties": { "$ref": "#/$defs/trigger_definition" }
     },
@@ -277,13 +283,13 @@
         "threshold": { "type": ["number", "object"] },
         "default_action": {
           "type": "string",
-          "enum": ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
+          "enum": ["hide", "blur", "mute", "reduce", "skip", "warn"]
         },
         "allowed_actions": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
+            "enum": ["hide", "blur", "mute", "reduce", "skip", "warn"]
           },
           "minItems": 1
         },

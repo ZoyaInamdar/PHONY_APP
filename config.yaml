@@ -137,10 +137,9 @@ triggers:
     timing_resolution_seconds: 0.0417  # Approx 1 frame at 24 fps
     source: "flash_detector"
     threshold: 0.10  # Provisional per-cell relative luminance change threshold
-    default_action: "dim"
+    default_action: "hide"
     allowed_actions:
-      - "dim"
-      - "blur"
+      - "hide"
       - "skip"
       - "warn"
     padding_before_seconds: 0.5
@@ -207,10 +206,10 @@ triggers:
     timing_resolution_seconds: 0.1
     source: "loudness_detector"
     threshold: 12.0  # Decibels above rolling median reference
-    default_action: "mute"
+    default_action: "reduce"
     allowed_actions:
+      - "reduce"
       - "mute"
-      - "skip"
       - "warn"
     padding_before_seconds: 0.3
     padding_after_seconds: 0.7
@@ -243,6 +242,34 @@ triggers:
         It will NOT reliably flag sustained, consistently loud audio (e.g. continuous war
         battles, rock concerts, or sustained jet engines), where the median rises to meet the signal.
 
+
+  # ----------------------------------------------------------------------------
+  # Sustained Loudness (Audio — Long-Term RMS)
+  # ----------------------------------------------------------------------------
+  sustained_loudness:
+    display_name: "Sustained Loudness"
+    description: "Prolonged high acoustic energy (e.g. continuous battles, loud score, sustained engines)."
+    enabled: false
+    status: "experimental"
+    modality: "audio"
+    method: "long_term_rms"
+    ml_model_required: false
+    input: "audio.wav (downmixed mono PCM, 44.1 kHz or 48 kHz)"
+    timing_resolution_seconds: 1.0
+    source: "loudness_detector"
+    threshold: -14.0
+    default_action: "reduce"
+    allowed_actions:
+      - "reduce"
+      - "mute"
+      - "warn"
+      - "skip"
+    padding_before_seconds: 0.5
+    padding_after_seconds: 1.0
+    merge_gap_seconds: 2.0
+    min_segment_duration_seconds: 2.0
+    max_segment_duration_seconds: 60.0
+
   # ----------------------------------------------------------------------------
   # C. Gunshot (Audio — Pretrained Audio Classification)
   # ----------------------------------------------------------------------------
@@ -261,6 +288,7 @@ triggers:
     default_action: "mute"
     allowed_actions:
       - "mute"
+      - "reduce"
       - "skip"
       - "warn"
     padding_before_seconds: 0.5
@@ -316,8 +344,9 @@ triggers:
     timing_resolution_seconds: 1.0
     source: "audio_event_classifier"
     threshold: 0.70  # Provisional model confidence threshold
-    default_action: "mute"
+    default_action: "reduce"
     allowed_actions:
+      - "reduce"
       - "mute"
       - "skip"
       - "warn"
@@ -371,8 +400,9 @@ triggers:
     timing_resolution_seconds: 1.0
     source: "audio_event_classifier"
     threshold: 0.60  # Provisional model confidence threshold
-    default_action: "mute"
+    default_action: "reduce"
     allowed_actions:
+      - "reduce"
       - "mute"
       - "skip"
       - "warn"
@@ -503,8 +533,9 @@ triggers:
     timing_resolution_seconds: 1.0
     source: "spider_detector"
     threshold: 0.70  # Softmax probability threshold over positive and negative prompt set
-    default_action: "blur"
+    default_action: "hide"
     allowed_actions:
+      - "hide"
       - "blur"
       - "skip"
       - "warn"
@@ -567,6 +598,34 @@ triggers:
         blur, and visually similar objects (crabs, scorpions, octopus tentacles, bare twigs,
         dense cobwebs) can trigger false positives.
 
+
+  # ----------------------------------------------------------------------------
+  # Insect (Visual — Zero-Shot Multimodal Image-Text Matching)
+  # ----------------------------------------------------------------------------
+  insect:
+    display_name: "Insects / Swarms"
+    description: "Visual appearance of crawling insects, bugs, wasps, or bees for phobia avoidance."
+    enabled: false
+    status: "experimental"
+    modality: "visual"
+    method: "zero_shot_multimodal"
+    ml_model_required: true
+    input: "Precomputed video frames sampled at 1 frame per second (1 fps)"
+    timing_resolution_seconds: 1.0
+    source: "insect_detector"
+    threshold: 0.70
+    default_action: "hide"
+    allowed_actions:
+      - "hide"
+      - "blur"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 1.0
+    padding_after_seconds: 1.5
+    merge_gap_seconds: 3.0
+    min_segment_duration_seconds: 1.0
+    max_segment_duration_seconds: 60.0
+
   # ----------------------------------------------------------------------------
   # H. Fast Motion (Visual — Stretch Feature / Experimental)
   # ----------------------------------------------------------------------------
@@ -585,7 +644,7 @@ triggers:
     default_action: "warn"
     allowed_actions:
       - "warn"
-      - "dim"
+      - "hide"
       - "skip"
     padding_before_seconds: 0.5
     padding_after_seconds: 0.5
@@ -627,6 +686,7 @@ triggers:
     default_action: "warn"
     allowed_actions:
       - "warn"
+      - "hide"
       - "mute"
       - "skip"
     padding_before_seconds: 1.0
@@ -653,6 +713,34 @@ triggers:
         machine learning jump-scare classifier. It has high risk of false alarms on musical hits
         and false negatives on quiet scares. It MUST be disabled for the final hackathon demo
         unless verified against horror test clips.
+
+
+  # ----------------------------------------------------------------------------
+  # Visible Blood (Visual — Zero-Shot Multimodal Image-Text Matching)
+  # ----------------------------------------------------------------------------
+  visible_blood:
+    display_name: "Visible Blood / Gore"
+    description: "Visual appearance of blood, open wounds, or visceral gore."
+    enabled: false
+    status: "experimental"
+    modality: "visual"
+    method: "zero_shot_multimodal"
+    ml_model_required: true
+    input: "Precomputed video frames sampled at 1 frame per second (1 fps)"
+    timing_resolution_seconds: 1.0
+    source: "blood_detector"
+    threshold: 0.70
+    default_action: "hide"
+    allowed_actions:
+      - "hide"
+      - "blur"
+      - "skip"
+      - "warn"
+    padding_before_seconds: 1.0
+    padding_after_seconds: 1.5
+    merge_gap_seconds: 3.0
+    min_segment_duration_seconds: 1.0
+    max_segment_duration_seconds: 60.0
 
 # ------------------------------------------------------------------------------
 # 4. Audio Processing Pipeline Settings
@@ -732,14 +820,17 @@ merge:
     min_allowed_duration_seconds: 0.01
     allowed_trigger_ids:
       - "flashing"
-      - "loud_spike"
+      - "profanity"
       - "gunshot"
       - "explosion"
       - "scream"
-      - "profanity"
+      - "loud_spike"
+      - "sustained_loudness"
       - "spider"
+      - "insect"
       - "fast_motion"
       - "jump_scare"
+      - "visible_blood"
     score_rules:
       clamp_to_unit_range: true  # Clamp any minor numerical drift into [0.0, 1.0]
       reject_nan_or_infinite: true

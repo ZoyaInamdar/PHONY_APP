@@ -40,7 +40,6 @@ export const FlaggedTerm = {};
 export const FlaggedWordSummary = {};
 export const RawDetection = {};
 export const SubtitlesParseResult = {};
-
 `;
     return {
       format: result.format,

@@ -26,17 +26,20 @@ DEFAULT_SCHEMA_PATH = Path("schema/config.schema.json")
 
 CANONICAL_TRIGGER_IDS = [
     "flashing",
-    "loud_spike",
+    "profanity",
     "gunshot",
     "explosion",
     "scream",
-    "profanity",
+    "loud_spike",
+    "sustained_loudness",
     "spider",
+    "insect",
     "fast_motion",
     "jump_scare",
+    "visible_blood",
 ]
 
-ALLOWED_ACTIONS = ["dim", "mute", "blur", "skip", "warn", "hide", "reduce"]
+ALLOWED_ACTIONS = ["hide", "blur", "mute", "reduce", "skip", "warn"]
 
 DEFAULT_HEADS_UP_PROMPT_CONFIG: Dict[str, Any] = {
     "enabled": False,

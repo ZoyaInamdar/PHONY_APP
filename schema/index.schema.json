@@ -105,14 +105,17 @@
           "type": "string",
           "enum": [
             "flashing",
-            "loud_spike",
+            "profanity",
             "gunshot",
             "explosion",
             "scream",
-            "profanity",
+            "loud_spike",
+            "sustained_loudness",
             "spider",
+            "insect",
             "fast_motion",
-            "jump_scare"
+            "jump_scare",
+            "visible_blood"
           ],
           "description": "Canonical trigger identifier defined in config.yaml."
         },

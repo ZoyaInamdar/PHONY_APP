@@ -381,3 +381,90 @@ def test_malformed_custom_cues_and_censoring_safety():
     assert res.returncode == 0, f"Node script failed:\\n{res.stderr}"
     assert "Malformed custom cues and censoring safety verified." in res.stdout
 
+
+
+def test_seek_bar_presence_and_panresponder_in_playerscreen():
+    """Verify that PlayerScreen.tsx implements a functional seek bar with PanResponder, progress fill, and thumb."""
+    content = PLAYER_SCREEN_TSX.read_text(encoding="utf-8")
+
+    # 1. Must import PanResponder from react-native
+    assert "PanResponder" in content, "PlayerScreen.tsx must import PanResponder"
+
+    # 2. Must render interactive seek bar elements
+    assert 'testID="seek-bar-container"' in content, "PlayerScreen must render seek-bar-container"
+    assert 'testID="seek-bar"' in content, "PlayerScreen must render seek-bar touchable"
+    assert 'testID="seek-bar-track"' in content, "PlayerScreen must render seek-bar-track"
+    assert 'testID="seek-bar-progress"' in content, "PlayerScreen must render seek-bar-progress"
+    assert 'testID="seek-bar-thumb"' in content, "PlayerScreen must render seek-bar-thumb"
+
+    # 3. PanResponder gesture lifecycle handlers
+    assert "onPanResponderGrant" in content, "PlayerScreen must handle onPanResponderGrant"
+    assert "onPanResponderMove" in content, "PlayerScreen must handle onPanResponderMove"
+    assert "onPanResponderRelease" in content, "PlayerScreen must handle onPanResponderRelease"
+
+    # 4. Connected to native video seek API (seekTo)
+    assert "calculateSeekTimeFromX" in content, "PlayerScreen must compute target seek time from X coordinate"
+    assert "seekTo(finalTarget)" in content or "seekTo(target)" in content, "Seek bar must trigger seekTo"
+
+    # 5. Exported formatTime handles < 3600s and >= 3600s (1-hour films)
+    assert "export function formatTime" in content, "PlayerScreen must export formatTime"
+    assert "hrs > 0" in content, "formatTime must format hours for 1-hour movies"
+
+
+def test_seeking_preserves_subtitles_and_trigger_resolution_across_films():
+    """Verify that seeking to timestamps throughout both films updates subtitles and trigger actions without drift."""
+    node_script = """
+    import assert from 'node:assert';
+    import { loadFilmSubtitles, loadFilmCues } from './src/data/catalogue.ts';
+    import { getActiveCaption } from './src/subtitles/activeCaption.ts';
+    import { resolveActions } from './src/engine/resolveActions.ts';
+    import { DEFAULT_VIEWER_OPTIONS } from './src/engine/types.ts';
+
+    // 1. Sintel seeking checks
+    const sintelSubtitles = loadFilmSubtitles('sintel');
+    const sintelCues = loadFilmCues('sintel');
+
+    // Seek to 23.0s in Sintel:
+    // Sintel trailer duration is 52s; trailer subtitles do not have dialogue at 23s
+    assert.strictEqual(getActiveCaption(23.0, { cues: sintelSubtitles }), null);
+    // Trigger at 23.0s is explosion (22.0 to 24.5)
+    const sintelActions23 = resolveActions(23.0, sintelCues, DEFAULT_VIEWER_OPTIONS);
+    assert.strictEqual(sintelActions23.soundGain, 0, 'Sintel audio must be muted during explosion cue at 23s');
+    assert.ok(sintelActions23.activeCueIds.some(id => id.includes('explosion')));
+
+    // 2. Tears of Steel seeking checks (12-minute timeline)
+    const tosSubtitles = loadFilmSubtitles('tears_of_steel');
+    const tosCues = loadFilmCues('tears_of_steel');
+
+    // Seek to 25.5s (TOS dialogue cue c2: 25.0s - 27.0s)
+    const tosCaption25 = getActiveCaption(25.5, { cues: tosSubtitles });
+    assert.ok(tosCaption25 !== null);
+    assert.strictEqual(tosCaption25.id, 'c2');
+    assert.ok(tosCaption25.processedText.includes('follow our passions'));
+
+    // Seek to 360.0s (6 minutes into film: profanity trigger and cue c44)
+    const tosActions360 = resolveActions(360.0, tosCues, DEFAULT_VIEWER_OPTIONS);
+    assert.strictEqual(tosActions360.soundGain, 0, 'Audio must be muted during profanity cue at 360s');
+    assert.ok(tosActions360.activeCueIds.some(id => id.includes('profanity')));
+
+    // Seek to 650.5s (10.8 minutes into film: scream trigger)
+    const tosActions650 = resolveActions(650.5, tosCues, DEFAULT_VIEWER_OPTIONS);
+    assert.strictEqual(tosActions650.soundGain, 0, 'Audio must be muted during scream cue at 650.5s');
+    assert.ok(tosActions650.activeCueIds.some(id => id.includes('scream')));
+
+    // Seek between cues at 400.0s: audio must be unmuted and caption null
+    const tosActions400 = resolveActions(400.0, tosCues, DEFAULT_VIEWER_OPTIONS);
+    assert.strictEqual(tosActions400.soundGain, 1, 'Audio must be unmuted outside trigger intervals at 400s');
+    assert.strictEqual(tosActions400.visualAction, null, 'Visual action must be null at 400s');
+
+    console.log('Seeking subtitle and trigger synchronization verified across both films.');
+    """
+
+    res = subprocess.run(
+        ["node", "--loader", "./scripts/ts_loader.mjs", "-e", node_script],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert res.returncode == 0, f"Node script failed:\n{res.stderr}"
+    assert "Seeking subtitle and trigger synchronization verified across both films." in res.stdout

@@ -1,6 +1,8 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
   Dimensions,
+  GestureResponderEvent,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -112,6 +114,26 @@ export type CanonicalTriggerCategory =
   (typeof CANONICAL_TRIGGER_CATEGORIES)[number];
 
 const CANONICAL_TRIGGER_SET = new Set<string>(CANONICAL_TRIGGER_CATEGORIES);
+
+/**
+ * Formats a duration in seconds to standard MM:SS or HH:MM:SS format.
+ * Durations < 3600 seconds render as MM:SS (e.g. 00:00, 12:34).
+ * Durations >= 3600 seconds render as HH:MM:SS (e.g. 01:00:00).
+ */
+export function formatTime(seconds: number, filmDuration?: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '00:00';
+  }
+
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hrs > 0 || (typeof filmDuration === 'number' && Number.isFinite(filmDuration) && filmDuration >= 3600)) {
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 /**
  * Sanitizes and validates arbitrary input into a safe ViewerOptions object.
@@ -464,6 +486,13 @@ export const PlayerScreen = ({
   const [warningStatus, setWarningStatus] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isDraggingSeek, setIsDraggingSeek] = useState(false);
+  const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
+  const [isSeekBarFocused, setIsSeekBarFocused] = useState(false);
+  const seekBarWidthRef = useRef<number>(0);
+  const isDraggingSeekRef = useRef<boolean>(false);
+  const dragSeekTimeRef = useRef<number | null>(null);
+  const dragStartXRef = useRef<number>(0);
   const [status, setStatus] = useState('Loading video…');
   const [focusedControl, setFocusedControl] = useState<string>('play');
   const [botheredFeedback, setBotheredFeedback] = useState<string>('');
@@ -1785,14 +1814,91 @@ export const PlayerScreen = ({
     });
   };
 
-  const formatTime = (seconds: number) => {
-    if (!Number.isFinite(seconds) || seconds < 0) {
-      return '00:00';
+  const calculateSeekTimeFromX = (locX: number): number => {
+    const width =
+      seekBarWidthRef.current > 0
+        ? seekBarWidthRef.current
+        : videoDimensions.width > 0
+        ? videoDimensions.width
+        : 1824;
+    const dur =
+      Number.isFinite(duration) && duration > 0
+        ? duration
+        : Number.isFinite(videoRef.current?.duration) && (videoRef.current?.duration ?? 0) > 0
+        ? (videoRef.current?.duration as number)
+        : 0;
+    if (width <= 0 || !Number.isFinite(dur) || dur <= 0) {
+      return 0;
     }
+    const clampedX = Math.max(0, Math.min(locX, width));
+    return Number(((clampedX / width) * dur).toFixed(2));
+  };
 
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => false,
+      onPanResponderGrant: (evt) => {
+        const width =
+          seekBarWidthRef.current > 0
+            ? seekBarWidthRef.current
+            : videoDimensions.width > 0
+            ? videoDimensions.width
+            : 1824;
+        const locX = evt.nativeEvent?.locationX ?? 0;
+        const target = calculateSeekTimeFromX(locX);
+        dragStartXRef.current = Math.max(0, Math.min(locX, width));
+        dragSeekTimeRef.current = target;
+        isDraggingSeekRef.current = true;
+        setIsDraggingSeek(true);
+        setDragSeekTime(target);
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const width =
+          seekBarWidthRef.current > 0
+            ? seekBarWidthRef.current
+            : videoDimensions.width > 0
+            ? videoDimensions.width
+            : 1824;
+        if (isDraggingSeekRef.current) {
+          const currentX = Math.max(0, Math.min(dragStartXRef.current + gestureState.dx, width));
+          const target = calculateSeekTimeFromX(currentX);
+          dragSeekTimeRef.current = target;
+          setDragSeekTime(target);
+        }
+      },
+      onPanResponderRelease: () => {
+        if (isDraggingSeekRef.current) {
+          const finalTarget = dragSeekTimeRef.current;
+          isDraggingSeekRef.current = false;
+          dragSeekTimeRef.current = null;
+          setIsDraggingSeek(false);
+          setDragSeekTime(null);
+          if (finalTarget !== null && Number.isFinite(finalTarget)) {
+            seekTo(finalTarget);
+          }
+        }
+      },
+      onPanResponderTerminate: () => {
+        isDraggingSeekRef.current = false;
+        dragSeekTimeRef.current = null;
+        setIsDraggingSeek(false);
+        setDragSeekTime(null);
+      },
+    }),
+  ).current;
+
+  const handleSeekBarPress = (evt: any) => {
+    const locX =
+      evt.nativeEvent?.locationX ??
+      evt.nativeEvent?.positionX ??
+      (typeof evt.nativeEvent?.locationX === 'number' ? evt.nativeEvent.locationX : null);
+    if (locX !== null && Number.isFinite(locX)) {
+      const target = calculateSeekTimeFromX(locX);
+      seekTo(target);
+    }
   };
 
   const handleThatBotheredMe = async () => {
@@ -2149,10 +2255,99 @@ export const PlayerScreen = ({
         <View style={styles.triggerBannerPlaceholder} />
       )}
 
+      {/* Playback status and time display */}
       <Text style={styles.status}>{status}</Text>
-      <Text style={styles.time}>
-        {formatTime(currentTime)} / {formatTime(duration)}
-      </Text>
+      {(() => {
+        const displayedTime =
+          isDraggingSeek && dragSeekTime !== null ? dragSeekTime : currentTime;
+        const effectiveDuration =
+          Number.isFinite(duration) && duration > 0
+            ? duration
+            : Number.isFinite(videoRef.current?.duration) && (videoRef.current?.duration ?? 0) > 0
+            ? (videoRef.current?.duration as number)
+            : 0;
+        const progressPercent =
+          effectiveDuration > 0
+            ? Math.max(0, Math.min(100, (displayedTime / effectiveDuration) * 100))
+            : 0;
+
+        return (
+          <>
+            <View style={styles.timeRow} testID="playback-time-container">
+              <Text style={styles.time} testID="playback-current-time">
+                {formatTime(displayedTime, duration)} / {formatTime(duration, duration)}
+              </Text>
+              {isDraggingSeek && (
+                <Text style={styles.seekingBadge} testID="seeking-badge">
+                  Scrubbing to {formatTime(displayedTime, duration)}
+                </Text>
+              )}
+            </View>
+
+            {/* Interactive Playback Timeline / Seek Bar */}
+            <View
+              style={styles.seekBarContainer}
+              testID="seek-bar-container"
+              onLayout={(e) => {
+                const w = Math.round(e.nativeEvent.layout.width);
+                if (w > 0) {
+                  seekBarWidthRef.current = w;
+                }
+              }}
+              {...panResponder.panHandlers}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[
+                  styles.seekBarFocusable,
+                  isSeekBarFocused && styles.seekBarFocused,
+                ]}
+                testID="seek-bar"
+                accessibilityRole="adjustable"
+                accessibilityLabel="Playback progress seek bar"
+                accessibilityValue={{
+                  min: 0,
+                  max: Math.round(effectiveDuration),
+                  now: Math.round(displayedTime),
+                }}
+                focusable={!isSettingsOpen && !activePromptCue}
+                onFocus={() => {
+                  setIsSeekBarFocused(true);
+                  setFocusedControl('seek-bar');
+                }}
+                onBlur={() => {
+                  setIsSeekBarFocused(false);
+                  if (focusedControl === 'seek-bar') {
+                    setFocusedControl('');
+                  }
+                }}
+                onPress={handleSeekBarPress}
+                onAccessibilityAction={(event) => {
+                  if (event.nativeEvent.actionName === 'increment') {
+                    seekBy(10);
+                  } else if (event.nativeEvent.actionName === 'decrement') {
+                    seekBy(-10);
+                  }
+                }}>
+                <View style={styles.seekBarTrack} testID="seek-bar-track">
+                  <View
+                    style={[styles.seekBarProgress, {width: `${progressPercent}%`}]}
+                    testID="seek-bar-progress"
+                  />
+                  <View
+                    style={[
+                      styles.seekBarThumb,
+                      {left: `${progressPercent}%`},
+                      isDraggingSeek && styles.seekBarThumbDragging,
+                      isSeekBarFocused && styles.seekBarThumbFocused,
+                    ]}
+                    testID="seek-bar-thumb"
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+      })()}
 
       {/* Developer prompt test harness panel */}
       {isDevHarnessOpen && (
@@ -3015,6 +3210,76 @@ const styles = StyleSheet.create({
     fontSize: 22,
     marginTop: 4,
     fontVariant: ['tabular-nums'],
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  seekingBadge: {
+    color: '#38BDF8',
+    fontSize: 16,
+    fontWeight: '700',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+  },
+  seekBarContainer: {
+    width: '100%',
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  seekBarFocusable: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+  },
+  seekBarFocused: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderRadius: 8,
+  },
+  seekBarTrack: {
+    height: 8,
+    backgroundColor: '#334155',
+    borderRadius: 4,
+    overflow: 'visible',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  seekBarProgress: {
+    height: '100%',
+    backgroundColor: '#38BDF8',
+    borderRadius: 4,
+  },
+  seekBarThumb: {
+    position: 'absolute',
+    top: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#38BDF8',
+    marginLeft: -10,
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  seekBarThumbDragging: {
+    transform: [{scale: 1.3}],
+    backgroundColor: '#38BDF8',
+    borderColor: '#FFFFFF',
+  },
+  seekBarThumbFocused: {
+    transform: [{scale: 1.25}],
+    borderColor: '#F8FAFC',
+    backgroundColor: '#0284C7',
   },
   controls: {
     flexDirection: 'row',

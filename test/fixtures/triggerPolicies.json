@@ -5,10 +5,9 @@
     "flashing": {
       "enabled": true,
       "modality": "visual",
-      "default_action": "dim",
+      "default_action": "hide",
       "allowed_actions": [
-        "dim",
-        "blur",
+        "hide",
         "skip",
         "warn"
       ]
@@ -16,11 +15,22 @@
     "loud_spike": {
       "enabled": true,
       "modality": "audio",
-      "default_action": "mute",
+      "default_action": "reduce",
       "allowed_actions": [
+        "reduce",
         "mute",
-        "skip",
         "warn"
+      ]
+    },
+    "sustained_loudness": {
+      "enabled": false,
+      "modality": "audio",
+      "default_action": "reduce",
+      "allowed_actions": [
+        "reduce",
+        "mute",
+        "warn",
+        "skip"
       ]
     },
     "gunshot": {
@@ -29,6 +39,7 @@
       "default_action": "mute",
       "allowed_actions": [
         "mute",
+        "reduce",
         "skip",
         "warn"
       ]
@@ -36,8 +47,9 @@
     "explosion": {
       "enabled": true,
       "modality": "audio",
-      "default_action": "mute",
+      "default_action": "reduce",
       "allowed_actions": [
+        "reduce",
         "mute",
         "skip",
         "warn"
@@ -46,8 +58,9 @@
     "scream": {
       "enabled": true,
       "modality": "audio",
-      "default_action": "mute",
+      "default_action": "reduce",
       "allowed_actions": [
+        "reduce",
         "mute",
         "skip",
         "warn"
@@ -66,8 +79,20 @@
     "spider": {
       "enabled": true,
       "modality": "visual",
-      "default_action": "blur",
+      "default_action": "hide",
       "allowed_actions": [
+        "hide",
+        "blur",
+        "skip",
+        "warn"
+      ]
+    },
+    "insect": {
+      "enabled": false,
+      "modality": "visual",
+      "default_action": "hide",
+      "allowed_actions": [
+        "hide",
         "blur",
         "skip",
         "warn"
@@ -79,7 +104,7 @@
       "default_action": "warn",
       "allowed_actions": [
         "warn",
-        "dim",
+        "hide",
         "skip"
       ]
     },
@@ -89,8 +114,20 @@
       "default_action": "warn",
       "allowed_actions": [
         "warn",
+        "hide",
         "mute",
         "skip"
+      ]
+    },
+    "visible_blood": {
+      "enabled": false,
+      "modality": "visual",
+      "default_action": "hide",
+      "allowed_actions": [
+        "hide",
+        "blur",
+        "skip",
+        "warn"
       ]
     }
   }

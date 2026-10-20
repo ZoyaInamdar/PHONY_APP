@@ -428,7 +428,7 @@ def test_seeking_preserves_subtitles_and_trigger_resolution_across_films():
     // Sintel trailer duration is 52s; trailer subtitles do not have dialogue at 23s
     assert.strictEqual(getActiveCaption(23.0, { cues: sintelSubtitles }), null);
     // Trigger at 23.0s is explosion (22.0 to 24.5)
-    const sintelActions23 = resolveActions(23.0, sintelCues, DEFAULT_VIEWER_OPTIONS);
+    const sintelActions23 = resolveActions(23.0, sintelCues, { ...DEFAULT_VIEWER_OPTIONS, actionOverrides: { explosion: 'mute' } });
     assert.strictEqual(sintelActions23.soundGain, 0, 'Sintel audio must be muted during explosion cue at 23s');
     assert.ok(sintelActions23.activeCueIds.some(id => id.includes('explosion')));
 
@@ -448,7 +448,7 @@ def test_seeking_preserves_subtitles_and_trigger_resolution_across_films():
     assert.ok(tosActions360.activeCueIds.some(id => id.includes('profanity')));
 
     // Seek to 650.5s (10.8 minutes into film: scream trigger)
-    const tosActions650 = resolveActions(650.5, tosCues, DEFAULT_VIEWER_OPTIONS);
+    const tosActions650 = resolveActions(650.5, tosCues, { ...DEFAULT_VIEWER_OPTIONS, actionOverrides: { scream: 'mute' } });
     assert.strictEqual(tosActions650.soundGain, 0, 'Audio must be muted during scream cue at 650.5s');
     assert.ok(tosActions650.activeCueIds.some(id => id.includes('scream')));
 

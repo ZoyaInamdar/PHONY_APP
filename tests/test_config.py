@@ -8,6 +8,7 @@ import yaml
 
 from scripts.validate_config import (
     CANONICAL_TRIGGER_IDS,
+    ALLOWED_ACTIONS,
     load_config,
     load_schema,
     validate_config,
@@ -17,6 +18,21 @@ from scripts.validate_config import (
 
 CONFIG_PATH = Path("config.yaml")
 SCHEMA_PATH = Path("schema/config.schema.json")
+
+EXPECTED_CONTRACT = {
+    "flashing": {"default": "hide", "allowed": ["hide", "skip", "warn"]},
+    "profanity": {"default": "mute", "allowed": ["mute", "skip", "warn"]},
+    "gunshot": {"default": "mute", "allowed": ["mute", "reduce", "skip", "warn"]},
+    "explosion": {"default": "reduce", "allowed": ["reduce", "mute", "skip", "warn"]},
+    "scream": {"default": "reduce", "allowed": ["reduce", "mute", "skip", "warn"]},
+    "loud_spike": {"default": "reduce", "allowed": ["reduce", "mute", "warn"]},
+    "sustained_loudness": {"default": "reduce", "allowed": ["reduce", "mute", "warn", "skip"]},
+    "spider": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
+    "insect": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
+    "fast_motion": {"default": "warn", "allowed": ["warn", "hide", "skip"]},
+    "jump_scare": {"default": "warn", "allowed": ["warn", "hide", "mute", "skip"]},
+    "visible_blood": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
+}
 
 
 def test_config_file_exists():
@@ -37,23 +53,13 @@ def test_config_validates_successfully():
 
 
 def test_all_canonical_triggers_present():
-    """Verify all 9 canonical trigger IDs are present and conform to required structure."""
+    """Verify all 12 canonical trigger IDs are present and conform to required structure."""
     config = load_config(CONFIG_PATH)
     triggers = config.get("triggers", {})
 
-    expected_triggers = [
-        "flashing",
-        "loud_spike",
-        "gunshot",
-        "explosion",
-        "scream",
-        "profanity",
-        "spider",
-        "fast_motion",
-        "jump_scare",
-    ]
+    assert set(CANONICAL_TRIGGER_IDS) == set(EXPECTED_CONTRACT.keys())
 
-    for trigger_id in expected_triggers:
+    for trigger_id in CANONICAL_TRIGGER_IDS:
         assert trigger_id in triggers, f"Canonical trigger '{trigger_id}' missing from config.yaml"
         t_conf = triggers[trigger_id]
 
@@ -71,7 +77,7 @@ def test_all_canonical_triggers_present():
         assert "source" in t_conf
         assert "threshold" in t_conf
         assert "default_action" in t_conf
-        assert t_conf["default_action"] in ["dim", "mute", "blur", "skip", "warn"]
+        assert t_conf["default_action"] in ALLOWED_ACTIONS
         assert "allowed_actions" in t_conf
         assert t_conf["default_action"] in t_conf["allowed_actions"]
         assert "padding_before_seconds" in t_conf
@@ -83,6 +89,15 @@ def test_all_canonical_triggers_present():
         assert "min_segment_duration_seconds" in t_conf
         assert "max_segment_duration_seconds" in t_conf
         assert t_conf["min_segment_duration_seconds"] < t_conf["max_segment_duration_seconds"]
+
+        # Check architectural contract
+        expected = EXPECTED_CONTRACT[trigger_id]
+        assert t_conf["default_action"] == expected["default"], (
+            f"Trigger '{trigger_id}' default_action '{t_conf['default_action']}' does not match expected '{expected['default']}'"
+        )
+        assert set(t_conf["allowed_actions"]) == set(expected["allowed"]), (
+            f"Trigger '{trigger_id}' allowed_actions {t_conf['allowed_actions']} does not match expected {expected['allowed']}"
+        )
 
 
 def test_timeline_contract():
@@ -176,9 +191,9 @@ def test_spider_configuration():
 
 
 def test_experimental_stretch_features_disabled():
-    """Verify experimental stretch features (fast_motion, jump_scare) are disabled by default."""
+    """Verify experimental stretch features (fast_motion, jump_scare, sustained_loudness, insect, visible_blood) are disabled by default."""
     config = load_config(CONFIG_PATH)
-    for tid in ["fast_motion", "jump_scare"]:
+    for tid in ["fast_motion", "jump_scare", "sustained_loudness", "insect", "visible_blood"]:
         t = config["triggers"][tid]
         assert t.get("status") == "experimental"
         assert t.get("enabled") is False
@@ -233,14 +248,28 @@ def test_schema_accepts_hide_and_reduce_actions():
     schema = load_schema(SCHEMA_PATH)
 
     config["triggers"]["flashing"]["default_action"] = "hide"
-    config["triggers"]["flashing"]["allowed_actions"] = ["hide", "reduce", "dim"]
+    config["triggers"]["flashing"]["allowed_actions"] = ["hide", "warn"]
     config["triggers"]["loud_spike"]["default_action"] = "reduce"
-    config["triggers"]["loud_spike"]["allowed_actions"] = ["reduce", "mute", "skip"]
+    config["triggers"]["loud_spike"]["allowed_actions"] = ["reduce", "mute", "warn"]
 
     errors = validate_schema_compliance(config, schema)
     assert len(errors) == 0, f"Schema should have accepted 'hide' and 'reduce', got errors: {errors}"
     domain_errors = validate_domain_rules(config)
     assert len(domain_errors) == 0, f"Domain rules should have accepted 'hide' and 'reduce', got errors: {domain_errors}"
+
+
+def test_schema_rejects_dim_and_beep_actions():
+    """Verify that config schema rejects deprecated 'dim' and 'beep' actions."""
+    config = load_config(CONFIG_PATH)
+    schema = load_schema(SCHEMA_PATH)
+
+    config["triggers"]["flashing"]["default_action"] = "dim"
+    errors = validate_schema_compliance(config, schema)
+    assert len(errors) > 0, "Schema should have rejected deprecated 'dim' action"
+
+    config["triggers"]["flashing"]["default_action"] = "beep"
+    errors = validate_schema_compliance(config, schema)
+    assert len(errors) > 0, "Schema should have rejected non-product 'beep' action"
 
 
 def test_schema_rejects_obscure_action():

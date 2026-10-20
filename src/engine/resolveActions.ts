@@ -3,6 +3,7 @@ import {
   CueAction,
   EffectiveActions,
   ViewerOptions,
+  resolveEffectiveAction,
 } from './types';
 
 import { applyReviewPolicy } from './reviewPolicy';
@@ -11,16 +12,14 @@ import { applyReviewPolicy } from './reviewPolicy';
  * Visual action priority order for resolving the single `visualAction` output
  * when multiple visual cues are active simultaneously.
  *
- * hide > blur > dim
+ * hide > blur
  *
- * `blur` and `dim` have no Phase 0 rendering implementation.  Their presence
- * in `visualAction` records what the shared config intends; the rendering layer
- * (Vega OS overlay API) is required before either can be applied on-device.
+ * When both 'hide' and 'blur' cues overlap, 'hide' takes precedence.
+ * If 'hide' ends while 'blur' remains active, visual protection restores to 'blur'.
  */
 const VISUAL_ACTION_PRIORITY: ReadonlyMap<CueAction, number> = new Map([
   ['hide', 3],
   ['blur', 2],
-  ['dim', 1],
 ]);
 
 export function resolveActions(
@@ -57,56 +56,52 @@ export function resolveActions(
   });
 
   let bestVisualActionPriority = 0;
-  let visualAction: 'hide' | 'blur' | 'dim' | null = null;
+  let visualAction: 'hide' | 'blur' | null = null;
   let soundGain = 1;
   let skipTo: number | null = null;
   const warnCueIds: string[] = [];
 
   for (const cue of active) {
+    // Determine effective action using centralized trigger contract and user overrides
+    const effectiveAction = resolveEffectiveAction(
+      cue.trigger,
+      cue.action,
+      options.actionOverrides,
+    );
+
     // -------------------------------------------------------------------------
     // Warning actions
     // `warn` cues provide a heads-up alert without overriding audio, visual,
     // or skip actions.
     // -------------------------------------------------------------------------
-    if (cue.action === 'warn') {
+    if (effectiveAction === 'warn') {
       warnCueIds.push(cue.id);
     }
 
     // -------------------------------------------------------------------------
-    // Visual actions
-    // `visual` cues, and `audio_visual` cues when hideEnabled is on, produce a
-    // visual effect.  `dim` and `blur` are recorded faithfully even though Phase 0
-    // has no rendering implementation for them.
+    // Visual actions ('hide' | 'blur')
+    // Governed by global hideEnabled safety setting.
+    // Precedence: hide (3) > blur (2).
     // -------------------------------------------------------------------------
-    const isVisualSource = cue.source === 'visual' || cue.source === 'audio_visual';
-
-    if (isVisualSource && options.hideEnabled) {
-      const priority = VISUAL_ACTION_PRIORITY.get(cue.action) ?? 0;
+    if (
+      (effectiveAction === 'hide' || effectiveAction === 'blur') &&
+      options.hideEnabled
+    ) {
+      const priority = VISUAL_ACTION_PRIORITY.get(effectiveAction) ?? 0;
 
       if (priority > 0 && priority > bestVisualActionPriority) {
         bestVisualActionPriority = priority;
-        visualAction = cue.action as 'hide' | 'blur' | 'dim';
+        visualAction = effectiveAction as 'hide' | 'blur';
       }
     }
 
     // -------------------------------------------------------------------------
-    // Audio actions
-    // `audio` cues apply directly.  `text` cues (profanity) have audio muting
-    // as their player-side action (muting the audio channel during the cue).
-    // `audio_visual` cues also carry an audio component.
-    //
-    // Caption censorship for `text` cues is handled separately by Person C's
-    // caption renderer — NOT by the audio mute here, though both may fire on
-    // the same interval.
+    // Audio actions ('mute' | 'reduce')
+    // Precedence: mute (gain 0) > reduce (gain 0 < g < 1) > normal (gain 1).
     // -------------------------------------------------------------------------
-    const hasAudioComponent =
-      cue.source === 'audio' ||
-      cue.source === 'text' ||
-      cue.source === 'audio_visual';
-
-    if (hasAudioComponent && cue.action === 'mute' && options.muteEnabled) {
+    if (effectiveAction === 'mute' && options.muteEnabled) {
       soundGain = 0;
-    } else if (hasAudioComponent && cue.action === 'reduce' && options.reduceEnabled) {
+    } else if (effectiveAction === 'reduce' && options.reduceEnabled) {
       const gain = cue.gain ?? options.reduceGain;
 
       if (!Number.isFinite(gain) || gain < 0 || gain > 1) {
@@ -118,16 +113,16 @@ export function resolveActions(
 
     // -------------------------------------------------------------------------
     // Skip actions
+    // Seeks past the latest ending skip cue.
     // -------------------------------------------------------------------------
     const reviewAllowsSkip =
       cue.status !== 'needs_review' || options.confirmReviewSkip;
 
     if (
-      cue.action === 'skip' &&
+      effectiveAction === 'skip' &&
       options.skipEnabled &&
       reviewAllowsSkip
     ) {
-      // If multiple skips overlap, seek past the latest ending cue.
       skipTo = Math.max(skipTo ?? 0, cue.end);
     }
   }

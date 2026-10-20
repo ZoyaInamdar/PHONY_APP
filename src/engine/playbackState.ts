@@ -1,5 +1,5 @@
 import { resolveActions } from './resolveActions';
-import { Cue, EffectiveActions, ViewerOptions } from './types';
+import { Cue, EffectiveActions, ViewerOptions, resolveEffectiveAction } from './types';
 import { AppliedAction, PlaybackSessionPayload } from './recap';
 import { applyReviewPolicy } from './reviewPolicy';
 
@@ -9,7 +9,7 @@ export class PlaybackState {
   private recordedCueActionIds = new Set<string>();
   private appliedActions: AppliedAction[] = [];
   private currentTime = 0;
-  private currentVisualAction: 'hide' | 'blur' | 'dim' | null = null;
+  private currentVisualAction: 'hide' | 'blur' | null = null;
 
   /**
    * Resolve actions at the current playback time.
@@ -21,10 +21,14 @@ export class PlaybackState {
     cues: Cue[],
     options: ViewerOptions,
   ): EffectiveActions {
-    const availableCues = cues.filter(
-      (cue) =>
-        cue.action !== 'skip' || !this.firedSkipCueIds.has(cue.id),
-    );
+    const availableCues = cues.filter((cue) => {
+      const effectiveAction = resolveEffectiveAction(
+        cue.trigger,
+        cue.action,
+        options.actionOverrides,
+      );
+      return effectiveAction !== 'skip' || !this.firedSkipCueIds.has(cue.id);
+    });
 
     const actions = resolveActions(time, availableCues, options);
     this.currentTime = time;
@@ -50,13 +54,19 @@ export class PlaybackState {
         continue;
       }
 
+      const effectiveAction = resolveEffectiveAction(
+        cue.trigger,
+        cue.action,
+        options.actionOverrides,
+      );
+
       const reviewAllowsSkip =
         cue.status !== 'needs_review' || options.confirmReviewSkip;
 
       // Skip evaluation & recording
       if (
         actions.skipTo !== null &&
-        cue.action === 'skip' &&
+        effectiveAction === 'skip' &&
         options.skipEnabled &&
         reviewAllowsSkip
       ) {
@@ -66,7 +76,7 @@ export class PlaybackState {
           this.appliedActions.push({
             triggerType: cue.trigger ?? 'scene',
             appliedEffect: 'skipped',
-            requestedAction: cue.action,
+            requestedAction: effectiveAction,
             cueId: cue.id,
             start: cue.start,
             end: cue.end,
@@ -74,18 +84,18 @@ export class PlaybackState {
         }
       }
 
-      // Visual hide / blackout recording (including device fallback from blur/dim)
+      // Visual hide / blackout recording
       if (
         actions.visualAction === 'hide' &&
         options.hideEnabled &&
-        (cue.source === 'visual' || cue.source === 'audio_visual')
+        (effectiveAction === 'hide' || effectiveAction === 'blur')
       ) {
         if (!this.recordedCueActionIds.has(`visual_${cue.id}`)) {
           this.recordedCueActionIds.add(`visual_${cue.id}`);
           this.appliedActions.push({
             triggerType: cue.trigger ?? 'visual',
             appliedEffect: 'blacked_out',
-            requestedAction: cue.action,
+            requestedAction: effectiveAction,
             cueId: cue.id,
             start: cue.start,
             end: cue.end,
@@ -97,15 +107,14 @@ export class PlaybackState {
       if (
         actions.soundGain === 0 &&
         options.muteEnabled &&
-        cue.action === 'mute' &&
-        (cue.source === 'audio' || cue.source === 'text' || cue.source === 'audio_visual')
+        effectiveAction === 'mute'
       ) {
         if (!this.recordedCueActionIds.has(`audio_${cue.id}`)) {
           this.recordedCueActionIds.add(`audio_${cue.id}`);
           this.appliedActions.push({
             triggerType: cue.trigger ?? 'audio',
             appliedEffect: 'muted',
-            requestedAction: cue.action,
+            requestedAction: effectiveAction,
             cueId: cue.id,
             start: cue.start,
             end: cue.end,
@@ -118,15 +127,14 @@ export class PlaybackState {
         actions.soundGain > 0 &&
         actions.soundGain < 1 &&
         options.reduceEnabled &&
-        cue.action === 'reduce' &&
-        (cue.source === 'audio' || cue.source === 'audio_visual')
+        effectiveAction === 'reduce'
       ) {
         if (!this.recordedCueActionIds.has(`reduce_${cue.id}`)) {
           this.recordedCueActionIds.add(`reduce_${cue.id}`);
           this.appliedActions.push({
             triggerType: cue.trigger ?? 'audio',
             appliedEffect: 'reduced',
-            requestedAction: cue.action,
+            requestedAction: effectiveAction,
             cueId: cue.id,
             start: cue.start,
             end: cue.end,
@@ -223,7 +231,13 @@ export class PlaybackState {
       return false;
     }
 
-    if (cue.action !== 'skip') {
+    const effectiveAction = resolveEffectiveAction(
+      cue.trigger,
+      cue.action,
+      options?.actionOverrides,
+    );
+
+    if (effectiveAction !== 'skip') {
       return false;
     }
 
@@ -349,37 +363,26 @@ export class PlaybackState {
         if (cue.start > newTime) {
           this.firedSkipCueIds.delete(cue.id);
         }
-        const windowStart = Math.max(0, cue.start - leadTime);
-        // Re-arm cue if rewind seeks strictly before its prompt-window start
-        if (newTime < windowStart) {
+        const promptWindowStart = Math.max(0, cue.start - leadTime);
+        if (newTime < promptWindowStart) {
           this.acknowledgedPromptCueIds.delete(cue.id);
         }
       }
     }
 
     this.currentTime = newTime;
-    this.currentVisualAction = null;
   }
 
   /**
-   * Get the active visual action resolved at the current playback time.
-   *
-   * Note: This reflects the engine-resolved action ('hide' | 'blur' | 'dim' | null)
-   * requested by active cues according to viewer preferences and action priority.
-   * It does not represent whether the underlying video hardware has rendered the effect.
+   * Check if a skip cue has already fired.
    */
-  getActiveVisualAction(): 'hide' | 'blur' | 'dim' | null {
-    return this.currentVisualAction;
+  hasSkipFired(cueId: string): boolean {
+    return this.firedSkipCueIds.has(cueId);
   }
 
   /**
-   * Get the current playback time recorded by the engine.
+   * Reset all playback state for a new session or video source.
    */
-  getCurrentTime(): number {
-    return this.currentTime;
-  }
-
-  /** Useful when starting a completely new video. */
   reset(): void {
     this.firedSkipCueIds.clear();
     this.acknowledgedPromptCueIds.clear();

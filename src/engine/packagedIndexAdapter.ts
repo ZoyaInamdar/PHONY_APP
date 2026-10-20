@@ -46,9 +46,8 @@ type PackagedIndex = {
 
 /**
  * Actions the player engine can carry and represent.
- *
- * `dim` and `blur` are faithfully represented but have no Phase 0 rendering
- * implementation.  They must NOT be silently converted to `hide`.
+ * Supported canonical actions: 'hide', 'mute', 'reduce', 'skip', 'warn', 'blur'.
+ * 'dim' is excluded from supported actions.
  */
 const REPRESENTABLE_ACTIONS = new Set<CueAction>([
   'hide',
@@ -56,22 +55,17 @@ const REPRESENTABLE_ACTIONS = new Set<CueAction>([
   'reduce',
   'skip',
   'warn',
-  'dim',    // visual: reduce brightness — no Phase 0 renderer
-  'blur',   // visual: blur filter       — no Phase 0 renderer
+  'blur',
 ]);
 
 /**
  * Source modalities the engine can carry.
- *
- * `text` (profanity) and `audio_visual` (jump_scare) are representable but
- * not fully rendered in Phase 0.  Caption censorship for `text` is Person C's
- * work.  Combined audio+visual for `audio_visual` is a Phase 1 item.
  */
 const REPRESENTABLE_SOURCES = new Set<CueSource>([
   'visual',
   'audio',
-  'text',         // profanity — text modality, audio muting only in Phase 0
-  'audio_visual', // jump_scare — compound, unrendered in Phase 0
+  'text',
+  'audio_visual',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -190,12 +184,6 @@ function validatePackagedIndex(input: unknown): PackagedIndex {
  * shape.
  *
  * Disabled triggers produce no output cues (they are silently skipped).
- *
- * Representable-but-unrendered actions (`dim`, `blur`) and source modalities
- * (`text`, `audio_visual`) are carried through faithfully.  The caller must
- * not assume that a cue with `action: 'dim'` or `source: 'text'` is actually
- * rendered by the current player layer; consult the Phase 0 handoff document
- * for the list of pending rendering work.
  *
  * Throws for:
  * - Missing policy for a trigger in the index.

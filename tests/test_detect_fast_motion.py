@@ -199,11 +199,10 @@ class TestDetectFastMotionFileHandling:
         with pytest.raises(FileNotFoundError):
             detect_fast_motion("nonexistent_video_file_xyz.mp4")
 
-    def test_audio_file_returns_empty_safely(self):
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
-            tmp_p = Path(tmp.name)
-            tmp_p.write_bytes(b"RIFF\x00\x00\x00\x00WAVE")
-            assert detect_fast_motion(tmp_p) == []
+    def test_audio_file_returns_empty_safely(self, tmp_path: Path):
+        tmp_p = tmp_path / "test_audio.wav"
+        tmp_p.write_bytes(b"RIFF\x00\x00\x00\x00WAVE")
+        assert detect_fast_motion(tmp_p) == []
 
     def test_schema_compliance_and_determinism(self):
         fps = 10.0

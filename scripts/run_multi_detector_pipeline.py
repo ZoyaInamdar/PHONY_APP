@@ -405,6 +405,7 @@ def execute_pipeline(
     # Ensure working output directories exist
     paths.eval_dir.mkdir(parents=True, exist_ok=True)
     paths.multi_report_json.parent.mkdir(parents=True, exist_ok=True)
+    paths.dataset_report_json.parent.mkdir(parents=True, exist_ok=True)
 
     # Validate prerequisites
     if check_env:
@@ -551,6 +552,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         paths = dataclass_replace(paths, input_srt=args.srt.resolve())
     if args.out_dir:
         out_dir = args.out_dir.resolve()
+        reports_dir = out_dir / "reports"
         paths = dataclass_replace(
             paths,
             eval_dir=out_dir,
@@ -560,6 +562,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             fast_motion_detections=out_dir / "fast_motion_detections.json",
             jump_scare_detections=out_dir / "jump_scare_detections.json",
             index_json=out_dir / "index.json",
+            multi_report_json=reports_dir / "multi_detector_evaluation_report.json",
+            multi_report_md=reports_dir / "multi_detector_evaluation_report.md",
+            dataset_report_json=reports_dir / "detection_evaluation_report.json",
+            dataset_report_md=reports_dir / "detection_evaluation_report.md",
         )
 
     options = PipelineOptions(

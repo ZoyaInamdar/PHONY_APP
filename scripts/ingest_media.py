@@ -304,12 +304,17 @@ def normalize_video(
 
 
 def extract_audio(
-    input_path: Path,
-    output_path: Path,
+    input_path: Path | str,
+    output_path: Path | str,
     timeout: float = DEFAULT_AUDIO_TIMEOUT,
+    sample_rate: int = 44100,
+    channels: int = 1,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """Extract mono PCM WAV audio at 44,100 Hz (pcm_s16le)."""
     check_tool_availability()
+    input_path = Path(input_path)
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -320,9 +325,9 @@ def extract_audio(
         str(input_path),
         "-vn",
         "-ac",
-        "1",
+        str(channels),
         "-ar",
-        "44100",
+        str(sample_rate),
         "-c:a",
         "pcm_s16le",
         str(output_path),

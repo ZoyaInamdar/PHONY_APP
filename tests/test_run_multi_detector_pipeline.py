@@ -408,3 +408,45 @@ class TestCLIInvocation:
 
         args_exp = parse_args(["--include-experimental"])
         assert args_exp.include_experimental is True
+
+    def test_default_paths_remain_unchanged_when_out_dir_absent(self):
+        """When --out-dir is absent, paths point to default locations."""
+        paths = PipelinePaths.default()
+        assert paths.eval_dir == paths.repo_root / "data" / "processed" / "multi_trigger_eval"
+        assert paths.multi_report_json == paths.repo_root / "reports" / "multi_detector_evaluation_report.json"
+        assert paths.multi_report_md == paths.repo_root / "reports" / "multi_detector_evaluation_report.md"
+        assert paths.dataset_report_json == paths.repo_root / "reports" / "detection_evaluation_report.json"
+        assert paths.dataset_report_md == paths.repo_root / "reports" / "detection_evaluation_report.md"
+
+    def test_cli_out_dir_isolates_all_reports_and_intermediates(self, tmp_path: Path):
+        """When --out-dir is passed, all intermediates and all 4 reports are under out_dir."""
+        with patch("scripts.run_multi_detector_pipeline.execute_pipeline") as mock_exec:
+            mock_exec.return_value = 0
+            code = main(["--out-dir", str(tmp_path), "--include-experimental"])
+            assert code == 0
+            assert mock_exec.call_count == 1
+            captured_paths, captured_options = mock_exec.call_args[0]
+
+            # Intermediates
+            assert captured_paths.eval_dir == tmp_path
+            assert captured_paths.audio_wav == tmp_path / "audio.wav"
+            assert captured_paths.loudness_detections == tmp_path / "loudness_detections.json"
+            assert captured_paths.profanity_detections == tmp_path / "profanity_detections.json"
+            assert captured_paths.fast_motion_detections == tmp_path / "fast_motion_detections.json"
+            assert captured_paths.jump_scare_detections == tmp_path / "jump_scare_detections.json"
+            assert captured_paths.index_json == tmp_path / "index.json"
+
+            # All 4 reports must be in <tmp_path>/reports/
+            assert captured_paths.multi_report_json == tmp_path / "reports" / "multi_detector_evaluation_report.json"
+            assert captured_paths.multi_report_md == tmp_path / "reports" / "multi_detector_evaluation_report.md"
+            assert captured_paths.dataset_report_json == tmp_path / "reports" / "detection_evaluation_report.json"
+            assert captured_paths.dataset_report_md == tmp_path / "reports" / "detection_evaluation_report.md"
+
+            # Verify build_pipeline_stages commands also point inside tmp_path
+            stages = build_pipeline_stages(captured_paths, captured_options, python_exe="python")
+            for stage in stages:
+                cmd_str = " ".join(stage.command)
+                # No stage command should reference root / reports
+                assert str(captured_paths.repo_root / "reports") not in cmd_str
+                # No stage command should reference default processed directory
+                assert "data/processed/multi_trigger_eval" not in cmd_str.replace("\\", "/")

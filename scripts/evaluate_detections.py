@@ -552,7 +552,7 @@ def audit_annotation_coverage(
                 meta = clip_meta.get("metadata", {})
                 event_type = meta.get("event_type", "")
                 is_negative_control = (
-                    clip_meta.get("trigger") is None
+                    (clip_meta.get("trigger") is None or meta.get("contains_trigger") is False or clip_meta.get("contains_trigger") is False)
                     and (
                         "negative" in clip_name.lower()
                         or "ambient" in event_type

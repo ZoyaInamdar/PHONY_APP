@@ -174,7 +174,7 @@
       "fps": 30.0,
       "width": 1280,
       "height": 720,
-      "trigger": "fast_motion",
+      "trigger": null,
       "start": null,
       "end": null,
       "labeller": "synthetic_generator",
@@ -183,10 +183,7 @@
         "filename": "fast_motion_negative.mp4",
         "contains_trigger": false,
         "experimental": true,
-        "description": "Gentle/slow-panning spatial translation at 2px per frame.",
-        "triggers": [
-          "fast_motion"
-        ]
+        "description": "Gentle/slow-panning spatial translation at 2px per frame."
       },
       "clip_id": "fast_motion_neg_01",
       "filename": "fast_motion_negative.mp4",
@@ -706,7 +703,7 @@
       "fps": 30.0,
       "width": 1280,
       "height": 720,
-      "trigger": "jump_scare",
+      "trigger": null,
       "start": null,
       "end": null,
       "labeller": "synthetic_generator",
@@ -715,10 +712,7 @@
         "filename": "jump_scare_negative.mp4",
         "contains_trigger": false,
         "experimental": true,
-        "description": "Gradual fade from black to dark gray with soft audio swell.",
-        "triggers": [
-          "jump_scare"
-        ]
+        "description": "Gradual fade from black to dark gray with soft audio swell."
       },
       "clip_id": "jump_scare_neg_01",
       "filename": "jump_scare_negative.mp4",

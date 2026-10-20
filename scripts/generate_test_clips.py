@@ -286,13 +286,15 @@ def write_manifest_json(
     """
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-
     distinct_clips: Dict[str, Dict[str, Any]] = {}
     for s in specs:
         if s.clip_name not in distinct_clips:
             clip_dict = dataclasses.asdict(s)
+            # If explicit negative control, ensure top-level trigger is None
+            if s.metadata.get("contains_trigger") is False or (s.start is None and s.end is None and "negative" in s.clip_name):
+                clip_dict["trigger"] = None
             # If multiple triggers, prepare list
-            if s.trigger:
+            elif s.trigger:
                 clip_dict.setdefault("metadata", {})["triggers"] = [s.trigger]
             if "clip_id" in s.metadata:
                 clip_dict["clip_id"] = s.metadata["clip_id"]
@@ -2376,7 +2378,7 @@ def mix_audio_burst(
     burst_duration: float = 0.1,
     frequency: float = 880.0,
 ) -> Path:
-    """Generate audio track with silence and a sudden 0dBFS acoustic burst at burst_time.
+    """Generate audio track with quiet baseline and a sudden acoustic transient burst at burst_time.
 
     Args:
         output_audio: Destination audio file path (.wav or .mp4).
@@ -2390,17 +2392,45 @@ def mix_audio_burst(
     """
     out_path = Path(output_audio)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    ffmpeg_bin = find_tool("ffmpeg")
     t_start = float(burst_time)
     t_end = round(t_start + burst_duration, 3)
-    cmd = [
-        ffmpeg_bin, "-y",
-        "-f", "lavfi", "-i", f"sine=frequency={frequency}:duration={duration}",
-        "-af", f"volume=enable='between(t,{t_start},{t_end})':volume=1.0:volume=0.0",
-        "-c:a", "pcm_s16le" if out_path.suffix.lower() == ".wav" else "aac",
-        str(out_path),
-    ]
-    subprocess.run(cmd, check=True, capture_output=True)
+
+    sr = 44100
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    audio = np.zeros_like(t, dtype=np.float32)
+    # Faint baseline drone at -60 dBFS so rolling median baseline is well-defined
+    audio += 0.001 * np.sin(2 * np.pi * 220 * t)
+    # Transient acoustic burst
+    burst_mask = (t >= t_start) & (t < t_end)
+    audio[burst_mask] = 0.9 * np.sin(2 * np.pi * frequency * t[burst_mask])
+    pcm = (audio * 32767).astype(np.int16)
+
+    import wave
+    if out_path.suffix.lower() == ".wav":
+        with wave.open(str(out_path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+    else:
+        temp_wav = out_path.with_name(f"{out_path.stem}_raw_burst.wav")
+        with wave.open(str(temp_wav), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+        ffmpeg_bin = find_tool("ffmpeg")
+        cmd = [
+            ffmpeg_bin, "-y",
+            "-i", str(temp_wav),
+            "-c:a", "aac",
+            "-b:a", "192k",
+            str(out_path),
+        ]
+        subprocess.run(cmd, check=True, capture_output=True)
+        if temp_wav.is_file():
+            temp_wav.unlink()
+
     return out_path
 
 
@@ -2411,31 +2441,21 @@ def generate_fast_motion_positive(
 ) -> Path:
     """Generate positive test clip for fast_motion trigger with high-velocity spatial translation.
 
-    Simulates high-velocity translation at 50 pixels per frame.
+    Simulates high-velocity translation of high-contrast alternating patterns across the full frame.
     Ground-truth trigger interval: [0.000, 3.000).
     """
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import cv2  # type: ignore
-        has_cv2 = True
-    except ImportError:
-        cv2 = None
-        has_cv2 = False
-
+    width, height = 1280, 720
     frames = []
     num_frames = int(duration * fps)
+    x = np.arange(width)
     for i in range(num_frames):
-        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-        x_pos = (i * 50) % 1280
-        if has_cv2 and cv2 is not None:
-            cv2.rectangle(frame, (x_pos, 300), (x_pos + 100, 400), (255, 255, 255), -1)
-        else:
-            x_end = min(x_pos + 100, 1280)
-            frame[300:400, x_pos:x_end] = (255, 255, 255)
-            if x_pos + 100 > 1280:
-                frame[300:400, 0:(x_pos + 100 - 1280)] = (255, 255, 255)
-        frames.append(frame)
+        phase = (x + i * 20) % 80
+        row = np.where(phase < 40, 255, 0).astype(np.uint8)
+        frame_gray = np.tile(row, (height, 1))
+        frame_bgr = np.dstack([frame_gray, frame_gray, frame_gray])
+        frames.append(frame_bgr)
 
     write_video(out_path, frames, fps)
     return out_path
@@ -2448,31 +2468,21 @@ def generate_fast_motion_negative(
 ) -> Path:
     """Generate negative control clip for fast_motion trigger with gentle/slow-panning translation.
 
-    Simulates gentle spatial translation at 2 pixels per frame (far below motion threshold).
+    Simulates gentle spatial translation at 1 pixel per frame (far below motion threshold 0.20).
     Negative control: contains no active trigger intervals.
     """
     out_path = Path(output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import cv2  # type: ignore
-        has_cv2 = True
-    except ImportError:
-        cv2 = None
-        has_cv2 = False
-
+    width, height = 1280, 720
     frames = []
     num_frames = int(duration * fps)
+    x = np.arange(width)
     for i in range(num_frames):
-        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-        x_pos = (i * 2) % 1280
-        if has_cv2 and cv2 is not None:
-            cv2.rectangle(frame, (x_pos, 300), (x_pos + 100, 400), (255, 255, 255), -1)
-        else:
-            x_end = min(x_pos + 100, 1280)
-            frame[300:400, x_pos:x_end] = (255, 255, 255)
-            if x_pos + 100 > 1280:
-                frame[300:400, 0:(x_pos + 100 - 1280)] = (255, 255, 255)
-        frames.append(frame)
+        phase = (x + i * 1) % 80
+        row = np.where(phase < 40, 255, 0).astype(np.uint8)
+        frame_gray = np.tile(row, (height, 1))
+        frame_bgr = np.dstack([frame_gray, frame_gray, frame_gray])
+        frames.append(frame_bgr)
 
     write_video(out_path, frames, fps)
     return out_path
@@ -2487,7 +2497,7 @@ def generate_jump_scare_positive(
     """Generate positive test clip for jump_scare trigger with synchronized visual flash and audio spike.
 
     Visual: Black frames with sudden 1-frame white flash at 1.5s.
-    Audio: Silence with sudden 0dBFS acoustic burst at 1.5s.
+    Audio: Silence with sudden acoustic burst at 1.5s.
     Ground-truth trigger interval: [1.500, 1.600).
     """
     out_v = Path(output_video)
@@ -2502,27 +2512,32 @@ def generate_jump_scare_positive(
 
     write_video(out_v, frames, fps)
 
+    temp_wav = out_v.with_name(f"{out_v.stem}_temp_audio.wav")
+    mix_audio_burst(temp_wav, burst_time=1.5, duration=duration, burst_duration=0.1, frequency=880.0)
+
     out_a = None
     if output_audio:
         out_a = Path(output_audio)
-        mix_audio_burst(out_a, burst_time=1.5, duration=duration)
+        import shutil
+        shutil.copyfile(temp_wav, out_a)
 
-    # Mux acoustic burst directly into video container for multimodal detectors
     ffmpeg_bin = find_tool("ffmpeg")
     temp_muxed = out_v.with_name(f"{out_v.stem}_muxed.mp4")
     cmd_mux = [
         ffmpeg_bin, "-y",
         "-i", str(out_v),
-        "-f", "lavfi", "-i", f"sine=frequency=880:duration={duration}",
-        "-af", "volume=enable='between(t,1.5,1.6)':volume=1.0:volume=0.0",
+        "-i", str(temp_wav),
         "-c:v", "copy",
         "-c:a", "aac",
+        "-b:a", "192k",
         "-shortest",
         str(temp_muxed),
     ]
     mux_res = subprocess.run(cmd_mux, capture_output=True)
     if mux_res.returncode == 0 and temp_muxed.is_file():
         temp_muxed.replace(out_v)
+    if temp_wav.is_file():
+        temp_wav.unlink()
 
     return out_v, out_a
 

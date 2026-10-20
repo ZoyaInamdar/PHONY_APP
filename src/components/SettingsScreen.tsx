@@ -8,7 +8,17 @@ import {
   View,
 } from 'react-native';
 import { BackHandler, TVFocusGuideView } from '@amazon-devices/react-native-kepler';
-import { DEFAULT_VIEWER_OPTIONS, ViewerOptions } from '../engine/types';
+import {
+  CANONICAL_ACTIONS,
+  CANONICAL_TRIGGERS,
+  CanonicalAction,
+  CanonicalTrigger,
+  DEFAULT_VIEWER_OPTIONS,
+  TRIGGER_ACTION_CONTRACTS,
+  ViewerOptions,
+  isActionAllowedForTrigger,
+  sanitizeActionOverrides,
+} from '../engine/types';
 import { getItem, setItem, STORAGE_KEYS } from '../storage';
 
 // ==============================================================================
@@ -26,6 +36,7 @@ import { getItem, setItem, STORAGE_KEYS } from '../storage';
 //    with mandatory CC0 rights label: "sample: real films vary".
 // 4. Reads and persists viewer preferences using STORAGE_KEYS.USER_SETTINGS
 //    and STORAGE_KEYS.USER_PROFILE via AsyncStorage.
+// 5. Exposes per-trigger action selection adhering to canonical contracts.
 // ==============================================================================
 
 export const REDUCTION_GAIN_OPTIONS = [0.15, 0.25, 0.30, 0.50, 0.75] as const;
@@ -34,18 +45,8 @@ export type ReductionGainOption = (typeof REDUCTION_GAIN_OPTIONS)[number];
 export const BLUR_MODE_OPTIONS = ['off', 'standard', 'high'] as const;
 export type BlurModeOption = (typeof BLUR_MODE_OPTIONS)[number];
 
-export const CANONICAL_TRIGGER_CATEGORIES = [
-  'flashing',
-  'loud_spike',
-  'gunshot',
-  'explosion',
-  'scream',
-  'profanity',
-  'spider',
-  'fast_motion',
-  'jump_scare',
-] as const;
-export type CanonicalTriggerCategory = (typeof CANONICAL_TRIGGER_CATEGORIES)[number];
+export const CANONICAL_TRIGGER_CATEGORIES = CANONICAL_TRIGGERS;
+export type CanonicalTriggerCategory = CanonicalTrigger;
 
 export const PLAYER_PROFILES = [
   'standard',
@@ -130,6 +131,11 @@ export function sanitizeViewerOptions(
         : fallback.headsUpPrompts?.leadTimeSeconds ?? 5.0;
     result.headsUpPrompts = { enabled, leadTimeSeconds };
   }
+  if (obj.actionOverrides && typeof obj.actionOverrides === 'object') {
+    result.actionOverrides = sanitizeActionOverrides(obj.actionOverrides);
+  } else {
+    result.actionOverrides = { ...(fallback.actionOverrides ?? {}) };
+  }
 
   return result;
 }
@@ -148,23 +154,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [options, setOptions] = useState<ViewerOptions>(
     initialOptions ? sanitizeViewerOptions(initialOptions) : DEFAULT_VIEWER_OPTIONS,
   );
-  const hasExplicitInitialProfileRef = useRef<boolean>(initialProfile !== undefined);
-  const hasUserModifiedProfileRef = useRef<boolean>(false);
-  const hasUserModifiedOptionsRef = useRef<boolean>(false);
-  const [profile, setProfile] = useState<PlayerProfile>(initialProfile ?? 'standard');
+  const [profile, setProfile] = useState<PlayerProfile>(
+    initialProfile ?? 'standard',
+  );
   const [blurMode, setBlurMode] = useState<BlurModeOption>('standard');
   const [focusedId, setFocusedId] = useState<string>('settings-back-button');
   const [saveStatusMessage, setSaveStatusMessage] = useState<string>('');
-  const [, setFocusReady] = useState<boolean>(false);
 
-  const isMountedRef = useRef<boolean>(true);
   const optionsRef = useRef<ViewerOptions>(options);
-  const profileRef = useRef<PlayerProfile>(profile);
-
   optionsRef.current = options;
+  const profileRef = useRef<PlayerProfile>(profile);
   profileRef.current = profile;
 
-  // D-pad navigation anchor refs for 10-foot TV UI focus chaining
+  const hasUserModifiedOptionsRef = useRef<boolean>(false);
+  const hasUserModifiedProfileRef = useRef<boolean>(false);
+
+  // Dedicated refs for Person C focus chaining
   const backButtonRef = useRef<any>(null);
   const resetButtonRef = useRef<any>(null);
   const profileStandardRef = useRef<any>(null);
@@ -173,85 +178,58 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const blurOptionStandardRef = useRef<any>(null);
   const visualProtectionRef = useRef<any>(null);
   const categoryFlashingRef = useRef<any>(null);
+  const isMountedRef = useRef<boolean>(true);
 
-  // Re-render once after initial mount to bind fully resolved component refs
-  // to native D-pad nextFocusUp / nextFocusDown targets
+  // Hardware BackHandler integration
   useEffect(() => {
-    setFocusReady(true);
-  }, []);
-
-  // TV remote hardware back button listener
-  useEffect(() => {
-    const handler = BackHandler;
-    const onBackPress = () => {
-      if (onBack) {
-        onBack();
-        return true;
-      }
-      return false;
-    };
-
-    const backSub = handler?.addEventListener('hardwareBackPress', onBackPress);
-    return () => {
-      if (backSub && typeof backSub.remove === 'function') {
-        backSub.remove();
-      } else if (handler && typeof handler.removeEventListener === 'function') {
-        handler.removeEventListener('hardwareBackPress', onBackPress);
-      }
-    };
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (onBack) {
+          onBack();
+          return true;
+        }
+        return false;
+      },
+    );
+    return () => subscription.remove();
   }, [onBack]);
 
-  // Load saved settings & profile from AsyncStorage on mount
+  // Load persisted preferences on mount
   useEffect(() => {
     isMountedRef.current = true;
-
-    (async () => {
+    async function loadStoredPreferences() {
       try {
         const [savedSettings, savedProfile] = await Promise.all([
-          getItem<unknown>(STORAGE_KEYS.USER_SETTINGS),
-          getItem<string>(STORAGE_KEYS.USER_PROFILE),
+          getItem<ViewerOptions>(STORAGE_KEYS.USER_SETTINGS),
+          getItem<PlayerProfile>(STORAGE_KEYS.USER_PROFILE),
         ]);
 
-        if (!isMountedRef.current) return;
-
-        if (
-          !hasUserModifiedOptionsRef.current &&
-          savedSettings !== null &&
-          savedSettings !== undefined
-        ) {
-          const merged = sanitizeViewerOptions(savedSettings, optionsRef.current);
-          if (isMountedRef.current && !hasUserModifiedOptionsRef.current) {
+        if (isMountedRef.current) {
+          if (savedSettings && !hasUserModifiedOptionsRef.current) {
+            const merged = sanitizeViewerOptions(savedSettings, optionsRef.current);
             setOptions(merged);
             optionsRef.current = merged;
           }
-        }
-
-        if (
-          !hasExplicitInitialProfileRef.current &&
-          !hasUserModifiedProfileRef.current &&
-          savedProfile &&
-          PLAYER_PROFILES.includes(savedProfile as PlayerProfile)
-        ) {
           if (
-            isMountedRef.current &&
-            !hasExplicitInitialProfileRef.current &&
+            savedProfile &&
+            PLAYER_PROFILES.includes(savedProfile) &&
             !hasUserModifiedProfileRef.current
           ) {
             setProfile(savedProfile as PlayerProfile);
-            profileRef.current = savedProfile as PlayerProfile;
+            profileRef.current = savedProfile;
           }
         }
       } catch (err) {
-        console.error('[SettingsScreen] Failed to load settings from storage', err);
+        console.warn('Failed to load settings from storage', err);
       }
-    })();
-
+    }
+    loadStoredPreferences();
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  // Persist settings updates to AsyncStorage
   const persistChanges = useCallback(
     async (nextOptions: ViewerOptions, nextProfile: PlayerProfile) => {
       try {
@@ -262,14 +240,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         if (onSave) {
           onSave(nextOptions, nextProfile);
         }
-        if (isMountedRef.current) {
-          setSaveStatusMessage('Settings saved');
-        }
+        setSaveStatusMessage('Settings saved');
+        setTimeout(() => setSaveStatusMessage(''), 2000);
       } catch (err) {
-        console.error('[SettingsScreen] Failed to persist settings', err);
-        if (isMountedRef.current) {
-          setSaveStatusMessage('Save error');
-        }
+        console.warn('Failed to persist settings changes', err);
+        setSaveStatusMessage('Save Error');
       }
     },
     [onSave],
@@ -279,7 +254,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     (updater: (prev: ViewerOptions) => ViewerOptions) => {
       hasUserModifiedOptionsRef.current = true;
       setOptions((prev) => {
-        const next = updater(prev);
+        const next = sanitizeViewerOptions(updater(prev), prev);
         optionsRef.current = next;
         persistChanges(next, profileRef.current);
         return next;
@@ -301,7 +276,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const handleResetDefaults = useCallback(() => {
     hasUserModifiedOptionsRef.current = true;
     hasUserModifiedProfileRef.current = true;
-    const defaults = { ...DEFAULT_VIEWER_OPTIONS };
+    const defaults: ViewerOptions = {
+      ...DEFAULT_VIEWER_OPTIONS,
+      actionOverrides: {},
+    };
     const defaultProfile: PlayerProfile = 'standard';
     setOptions(defaults);
     setProfile(defaultProfile);
@@ -491,7 +469,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Reduction Gain ${percent} percent`}
                   isTVSelectable={true}
-                  // Explicit escape routes for every picker item to prevent horizontal D-pad focus trapping
                   nextFocusUp={
                     reductionPickerNextFocusUp !== undefined
                       ? reductionPickerNextFocusUp
@@ -583,7 +560,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`Blur Intensity: ${mode}`}
                   isTVSelectable={true}
-                  // Explicit escape routes for every picker item to prevent horizontal D-pad focus trapping
                   nextFocusUp={
                     blurPickerNextFocusUp !== undefined
                       ? blurPickerNextFocusUp
@@ -780,6 +756,90 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     {cat}
                   </Text>
                 </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TVFocusGuideView>
+
+        {/* SECTION 6: PER-TRIGGER ACTION OVERRIDES */}
+        <TVFocusGuideView style={styles.sectionCard} testID="trigger-action-overrides-section">
+          <Text style={styles.sectionHeader}>PER-TRIGGER ACTION OVERRIDES</Text>
+          <Text style={styles.sectionDescription}>
+            Configure your preferred response for each trigger. Selecting the default restores standard behavior.
+          </Text>
+
+          <View style={styles.triggerOverridesList}>
+            {CANONICAL_TRIGGER_CATEGORIES.map((cat) => {
+              const contract = TRIGGER_ACTION_CONTRACTS[cat];
+              const currentAction = options.actionOverrides?.[cat] ?? contract.defaultAction;
+              const isOverridden = options.actionOverrides?.[cat] !== undefined;
+              const allAvailableActions = [contract.defaultAction, ...contract.allowedAlternatives];
+              const containerId = `trigger-action-picker-${cat}`;
+
+              return (
+                <View key={cat} style={styles.triggerOverrideCard} testID={containerId}>
+                  <View style={styles.triggerOverrideHeader}>
+                    <View style={styles.triggerTitleGroup}>
+                      <Text style={styles.triggerOverrideTitle}>{contract.displayName}</Text>
+                      <Text style={styles.triggerOverrideCategory}>[{cat}]</Text>
+                    </View>
+                    <View style={styles.triggerDefaultBadge}>
+                      <Text style={styles.triggerDefaultBadgeText}>
+                        Default: {contract.defaultAction}
+                        {isOverridden ? ' (Customized)' : ''}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.triggerActionsRow}>
+                    {allAvailableActions.map((act) => {
+                      const isSelected = currentAction === act;
+                      const isDefault = act === contract.defaultAction;
+                      const itemId = `action-option-${cat}-${act}`;
+                      const isFocused = focusedId === itemId;
+
+                      return (
+                        <TouchableOpacity
+                          key={act}
+                          style={[
+                            styles.actionOptionButton,
+                            isSelected && styles.actionOptionButtonSelected,
+                            isFocused && styles.actionOptionButtonFocused,
+                          ]}
+                          testID={itemId}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          accessibilityLabel={`${cat} action ${act}${isDefault ? ' default' : ''}`}
+                          isTVSelectable={true}
+                          onFocus={() => setFocusedId(itemId)}
+                          onPress={() => {
+                            handleUpdateOptions((prev) => {
+                              const nextOverrides = { ...(prev.actionOverrides ?? {}) };
+                              if (act === contract.defaultAction) {
+                                delete nextOverrides[cat];
+                              } else {
+                                nextOverrides[cat] = act;
+                              }
+                              return {
+                                ...prev,
+                                actionOverrides: nextOverrides,
+                              };
+                            });
+                          }}
+                          activeOpacity={0.8}>
+                          <Text
+                            style={[
+                              styles.actionOptionText,
+                              isSelected && styles.actionOptionTextSelected,
+                              isFocused && styles.actionOptionFocusedText,
+                            ]}>
+                            {act} {isDefault ? '(Default)' : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
               );
             })}
           </View>
@@ -1191,5 +1251,82 @@ const styles = StyleSheet.create({
   categoryPillTextDisabled: {
     color: '#64748B',
     textDecorationLine: 'line-through',
+  },
+  triggerOverridesList: {
+    gap: 14,
+  },
+  triggerOverrideCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  triggerOverrideHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  triggerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  triggerOverrideTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  triggerOverrideCategory: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontFamily: 'monospace',
+  },
+  triggerDefaultBadge: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  triggerDefaultBadgeText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  triggerActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  actionOptionButton: {
+    backgroundColor: '#0F172A',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 2,
+    borderColor: '#334155',
+  },
+  actionOptionButtonSelected: {
+    backgroundColor: '#0284C7',
+    borderColor: '#38BDF8',
+  },
+  actionOptionButtonFocused: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E5A900',
+    transform: [{ scale: 1.05 }],
+  },
+  actionOptionText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  actionOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  actionOptionFocusedText: {
+    color: '#000000',
+    fontWeight: '800',
   },
 });

@@ -15,7 +15,15 @@ import {
   VideoPlayer,
   KeplerShareableSurfaceView,
 } from '@amazon-devices/react-native-w3cmedia';
-import {Cue, EffectiveActions, ViewerOptions} from '../engine/types';
+import {
+  Cue,
+  EffectiveActions,
+  ViewerOptions,
+  CANONICAL_TRIGGERS,
+  CanonicalTrigger,
+  resolveEffectiveAction,
+  sanitizeActionOverrides,
+} from '../engine/types';
 import {PlaybackState} from '../engine/playbackState';
 import {applyReviewPolicy} from '../engine/reviewPolicy';
 import {
@@ -98,20 +106,9 @@ export interface PlayerScreenProps {
   mediaDuration?: number;
 }
 
-export const CANONICAL_TRIGGER_CATEGORIES = [
-  'flashing',
-  'loud_spike',
-  'gunshot',
-  'explosion',
-  'scream',
-  'profanity',
-  'spider',
-  'fast_motion',
-  'jump_scare',
-] as const;
+export const CANONICAL_TRIGGER_CATEGORIES = CANONICAL_TRIGGERS;
 
-export type CanonicalTriggerCategory =
-  (typeof CANONICAL_TRIGGER_CATEGORIES)[number];
+export type CanonicalTriggerCategory = CanonicalTrigger;
 
 const CANONICAL_TRIGGER_SET = new Set<string>(CANONICAL_TRIGGER_CATEGORIES);
 
@@ -197,6 +194,11 @@ export function sanitizeViewerOptions(
         ? promptObj.leadTimeSeconds
         : fallback.headsUpPrompts?.leadTimeSeconds ?? 5.0;
     result.headsUpPrompts = { enabled, leadTimeSeconds };
+  }
+  if (obj.actionOverrides && typeof obj.actionOverrides === 'object') {
+    result.actionOverrides = sanitizeActionOverrides(obj.actionOverrides);
+  } else {
+    result.actionOverrides = { ...(fallback.actionOverrides ?? {}) };
   }
 
   return result;
@@ -1014,7 +1016,12 @@ export const PlayerScreen = ({
       if (!dismissedPromptCueIdsRef.current.has(cue.id)) {
         return true;
       }
-      if (cue.action !== 'skip') {
+      const effectiveAction = resolveEffectiveAction(
+        cue.trigger,
+        cue.action,
+        currentOptions.actionOverrides,
+      );
+      if (effectiveAction !== 'skip') {
         return true;
       }
       const reviewAllowsSkip =
@@ -1225,13 +1232,7 @@ export const PlayerScreen = ({
       setVisualProtectionType('hide');
     }
 
-    if (actions.visualAction === 'dim') {
-      if (cuesChanged || isSeek) {
-        console.warn(
-          `[Trigger] Unsupported visual action "${actions.visualAction}" requested on current renderer for cue(s): [${activeCueIdsKey}]. Preserving original cue metadata without mapping to hide.`,
-        );
-      }
-    }
+    // Obsolete dim no-op removed from renderer
 
     // Applied-action recording for Vega OS:
     // If honest blackout fallback is active for a blur cue, record as blacked_out.
@@ -1307,8 +1308,7 @@ export const PlayerScreen = ({
           actionDesc += '🌫️ Video Blurred';
         } else if (targetHide) {
           actionDesc += '👁️ Visual Hidden';
-        } else if (actions.visualAction === 'dim') {
-          actionDesc += `⚠️ ${actions.visualAction.toUpperCase()} (unsupported on renderer)`;
+
         }
 
         if (triggerWantsMute) {

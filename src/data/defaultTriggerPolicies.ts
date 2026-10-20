@@ -3,16 +3,16 @@
  *
  * Sourced directly from the triggers section of config.yaml.
  * Defines modality, default action, allowed actions, and enabled flags
- * for the 9 canonical triggers.
+ * for the 12 canonical triggers.
  *
- * Preserves distinct action semantics ('dim', 'blur', 'mute', 'warn', etc.)
+ * Preserves distinct action semantics ('hide', 'blur', 'mute', 'reduce', 'skip', 'warn')
  * without silent aliasing.
  */
 
 export interface TriggerPolicyDefinition {
   enabled: boolean;
   modality: 'visual' | 'audio' | 'text' | 'audio_visual';
-  default_action: 'dim' | 'blur' | 'mute' | 'warn' | 'hide' | 'reduce' | 'skip';
+  default_action: 'hide' | 'blur' | 'mute' | 'reduce' | 'skip' | 'warn';
   allowed_actions: string[];
 }
 
@@ -22,32 +22,8 @@ export const DEFAULT_TRIGGER_POLICIES: TriggerPolicies = {
   flashing: {
     enabled: true,
     modality: 'visual',
-    default_action: 'dim',
-    allowed_actions: ['dim', 'blur', 'skip', 'warn'],
-  },
-  loud_spike: {
-    enabled: true,
-    modality: 'audio',
-    default_action: 'mute',
-    allowed_actions: ['mute', 'skip', 'warn'],
-  },
-  gunshot: {
-    enabled: true,
-    modality: 'audio',
-    default_action: 'mute',
-    allowed_actions: ['mute', 'skip', 'warn'],
-  },
-  explosion: {
-    enabled: true,
-    modality: 'audio',
-    default_action: 'mute',
-    allowed_actions: ['mute', 'skip', 'warn'],
-  },
-  scream: {
-    enabled: true,
-    modality: 'audio',
-    default_action: 'mute',
-    allowed_actions: ['mute', 'skip', 'warn'],
+    default_action: 'hide',
+    allowed_actions: ['hide', 'skip', 'warn'],
   },
   profanity: {
     enabled: true,
@@ -55,22 +31,64 @@ export const DEFAULT_TRIGGER_POLICIES: TriggerPolicies = {
     default_action: 'mute',
     allowed_actions: ['mute', 'skip', 'warn'],
   },
+  gunshot: {
+    enabled: true,
+    modality: 'audio',
+    default_action: 'mute',
+    allowed_actions: ['mute', 'reduce', 'skip', 'warn'],
+  },
+  explosion: {
+    enabled: true,
+    modality: 'audio',
+    default_action: 'reduce',
+    allowed_actions: ['reduce', 'mute', 'skip', 'warn'],
+  },
+  scream: {
+    enabled: true,
+    modality: 'audio',
+    default_action: 'reduce',
+    allowed_actions: ['reduce', 'mute', 'skip', 'warn'],
+  },
+  loud_spike: {
+    enabled: true,
+    modality: 'audio',
+    default_action: 'reduce',
+    allowed_actions: ['reduce', 'mute', 'warn'],
+  },
+  sustained_loudness: {
+    enabled: false,
+    modality: 'audio',
+    default_action: 'reduce',
+    allowed_actions: ['reduce', 'mute', 'warn', 'skip'],
+  },
   spider: {
     enabled: true,
     modality: 'visual',
-    default_action: 'blur',
-    allowed_actions: ['blur', 'skip', 'warn'],
+    default_action: 'hide',
+    allowed_actions: ['hide', 'blur', 'skip', 'warn'],
+  },
+  insect: {
+    enabled: false,
+    modality: 'visual',
+    default_action: 'hide',
+    allowed_actions: ['hide', 'blur', 'skip', 'warn'],
   },
   fast_motion: {
     enabled: false,
     modality: 'visual',
     default_action: 'warn',
-    allowed_actions: ['warn', 'dim', 'skip'],
+    allowed_actions: ['warn', 'hide', 'skip'],
   },
   jump_scare: {
     enabled: false,
     modality: 'audio_visual',
     default_action: 'warn',
-    allowed_actions: ['warn', 'mute', 'skip'],
+    allowed_actions: ['warn', 'hide', 'mute', 'skip'],
+  },
+  visible_blood: {
+    enabled: false,
+    modality: 'visual',
+    default_action: 'hide',
+    allowed_actions: ['hide', 'blur', 'skip', 'warn'],
   },
 };

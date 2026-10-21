@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trigger-Aware Player — Interactive Vega OS TV UI Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0e17;
+      --bg-card: rgba(22, 30, 49, 0.85);
+      --bg-glass: rgba(15, 23, 42, 0.75);
+      --accent: #f59e0b;
+      --accent-glow: rgba(245, 158, 11, 0.4);
+      --accent-blue: #38bdf8;
+      --danger: #ef4444;
+      --success: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-subtle: rgba(255, 255, 255, 0.12);
+      --border-focus: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: #050811;
+      font-family: 'Outfit', sans-serif;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    /* Outer Stage Wrapper */
+    .simulator-container {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      max-width: 1600px;
+      width: 100%;
+    }
+
+    /* TV Display Frame */
+    .tv-bezel {
+      flex: 1;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 20px;
+      border: 8px solid #1e293b;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 50px rgba(56, 189, 248, 0.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top TV Status Bar */
+    .tv-status-bar {
+      position: absolute;
+      top: 16px;
+      left: 24px;
+      right: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Screens Container */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      background-size: cover;
+      background-position: center;
+      transition: opacity 0.3s ease;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    /* =========================================================================
+       1. HOME SCREEN (App.tsx)
+       ========================================================================= */
+    #screen-home {
+      background: radial-gradient(circle at 80% 20%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
+      padding: 56px 64px;
+      justify-content: space-between;
+    }
+    .home-header {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .home-title {
+      font-size: 44px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .home-subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 540px;
+      line-height: 1.5;
+    }
+    .vega-branding {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      padding: 8px 16px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+    .vega-branding span {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 1px;
+      color: #38bdf8;
+    }
+
+    /* Tiles Grid */
+    .tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    .tv-tile {
+      background: var(--bg-card);
+      border: 2px solid transparent;
+      border-radius: 16px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 170px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+    .tv-tile:hover, .tv-tile.focused {
+      transform: translateY(-6px) scale(1.02);
+      border-color: var(--border-focus);
+      box-shadow: 0 15px 35px -5px var(--accent-glow), 0 0 20px rgba(245, 158, 11, 0.3);
+      background: rgba(30, 41, 59, 0.95);
+    }
+    .tile-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+    .tile-label {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+    .tile-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* =========================================================================
+       2. PLAYER SCREEN (PlayerScreen.tsx)
+       ========================================================================= */
+    #screen-player {
+      background: #000;
+      position: relative;
+    }
+
+    /* Video Canvas & Overlays */
+    .video-viewport {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: filter 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Protection Overlays */
+    .protection-dim {
+      filter: brightness(0.2) contrast(1.1) !important;
+    }
+    .protection-blur {
+      filter: blur(28px) brightness(0.6) !important;
+    }
+    .protection-hide {
+      opacity: 0.05 !important;
+    }
+
+    /* Visual Blind/Shield Overlay */
+    .shield-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(20px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      text-align: center;
+      padding: 32px;
+    }
+    .shield-overlay.active {
+      display: flex;
+    }
+    .shield-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      animation: shieldPulse 1s infinite alternate;
+    }
+    @keyframes shieldPulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.08); filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.6)); }
+    }
+    .shield-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .shield-desc {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 480px;
+    }
+
+    /* Heads-Up Skip Countdown Prompt */
+    .headsup-banner {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.94);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 16px 28px;
+      display: none;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 30px var(--accent-glow);
+      z-index: 30;
+      animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .headsup-banner.active {
+      display: flex;
+    }
+    @keyframes slideDown {
+      from { transform: translate(-50%, -30px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .headsup-info h4 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .headsup-info p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .countdown-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 3px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--accent);
+    }
+    .btn-skip {
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-skip:hover {
+      background: #fbbf24;
+      transform: scale(1.05);
+    }
+
+    /* Subtitle Overlay */
+    .subtitle-bar {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 24px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      z-index: 20;
+      display: none;
+      white-space: nowrap;
+    }
+    .subtitle-bar.active {
+      display: block;
+    }
+    .censored-token {
+      background: #ef4444;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+
+    /* Top Player Nav HUD */
+    .player-top-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+      z-index: 25;
+    }
+    .player-title-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-hud-back {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+    .btn-hud-back:hover, .btn-hud-back.focused {
+      background: var(--border-focus);
+      color: #000;
+    }
+    .player-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .hud-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .hud-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(8px);
+      color: #cbd5e1;
+    }
+    .hud-badge.accent {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+    }
+
+    /* Bottom Player Controls HUD */
+    .player-bottom-hud {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 36px;
+      background: linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 70%, transparent 100%);
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Scrubber Timeline */
+    .scrubber-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      min-width: 90px;
+    }
+    .progress-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.1s linear;
+    }
+    .cue-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(239, 68, 68, 0.7);
+      border-left: 1px solid #fff;
+      border-right: 1px solid #fff;
+      z-index: 2;
+    }
+
+    /* Action Buttons Row */
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .transport-buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover, .ctrl-btn.focused {
+      background: var(--border-focus);
+      color: #000;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+    .ctrl-btn.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.25);
+      color: #38bdf8;
+    }
+
+    /* Live Trigger Ticker */
+    .trigger-ticker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+    .ticker-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .ticker-pill.safe {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .ticker-pill.active-trigger {
+      background: rgba(239, 68, 68, 0.25);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      animation: pulse 1s infinite;
+    }
+
+    /* =========================================================================
+       3. SETTINGS SCREEN (SettingsScreen.tsx)
+       ========================================================================= */
+    #screen-settings {
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0a0f1d 80%);
+      padding: 48px 64px;
+      overflow-y: auto;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .settings-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    .setting-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .setting-card:hover, .setting-card.focused {
+      border-color: var(--border-focus);
+      background: rgba(30, 41, 59, 0.95);
+      transform: translateY(-2px);
+    }
+    .setting-label {
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .setting-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .switch-toggle {
+      width: 52px;
+      height: 28px;
+      background: #334155;
+      border-radius: 14px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .switch-toggle.on {
+      background: var(--accent);
+    }
+    .switch-knob {
+      width: 22px;
+      height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+    .switch-toggle.on .switch-knob {
+      transform: translateX(24px);
+    }
+
+    /* =========================================================================
+       VIRTUAL FIRE TV REMOTE CONTROLLER
+       ========================================================================= */
+    .remote-unit {
+      width: 260px;
+      background: #0f172a;
+      border: 4px solid #1e293b;
+      border-radius: 40px;
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    }
+    .remote-header {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #64748b;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .remote-dpad {
+      width: 170px;
+      height: 170px;
+      background: #1e293b;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.5);
+    }
+    .dpad-btn {
+      position: absolute;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+    }
+    .dpad-btn:active {
+      color: var(--accent);
+      transform: scale(0.92);
+    }
+    .dpad-up { top: 6px; left: 50%; transform: translateX(-50%); width: 44px; height: 36px; }
+    .dpad-down { bottom: 6px; left: 50%; transform: translateX(-50%); width: 44px; height: 36px; }
+    .dpad-left { left: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 44px; }
+    .dpad-right { right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 44px; }
+    .dpad-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 68px;
+      height: 68px;
+      background: #334155;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      border: 2px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .dpad-center:active {
+      background: var(--accent);
+      color: #000;
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    .remote-row {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      justify-content: center;
+    }
+    .remote-btn {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.1s;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    .remote-btn:active {
+      background: #334155;
+      color: #fff;
+      transform: scale(0.92);
+    }
+    .remote-guide {
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .remote-guide code {
+      color: #38bdf8;
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="simulator-container">
+    <!-- TV Display -->
+    <div class="tv-bezel">
+      <!-- Status Bar -->
+      <div class="tv-status-bar">
+        <div class="badge-live">
+          <div class="pulse-dot"></div>
+          VEGA OS ACTIVE
+        </div>
+        <div>FIRE TV — TRIGGER-AWARE PLAYER</div>
+      </div>
+
+      <!-- ========================================================== -->
+      <!-- 1. HOME SCREEN -->
+      <!-- ========================================================== -->
+      <div id="screen-home" class="screen active">
+        <div class="home-header">
+          <div>
+            <h1 class="home-title">Hello Vega,</h1>
+            <p class="home-subtitle">Use your remote to explore and start your Vega journey with real-time on-device trigger mitigations. 🚀</p>
+          </div>
+          <div class="vega-branding">
+            <span>🚀 VEGA 10-FOOT UI</span>
+          </div>
+        </div>
+
+        <div class="tiles-grid">
+          <div class="tv-tile focused" id="tile-sintel" onclick="launchFilm('sintel')">
+            <div class="tile-icon">🎬</div>
+            <div>
+              <div class="tile-label">Sintel<br>(Film 1)</div>
+              <div class="tile-desc">52s trailer demo with flashing, spider, gunshot, and loud spike protections.</div>
+            </div>
+          </div>
+
+          <div class="tv-tile" id="tile-tos" onclick="launchFilm('tears_of_steel')">
+            <div class="tile-icon">🎥</div>
+            <div>
+              <div class="tile-label">Tears of<br>Steel</div>
+              <div class="tile-desc">Full 734s demo with gunshot, scream, profanity, and explosion mitigations.</div>
+            </div>
+          </div>
+
+          <div class="tv-tile" id="tile-settings" onclick="openSettings()">
+            <div class="tile-icon">⚙️</div>
+            <div>
+              <div class="tile-label">Settings &<br>Profiles</div>
+              <div class="tile-desc">Configure sensitive triggers, blur intensity, volume ducking, and skip prompts.</div>
+            </div>
+          </div>
+
+          <div class="tv-tile" id="tile-debug" onclick="toggleHarness()">
+            <div class="tile-icon">⚡</div>
+            <div>
+              <div class="tile-label">Trigger<br>Test Harness</div>
+              <div class="tile-desc">Step through trigger intervals and test visual and acoustic mitigations.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================== -->
+      <!-- 2. PLAYER SCREEN -->
+      <!-- ========================================================== -->
+      <div id="screen-player" class="screen">
+        <!-- Viewport & Video -->
+        <div class="video-viewport">
+          <video id="player-video" playsinline preload="auto">
+            <source src="https://media.w3.org/2010/05/sintel/trailer.mp4" type="video/mp4">
+          </video>
+
+          <!-- Protection Shield Overlay -->
+          <div id="shield-overlay" class="shield-overlay">
+            <div class="shield-icon" id="shield-icon">🛡️</div>
+            <div class="shield-title" id="shield-title">Content Shield Active</div>
+            <div class="shield-desc" id="shield-desc">Visual trigger mitigation is temporarily active on this scene.</div>
+          </div>
+
+          <!-- Heads-up Countdown Prompt -->
+          <div id="headsup-banner" class="headsup-banner">
+            <div class="countdown-circle" id="headsup-timer">3s</div>
+            <div class="headsup-info">
+              <h4 id="headsup-title">Upcoming Sensitive Scene</h4>
+              <p id="headsup-meta">Flashing detected in scene. Press OK to Skip.</p>
+            </div>
+            <button class="btn-skip" onclick="executeSkip()">Skip Scene ⏭️</button>
+          </div>
+
+          <!-- Active Subtitle Bar -->
+          <div id="subtitle-bar" class="subtitle-bar">
+            <span>Subtitle: What the <span class="censored-token">[BLEEP: ***]</span> was that?</span>
+          </div>
+        </div>
+
+        <!-- Top HUD -->
+        <div class="player-top-hud">
+          <div class="player-title-box">
+            <button class="btn-hud-back" onclick="navigateHome()">← Home</button>
+            <div class="player-title" id="player-film-title">Trigger-Aware Player — Sintel</div>
+          </div>
+          <div class="hud-badges">
+            <div class="hud-badge accent" id="hud-profile-badge">Profile: Standard</div>
+            <div class="hud-badge" id="hud-cues-badge">Cues: Index (7 active)</div>
+          </div>
+        </div>
+
+        <!-- Bottom HUD -->
+        <div class="player-bottom-hud">
+          <!-- Scrubber Timeline -->
+          <div class="scrubber-container">
+            <span class="time-display" id="time-current">00:00</span>
+            <div class="progress-track" id="progress-track" onclick="scrubVideo(event)">
+              <div class="progress-fill" id="progress-fill"></div>
+              <!-- Cue markers injected by JS -->
+            </div>
+            <span class="time-display" id="time-total">00:52</span>
+          </div>
+
+          <!-- Controls Row -->
+          <div class="controls-row">
+            <div class="transport-buttons">
+              <button class="ctrl-btn focused" id="btn-play" onclick="togglePlayPause()">▶ Play</button>
+              <button class="ctrl-btn" onclick="seekRelative(-10)">↺ 10s</button>
+              <button class="ctrl-btn" onclick="seekRelative(10)">10s ↻</button>
+              <button class="ctrl-btn" id="btn-mute" onclick="toggleMute()">🔊 Volume: 100%</button>
+              <button class="ctrl-btn" onclick="switchFilmToggle()">🎞️ Switch Film</button>
+              <button class="ctrl-btn" onclick="openSettings()">⚙️ Settings</button>
+            </div>
+
+            <!-- Real-time Trigger Ticker -->
+            <div class="trigger-ticker">
+              <span style="color: var(--text-muted); font-weight: 600;">TRIGGER ENGINE:</span>
+              <div class="ticker-pill safe" id="engine-status-pill">
+                <span>●</span> NO ACTIVE TRIGGERS
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================== -->
+      <!-- 3. SETTINGS SCREEN -->
+      <!-- ========================================================== -->
+      <div id="screen-settings" class="screen">
+        <div class="settings-header">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <button class="btn-hud-back" onclick="closeSettings()">← Back</button>
+            <h2 class="settings-title">Trigger Protection Settings</h2>
+          </div>
+          <div class="hud-badge accent">PROFILE: STANDARD</div>
+        </div>
+
+        <div class="settings-grid">
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">⚡ Flashing & Strobe</div>
+              <div class="setting-meta">Action: Auto-dim / Visual Shield (WCAG 3Hz Rule)</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">🔊 Sudden Loud Spikes</div>
+              <div class="setting-meta">Action: Volume Ducking (-70% volume ramp)</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">💥 Gunshots & Explosions</div>
+              <div class="setting-meta">Action: Transient Acoustic Mute</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">🤬 Profanity in Dialogue</div>
+              <div class="setting-meta">Action: Subtitle Censoring & Audio Bleep</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">🕷️ Spider & Arachnids</div>
+              <div class="setting-meta">Action: Visual Blur Filter (CLIP / SigLIP model)</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+
+          <div class="setting-card">
+            <div>
+              <div class="setting-label">⚡ Fast Motion & Jump Scares</div>
+              <div class="setting-meta">Action: Heads-up Warning & Optional Skip</div>
+            </div>
+            <div class="switch-toggle on" onclick="toggleSetting(this)">
+              <div class="switch-knob"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Virtual Fire TV Remote Controller -->
+    <div class="remote-unit">
+      <div class="remote-header">
+        <span>🎮 Fire TV Remote</span>
+      </div>
+
+      <!-- D-Pad -->
+      <div class="remote-dpad">
+        <button class="dpad-btn dpad-up" onclick="remoteDpad('up')">▲</button>
+        <button class="dpad-btn dpad-down" onclick="remoteDpad('down')">▼</button>
+        <button class="dpad-btn dpad-left" onclick="remoteDpad('left')">◀</button>
+        <button class="dpad-btn dpad-right" onclick="remoteDpad('right')">▶</button>
+        <button class="dpad-center" onclick="remoteDpad('select')">SELECT</button>
+      </div>
+
+      <!-- Remote Control Buttons -->
+      <div class="remote-row">
+        <button class="remote-btn" title="Back" onclick="remoteAction('back')">↩</button>
+        <button class="remote-btn" title="Home" onclick="remoteAction('home')">⌂</button>
+        <button class="remote-btn" title="Play/Pause" onclick="togglePlayPause()">⏯</button>
+      </div>
+
+      <div class="remote-row">
+        <button class="remote-btn" title="Rewind" onclick="seekRelative(-10)">⏪</button>
+        <button class="remote-btn" title="Mute" onclick="toggleMute()">🔇</button>
+        <button class="remote-btn" title="Fast Forward" onclick="seekRelative(10)">⏩</button>
+      </div>
+
+      <div class="remote-guide">
+        Use on-screen remote or keyboard:<br>
+        <code>Arrow Keys</code>: Navigate<br>
+        <code>Enter / Space</code>: Select / Play<br>
+        <code>Esc / Backspace</code>: Back
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Embedded Film Catalogue & Trigger Cues from data/index.json
+    const CATALOGUE = {
+      sintel: {
+        id: 'sintel',
+        title: 'Sintel',
+        duration: 52.0,
+        streamUrl: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+        cues: [
+          { start: 10.2, end: 11.8, trigger: 'flashing', action: 'dim', score: 0.85, label: 'Intense Flashing' },
+          { start: 14.0, end: 14.8, trigger: 'loud_spike', action: 'reduce', score: 0.92, label: 'Acoustic Loud Spike' },
+          { start: 18.5, end: 20.0, trigger: 'gunshot', action: 'mute', score: 0.78, label: 'Gunshot Sound' },
+          { start: 22.0, end: 24.5, trigger: 'explosion', action: 'mute', score: 0.88, label: 'Explosion Blast' },
+          { start: 26.1, end: 27.4, trigger: 'scream', action: 'mute', score: 0.74, label: 'High Scream' },
+          { start: 30.0, end: 30.8, trigger: 'profanity', action: 'bleep', score: 1.0, label: 'Profanity in Subtitles' },
+          { start: 35.0, end: 38.0, trigger: 'spider', action: 'blur', score: 0.82, label: 'Spider / Arachnid' }
+        ]
+      },
+      tears_of_steel: {
+        id: 'tears_of_steel',
+        title: 'Tears of Steel',
+        duration: 734.0,
+        streamUrl: 'https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov',
+        cues: [
+          { start: 5.0, end: 8.0, trigger: 'gunshot', action: 'mute', score: 0.88, label: 'Gunfire Burst' },
+          { start: 15.0, end: 18.0, trigger: 'loud_spike', action: 'reduce', score: 0.92, label: 'Acoustic Spike' },
+          { start: 25.0, end: 29.0, trigger: 'flashing', action: 'dim', score: 0.85, label: 'Strobe Lights' }
+        ]
+      }
+    };
+
+    let currentFilmId = 'sintel';
+    let currentScreen = 'home';
+    let previousScreen = 'home';
+    const video = document.getElementById('player-video');
+    const shieldOverlay = document.getElementById('shield-overlay');
+    const headsupBanner = document.getElementById('headsup-banner');
+    const subtitleBar = document.getElementById('subtitle-bar');
+    const progressFill = document.getElementById('progress-fill');
+    const progressTrack = document.getElementById('progress-track');
+    const timeCurrent = document.getElementById('time-current');
+    const timeTotal = document.getElementById('time-total');
+    const btnPlay = document.getElementById('btn-play');
+    const btnMute = document.getElementById('btn-mute');
+    const engineStatusPill = document.getElementById('engine-status-pill');
+
+    function showScreen(screenId) {
+      previousScreen = currentScreen;
+      currentScreen = screenId;
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const activeEl = document.getElementById(`screen-${screenId}`);
+      if (activeEl) activeEl.classList.add('active');
+    }
+
+    function launchFilm(filmId) {
+      currentFilmId = filmId;
+      const film = CATALOGUE[filmId];
+      document.getElementById('player-film-title').innerText = `Trigger-Aware Player — ${film.title}`;
+      document.getElementById('hud-cues-badge').innerText = `Cues: Index (${film.cues.length} active)`;
+      timeTotal.innerText = formatTime(film.duration);
+
+      video.src = film.streamUrl;
+      video.load();
+      video.play().then(() => {
+        btnPlay.innerText = '⏸ Pause';
+      }).catch(() => {
+        btnPlay.innerText = '▶ Play';
+      });
+
+      renderCueMarkers(film);
+      showScreen('player');
+    }
+
+    function renderCueMarkers(film) {
+      // Clear old markers
+      document.querySelectorAll('.cue-marker').forEach(m => m.remove());
+      film.cues.forEach(c => {
+        const leftPercent = (c.start / film.duration) * 100;
+        const widthPercent = Math.max(0.6, ((c.end - c.start) / film.duration) * 100);
+        const marker = document.createElement('div');
+        marker.className = 'cue-marker';
+        marker.style.left = `${leftPercent}%`;
+        marker.style.width = `${widthPercent}%`;
+        marker.title = `${c.trigger} (${c.start}s - ${c.end}s)`;
+        progressTrack.appendChild(marker);
+      });
+    }
+
+    function navigateHome() {
+      video.pause();
+      showScreen('home');
+    }
+
+    function openSettings() {
+      showScreen('settings');
+    }
+
+    function closeSettings() {
+      showScreen(previousScreen === 'player' ? 'player' : 'home');
+    }
+
+    function togglePlayPause() {
+      if (video.paused) {
+        video.play();
+        btnPlay.innerText = '⏸ Pause';
+      } else {
+        video.pause();
+        btnPlay.innerText = '▶ Play';
+      }
+    }
+
+    function seekRelative(seconds) {
+      video.currentTime = Math.max(0, Math.min(video.duration || 52, video.currentTime + seconds));
+    }
+
+    function toggleMute() {
+      video.muted = !video.muted;
+      btnMute.innerText = video.muted ? '🔇 Muted' : '🔊 Volume: 100%';
+    }
+
+    function switchFilmToggle() {
+      const nextId = currentFilmId === 'sintel' ? 'tears_of_steel' : 'sintel';
+      launchFilm(nextId);
+    }
+
+    function toggleSetting(el) {
+      el.classList.toggle('on');
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function scrubVideo(e) {
+      const rect = progressTrack.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      const targetTime = pos * (video.duration || CATALOGUE[currentFilmId].duration);
+      video.currentTime = targetTime;
+    }
+
+    // Real-Time Trigger Evaluation Loop
+    video.ontimeupdate = () => {
+      const cur = video.currentTime;
+      const dur = video.duration || CATALOGUE[currentFilmId].duration;
+      timeCurrent.innerText = formatTime(cur);
+      progressFill.style.width = `${(cur / dur) * 100}%`;
+
+      const film = CATALOGUE[currentFilmId];
+      const activeCue = film.cues.find(c => cur >= c.start && cur < c.end);
+      const upcomingSkipCue = film.cues.find(c => c.action === 'skip' && cur < c.start && (c.start - cur) <= 4.0);
+
+      // Handle active mitigation
+      if (activeCue) {
+        engineStatusPill.className = 'ticker-pill active-trigger';
+        engineStatusPill.innerHTML = `<span>⚠️</span> ACTIVE: ${activeCue.trigger.toUpperCase()} (${Math.round(activeCue.score * 100)}%)`;
+
+        if (activeCue.action === 'dim') {
+          video.classList.add('protection-dim');
+          shieldOverlay.classList.remove('active');
+        } else if (activeCue.action === 'blur') {
+          video.classList.add('protection-blur');
+          shieldOverlay.classList.remove('active');
+        } else if (activeCue.action === 'hide') {
+          shieldOverlay.classList.add('active');
+          document.getElementById('shield-title').innerText = `${activeCue.trigger.toUpperCase()} MITIGATION`;
+          document.getElementById('shield-desc').innerText = `Scene automatically protected by trigger policy.`;
+        } else if (activeCue.action === 'reduce') {
+          video.volume = 0.25;
+          btnMute.innerText = '🔉 Reduced (-75%)';
+        } else if (activeCue.action === 'mute') {
+          video.muted = true;
+          btnMute.innerText = '🔇 Trigger Mute';
+        } else if (activeCue.action === 'bleep') {
+          subtitleBar.classList.add('active');
+        }
+      } else {
+        // Reset mitigations
+        video.classList.remove('protection-dim', 'protection-blur', 'protection-hide');
+        shieldOverlay.classList.remove('active');
+        subtitleBar.classList.remove('active');
+        if (!video.muted) {
+          video.volume = 1.0;
+          btnMute.innerText = '🔊 Volume: 100%';
+        }
+        engineStatusPill.className = 'ticker-pill safe';
+        engineStatusPill.innerHTML = `<span>●</span> NO ACTIVE TRIGGERS`;
+      }
+
+      // Heads-up skip warning
+      if (upcomingSkipCue) {
+        headsupBanner.classList.add('active');
+        const remaining = Math.max(1, Math.ceil(upcomingSkipCue.start - cur));
+        document.getElementById('headsup-timer').innerText = `${remaining}s`;
+        document.getElementById('headsup-meta').innerText = `${upcomingSkipCue.label} ahead. Press OK to Skip.`;
+      } else {
+        headsupBanner.classList.remove('active');
+      }
+    };
+
+    function executeSkip() {
+      const cur = video.currentTime;
+      const film = CATALOGUE[currentFilmId];
+      const cue = film.cues.find(c => c.start >= cur);
+      if (cue) {
+        video.currentTime = cue.end + 0.1;
+      }
+      headsupBanner.classList.remove('active');
+    }
+
+    // Keyboard & Remote Handlers
+    function remoteDpad(direction) {
+      if (direction === 'select') {
+        if (currentScreen === 'home') {
+          const focusedTile = document.querySelector('.tv-tile.focused');
+          if (focusedTile) focusedTile.click();
+        } else if (currentScreen === 'player') {
+          togglePlayPause();
+        }
+      } else if (direction === 'left') {
+        if (currentScreen === 'player') seekRelative(-10);
+      } else if (direction === 'right') {
+        if (currentScreen === 'player') seekRelative(10);
+      }
+    }
+
+    function remoteAction(action) {
+      if (action === 'home') navigateHome();
+      else if (action === 'back') {
+        if (currentScreen === 'settings') closeSettings();
+        else if (currentScreen === 'player') navigateHome();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') remoteDpad('left');
+      else if (e.key === 'ArrowRight') remoteDpad('right');
+      else if (e.key === ' ' || e.key === 'Enter') remoteDpad('select');
+      else if (e.key === 'Escape' || e.key === 'Backspace') remoteAction('back');
+    });
+  </script>
+</body>
+</html>

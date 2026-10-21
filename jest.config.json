@@ -4,6 +4,7 @@
     "^.+\\.tsx?$": "ts-jest"
   },
   "setupFiles": ["./node_modules/@amazon-devices/react-native-kepler/jest/setup.js"],
+  "setupFilesAfterEnv": ["<rootDir>/test/jest.setup.js"],
   "testRegex": "/test/.*\\.(test|spec)\\.(ts|tsx|js)$",
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
   "moduleNameMapper": {

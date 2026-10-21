@@ -23,6 +23,24 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      # Install the official Amazon Vega CLI and SDK on the Ubuntu runner
+      - name: Install Vega CLI and SDK
+        run: |
+          NONINTERACTIVE=true curl -fsSL https://sdk-installer.vega.labcollab.net/get_vvm.sh | bash
+          echo "$HOME/vega/bin" >> $GITHUB_PATH
+          if [ -f "$HOME/vega/env" ]; then
+            source "$HOME/vega/env"
+            if [ -n "$KEPLER_SDK_PATH" ]; then
+              echo "KEPLER_SDK_PATH=$KEPLER_SDK_PATH" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Verify Vega CLI and SDK
+        run: |
+          which vega || true
+          vega --version || true
+          echo "KEPLER_SDK_PATH: $KEPLER_SDK_PATH"
+
       # Build the app using the command we set in package.json
       # On Ubuntu (x86_64), this will generate a vpkg named like: build/x86_64-release/<appname>_x86_64.vpkg
       - name: Build VPKG
@@ -34,4 +52,7 @@ jobs:
           name: vega-app-package
           # The build directory structure depends on the architecture. 
           # We use a wildcard to grab the generated package.
-          path: build/**/*release/*.vpkg
+          path: |
+            build/**/*release/*.vpkg
+            build/**/*.vpkg
+

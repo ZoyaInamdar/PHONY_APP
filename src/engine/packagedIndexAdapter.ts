@@ -46,8 +46,7 @@ type PackagedIndex = {
 
 /**
  * Actions the player engine can carry and represent.
- * Supported canonical actions: 'hide', 'mute', 'reduce', 'skip', 'warn', 'blur'.
- * 'dim' is excluded from supported actions.
+ * Supported actions: 'hide', 'mute', 'reduce', 'skip', 'warn', 'blur', 'dim'.
  */
 const REPRESENTABLE_ACTIONS = new Set<CueAction>([
   'hide',
@@ -56,6 +55,7 @@ const REPRESENTABLE_ACTIONS = new Set<CueAction>([
   'skip',
   'warn',
   'blur',
+  'dim',
 ]);
 
 /**

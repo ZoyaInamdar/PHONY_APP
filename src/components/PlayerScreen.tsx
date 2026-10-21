@@ -106,9 +106,20 @@ export interface PlayerScreenProps {
   mediaDuration?: number;
 }
 
-export const CANONICAL_TRIGGER_CATEGORIES = CANONICAL_TRIGGERS;
+export const CANONICAL_TRIGGER_CATEGORIES = [
+  'flashing',
+  'loud_spike',
+  'gunshot',
+  'explosion',
+  'scream',
+  'profanity',
+  'spider',
+  'fast_motion',
+  'jump_scare',
+] as const;
 
-export type CanonicalTriggerCategory = CanonicalTrigger;
+export type CanonicalTriggerCategory =
+  (typeof CANONICAL_TRIGGER_CATEGORIES)[number];
 
 const CANONICAL_TRIGGER_SET = new Set<string>(CANONICAL_TRIGGER_CATEGORIES);
 
@@ -372,8 +383,26 @@ export const PlayerScreen = ({
         return [];
       }
     }
-    if (currentFilmId === 'sintel_trailer') {
+    if (currentFilmId === 'sintel' || currentFilmId === 'sintel_trailer') {
       return sintelTrailerCues;
+    }
+    if (currentFilmId === 'tears_of_steel') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const triggerPoliciesJson = require('../../test/fixtures/triggerPolicies.json');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const realTosIndex = require('../../data/processed/tears_of_steel/index.json');
+        return loadAndValidateFilmIndex(
+          realTosIndex,
+          triggerPoliciesJson.policies,
+          {
+            filmId: 'tears_of_steel',
+            durationSeconds: 734.167,
+          },
+        );
+      } catch (e) {
+        return tearsOfSteelIndexCues;
+      }
     }
     return null;
   }, [customCues, packagedIndex, currentFilmId, mediaDuration]);
@@ -385,8 +414,9 @@ export const PlayerScreen = ({
       case 'skip_verification':
         return skipVerificationTestCues;
       case 'verification':
-      default:
         return verificationTestCues;
+      default:
+        return resolvedIndexCues ?? standardIndexCues;
     }
   };
 
@@ -1076,10 +1106,8 @@ export const PlayerScreen = ({
       targetVolume = Number((userVolumeRef.current * actions.soundGain).toFixed(2));
     }
 
-    // 3. Visual Hiding / Dual-Video Blur evaluation
-    // If an alternate blurred asset is configured and operational, we switch to it.
-    // Otherwise, requested blur cues safely fall back to honest visual blackout protection.
-    const isBlurCueRequested = actions.visualAction === 'blur';
+    // 3. Visual Hiding / Visual Blur evaluation
+    const isBlurCueRequested = actions.visualAction === 'blur' && currentOptions.hideEnabled;
     const canAttemptBlur =
       isBlurCueRequested &&
       !actions.hide &&
@@ -1088,33 +1116,57 @@ export const PlayerScreen = ({
       !blurFallbackActiveRef.current;
 
     let targetHide = actions.hide;
+    let targetBlur = false;
 
     if (actions.hide) {
-      // Hide takes absolute precedence over blur
+      // Hide takes absolute precedence over blur (complete blackout)
       exitBlurToClean();
       targetHide = true;
+      targetBlur = false;
+      const vInst = videoInstanceRef.current ?? videoRef.current;
+      if (vInst && (vInst as any).style) {
+        (vInst as any).style.filter = 'none';
+      }
     } else if (isBlurCueRequested) {
-      if (canAttemptBlur) {
-        if (isBlurActiveRef.current && !isSeek) {
-          targetHide = false;
-        } else {
-          // Enter blur cue or seeked into one: initiate alternate seek under blackout mask
-          targetHide = true;
-          initiateAlternateSeek(time);
-          if (isBlurActiveRef.current) {
+      if (isAlternateAssetConfigured) {
+        if (canAttemptBlur) {
+          if (isBlurActiveRef.current && !isSeek) {
             targetHide = false;
+            targetBlur = true;
+          } else {
+            targetHide = true;
+            targetBlur = false;
+            initiateAlternateSeek(time);
+            if (isBlurActiveRef.current) {
+              targetHide = false;
+              targetBlur = true;
+            }
           }
+        } else {
+          exitBlurToClean();
+          targetHide = true;
+          targetBlur = false;
+          recordBlurCueAction('blacked_out', time, currentOptions, currentCues);
         }
       } else {
-        // Honest blackout fallback
         exitBlurToClean();
         targetHide = true;
+        targetBlur = false;
         recordBlurCueAction('blacked_out', time, currentOptions, currentCues);
+      }
+      const vInst = videoInstanceRef.current ?? videoRef.current;
+      if (vInst && (vInst as any).style) {
+        (vInst as any).style.filter = 'blur(20px)';
       }
     } else {
       // Outside visual cues
       exitBlurToClean();
       targetHide = false;
+      targetBlur = false;
+      const vInst = videoInstanceRef.current ?? videoRef.current;
+      if (vInst && (vInst as any).style) {
+        (vInst as any).style.filter = 'none';
+      }
     }
 
     const isVegaBlurFallback = !canAttemptBlur && isBlurCueRequested;
@@ -1205,10 +1257,15 @@ export const PlayerScreen = ({
     if (hideChanged) {
       console.log(
         `[Trigger] Visual hide transition: ${currentHide} → ${targetHide} ` +
-          `(action: ${actions.visualAction}${isVegaBlurFallback ? ' [blur fallback to blackout]' : ''}, activeCues: [${activeCueIdsKey}])`,
+          `(action: ${actions.visualAction}, activeCues: [${activeCueIdsKey}])`,
       );
       isContentHiddenRef.current = targetHide;
       setIsContentHidden(targetHide);
+    }
+
+    if (blurChanged || isBlurActiveRef.current !== targetBlur) {
+      isBlurActiveRef.current = targetBlur;
+      setIsBlurActive(targetBlur);
     }
 
     if (targetHide) {
@@ -1228,11 +1285,19 @@ export const PlayerScreen = ({
         (actions.visualAction === 'blur' && !actions.hide) ||
         isBlurTrigger;
       setVisualProtectionType(isBlurMode ? 'blur' : 'hide');
+    } else if (targetBlur) {
+      setVisualProtectionType('blur');
     } else {
       setVisualProtectionType('hide');
     }
 
-    // Obsolete dim no-op removed from renderer
+    if (actions.visualAction === 'dim') {
+      if (cuesChanged || isSeek) {
+        console.warn(
+          `[Trigger] Unsupported visual action "${actions.visualAction}" requested on current renderer for cue(s): [${activeCueIdsKey}]. Preserving original cue metadata without mapping to hide.`,
+        );
+      }
+    }
 
     // Applied-action recording for Vega OS:
     // If honest blackout fallback is active for a blur cue, record as blacked_out.
@@ -1257,14 +1322,42 @@ export const PlayerScreen = ({
       }
     }
 
-    // 5. Advance heads-up prompt dialog evaluation
-    const promptCue = actions.promptCue ?? null;
+    // 5. Advance heads-up prompt awareness evaluation
+    let promptCue = actions.promptCue ?? null;
+    if (promptCue) {
+      // Filter: Prompt window is NOT displayed except for:
+      // skipping a scene, complete blackout, blur, or mute/reduce.
+      const trig = promptCue.trigger as TriggerType | undefined;
+      const override = trig ? currentOptions.actionOverrides?.[trig] : undefined;
+      const effectiveAction = override ?? promptCue.action ?? 'warn';
+      const isAllowedMitigation =
+        effectiveAction === 'skip' ||
+        effectiveAction === 'hide' ||
+        effectiveAction === 'blur' ||
+        effectiveAction === 'mute' ||
+        effectiveAction === 'reduce' ||
+        promptCue.action === 'skip' ||
+        promptCue.action === 'hide' ||
+        promptCue.action === 'blur' ||
+        promptCue.action === 'mute' ||
+        promptCue.action === 'reduce';
+
+      if (!isAllowedMitigation) {
+        promptCue = null;
+      }
+    }
+
     if (activePromptCueRef.current) {
-      // Requirement 4: Keep the prompt visible until the user explicitly chooses
-      // Continue, Skip Scene, or an intentional Back/dismiss action.
-      // Do not let ordinary playback-time updates automatically dismiss an already-open prompt.
+      const leadTime = currentOptions.headsUpPrompts?.leadTimeSeconds ?? 5.0;
+      const windowStart = Math.max(0, activePromptCueRef.current.start - leadTime);
+
       if (!isSeek) {
-        // Ordinary playback time update: preserve currently open prompt dialog without dismissing
+        // Non-interruptive awareness notification: automatically dismisses once playhead
+        // passes cue end or moves outside prompt window
+        if (time >= activePromptCueRef.current.end || time < windowStart) {
+          activePromptCueRef.current = null;
+          setActivePromptCue(null);
+        }
       } else {
         // Intentional seek operation:
         if (promptCue) {
@@ -1275,8 +1368,6 @@ export const PlayerScreen = ({
           }
         } else {
           // If seeking strictly before the prompt lead-time window or past cue end, dismiss prompt
-          const leadTime = currentOptions.headsUpPrompts?.leadTimeSeconds ?? 5.0;
-          const windowStart = Math.max(0, activePromptCueRef.current.start - leadTime);
           if (time < windowStart || time >= activePromptCueRef.current.end) {
             activePromptCueRef.current = null;
             setActivePromptCue(null);
@@ -1308,7 +1399,8 @@ export const PlayerScreen = ({
           actionDesc += '🌫️ Video Blurred';
         } else if (targetHide) {
           actionDesc += '👁️ Visual Hidden';
-
+        } else if (actions.visualAction === 'dim') {
+          actionDesc += `⚠️ ${actions.visualAction.toUpperCase()} (unsupported on renderer)`;
         }
 
         if (triggerWantsMute) {
@@ -1984,7 +2076,8 @@ export const PlayerScreen = ({
           height={videoDimensions.height}
           style={[
             styles.video,
-            (isContentHidden || isBlurActive) && styles.videoHidden,
+            isContentHidden && visualProtectionType !== 'blur' && styles.videoHidden,
+            isBlurActive && isAlternateAssetConfigured && styles.videoHidden,
           ]}
           src={videoSource}
           autoplay={true}
@@ -2309,7 +2402,7 @@ export const PlayerScreen = ({
                   max: Math.round(effectiveDuration),
                   now: Math.round(displayedTime),
                 }}
-                focusable={!isSettingsOpen && !activePromptCue}
+                focusable={!isSettingsOpen}
                 onFocus={() => {
                   setIsSeekBarFocused(true);
                   setFocusedControl('seek-bar');
@@ -2379,7 +2472,7 @@ export const PlayerScreen = ({
                 const pos = video ? video.currentTime : currentTime;
                 applyTriggerActions(pos, true, viewerOptionsRef.current, nextCues);
               }}
-              focusable={!isSettingsOpen && !activePromptCue}
+              focusable={!isSettingsOpen}
               accessibilityRole="button"
               accessibilityLabel="Close prompt test harness">
               <Text style={styles.harnessCloseText}>✕ Exit Harness</Text>
@@ -2402,7 +2495,7 @@ export const PlayerScreen = ({
                   ]}
                   onFocus={() => setFocusedHarnessItem(`harness-scenario-${idx}`)}
                   onPress={() => selectHarnessScenario(idx)}
-                  focusable={!isSettingsOpen && !activePromptCue}
+                  focusable={!isSettingsOpen}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={s.name}>
@@ -2470,7 +2563,7 @@ export const PlayerScreen = ({
                   testID="harness-seek-before"
                   onFocus={() => setFocusedHarnessItem('harness-seek-before')}
                   onPress={() => seekTo(currentScenario.seekBeforeWindow)}
-                  focusable={!isSettingsOpen && !activePromptCue}
+                  focusable={!isSettingsOpen}
                   accessibilityRole="button"
                   accessibilityLabel={`Seek before window (${currentScenario.seekBeforeWindow}s)`}>
                   <Text style={styles.harnessActionText}>
@@ -2487,7 +2580,7 @@ export const PlayerScreen = ({
                   testID="harness-seek-window"
                   onFocus={() => setFocusedHarnessItem('harness-seek-window')}
                   onPress={() => seekTo(currentScenario.seekInWindow)}
-                  focusable={!isSettingsOpen && !activePromptCue}
+                  focusable={!isSettingsOpen}
                   accessibilityRole="button"
                   accessibilityLabel={`Seek into prompt window (${currentScenario.seekInWindow}s)`}>
                   <Text
@@ -2507,7 +2600,7 @@ export const PlayerScreen = ({
                   testID="harness-seek-cue"
                   onFocus={() => setFocusedHarnessItem('harness-seek-cue')}
                   onPress={() => seekTo(currentScenario.seekCueStart)}
-                  focusable={!isSettingsOpen && !activePromptCue}
+                  focusable={!isSettingsOpen}
                   accessibilityRole="button"
                   accessibilityLabel={`Seek cue start (${currentScenario.seekCueStart}s)`}>
                   <Text style={styles.harnessActionText}>
@@ -2523,7 +2616,7 @@ export const PlayerScreen = ({
                   testID="harness-reset-state"
                   onFocus={() => setFocusedHarnessItem('harness-reset-state')}
                   onPress={resetHarnessEngineState}
-                  focusable={!isSettingsOpen && !activePromptCue}
+                  focusable={!isSettingsOpen}
                   accessibilityRole="button"
                   accessibilityLabel="Reset Engine State">
                   <Text style={styles.harnessActionText}>🔄 Reset State</Text>
@@ -2542,7 +2635,7 @@ export const PlayerScreen = ({
           onPress={() => seekBy(-10)}
           isFocused={focusedControl === 'back'}
           onFocus={() => setFocusedControl('back')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="play"
@@ -2551,8 +2644,8 @@ export const PlayerScreen = ({
           onPress={togglePlayback}
           isFocused={focusedControl === 'play'}
           onFocus={() => setFocusedControl('play')}
-          preferred={!activePromptCue}
-          focusable={!isSettingsOpen && !activePromptCue}
+          preferred={!isSettingsOpen}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="forward"
@@ -2561,7 +2654,7 @@ export const PlayerScreen = ({
           onPress={() => seekBy(10)}
           isFocused={focusedControl === 'forward'}
           onFocus={() => setFocusedControl('forward')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="mute"
@@ -2570,7 +2663,7 @@ export const PlayerScreen = ({
           onPress={toggleMute}
           isFocused={focusedControl === 'mute'}
           onFocus={() => setFocusedControl('mute')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="film"
@@ -2579,7 +2672,7 @@ export const PlayerScreen = ({
           onPress={toggleFilm}
           isFocused={focusedControl === 'film'}
           onFocus={() => setFocusedControl('film')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="profile"
@@ -2594,7 +2687,7 @@ export const PlayerScreen = ({
           onPress={toggleProfile}
           isFocused={focusedControl === 'profile'}
           onFocus={() => setFocusedControl('profile')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="bothered"
@@ -2608,7 +2701,7 @@ export const PlayerScreen = ({
               setFocusedControl('');
             }
           }}
-          focusable={!isSettingsOpen && !showRecap && !activePromptCue}
+          focusable={!isSettingsOpen && !showRecap}
         />
         <Control
           id="settings"
@@ -2620,7 +2713,7 @@ export const PlayerScreen = ({
           }}
           isFocused={focusedControl === 'settings'}
           onFocus={() => setFocusedControl('settings')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
         <Control
           id="home"
@@ -2629,24 +2722,41 @@ export const PlayerScreen = ({
           onPress={onBack}
           isFocused={focusedControl === 'home'}
           onFocus={() => setFocusedControl('home')}
-          focusable={!isSettingsOpen && !activePromptCue}
+          focusable={!isSettingsOpen}
         />
       </TVFocusGuideView>
 
-      {/* Heads-up advance prompt dialog */}
+      {/* Heads-up advance prompt awareness notification */}
       {activePromptCue && !showRecap && !isSettingsOpen && (
-        <View style={styles.promptOverlay} testID="heads-up-prompt-overlay">
+        <View style={styles.promptOverlay} testID="heads-up-prompt-overlay" pointerEvents="box-none">
           <TVFocusGuideView
             style={styles.promptContainer}
-            testID="heads-up-prompt-dialog"
-            trapFocusUp
-            trapFocusDown
-            trapFocusLeft
-            trapFocusRight
-            autoFocus>
+            testID="heads-up-prompt-dialog">
+            <View style={styles.promptHeaderRow}>
+              <Text style={styles.promptHeaderBadge}>⚡ INCOMING TRIGGER</Text>
+            </View>
             <Text style={styles.promptTitle}>Upcoming Sensitive Content</Text>
             <Text style={styles.promptMessage}>
-              {`A ${activePromptCue.trigger ?? 'content'} trigger is upcoming at ${formatTime(activePromptCue.start)}. Would you like to continue or skip this segment?`}
+              {(() => {
+                const cueTrig = activePromptCue.trigger as TriggerType | undefined;
+                const effAction =
+                  (cueTrig ? viewerOptions.actionOverrides?.[cueTrig] : undefined) ??
+                  activePromptCue.action ??
+                  'mitigation';
+                const actionText =
+                  effAction === 'skip'
+                    ? 'Scene will be skipped automatically.'
+                    : effAction === 'blur'
+                    ? 'Scene will be blurred automatically.'
+                    : effAction === 'hide'
+                    ? 'Complete blackout will apply automatically.'
+                    : effAction === 'mute'
+                    ? 'Audio will be muted automatically.'
+                    : effAction === 'reduce'
+                    ? 'Audio volume will be reduced automatically.'
+                    : 'Protection will apply automatically.';
+                return `A ${activePromptCue.trigger ?? 'content'} trigger is upcoming at ${formatTime(activePromptCue.start)}. ${actionText}`;
+              })()}
             </Text>
             <View style={styles.promptButtonGroup}>
               <TouchableOpacity
@@ -3117,7 +3227,7 @@ const styles = StyleSheet.create({
   },
   blurFallbackOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -3457,56 +3567,66 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   promptOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 24,
+    right: CONTAINER_PADDING_HORIZONTAL,
     zIndex: 85,
+    pointerEvents: 'box-none',
   },
   promptContainer: {
     backgroundColor: '#1E293B',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#3B82F6',
-    padding: 24,
-    maxWidth: 600,
-    width: '80%',
-    alignItems: 'center',
+    borderColor: '#38BDF8',
+    padding: 16,
+    width: 360,
+    maxWidth: 400,
+    alignItems: 'flex-start',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.6,
     shadowRadius: 8,
     elevation: 8,
   },
+  promptHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  promptHeaderBadge: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
   promptTitle: {
     color: '#F8FAFC',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 6,
+    textAlign: 'left',
   },
   promptMessage: {
     color: '#CBD5E1',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
+    fontSize: 13,
+    textAlign: 'left',
+    marginBottom: 14,
+    lineHeight: 18,
   },
   promptButtonGroup: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     width: '100%',
   },
   promptButton: {
-    flex: 1,
     backgroundColor: '#334155',
     borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
-    marginHorizontal: 8,
+    marginLeft: 8,
   },
   promptSkipButton: {
     backgroundColor: '#DC2626',
@@ -3518,7 +3638,7 @@ const styles = StyleSheet.create({
   },
   promptButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   harnessPanel: {

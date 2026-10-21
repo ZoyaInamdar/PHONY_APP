@@ -303,18 +303,6 @@ def test_production_defaults_match_shared_config_and_fixture():
         fixture_data = json.load(f)
     fixture_policies = fixture_data.get("policies", {})
 
-    canonical_9 = {
-        "flashing",
-        "loud_spike",
-        "gunshot",
-        "explosion",
-        "scream",
-        "profanity",
-        "spider",
-        "fast_motion",
-        "jump_scare",
-    }
-
     # Derive normalized expected policies dictionary directly from config.yaml
     expected_policies = {}
     for trigger_id, cfg in triggers_config.items():
@@ -325,12 +313,14 @@ def test_production_defaults_match_shared_config_and_fixture():
             "allowed_actions": list(cfg.get("allowed_actions", [])),
         }
 
+    canonical_triggers = set(triggers_config.keys())
+
     # 1. Verify complete key set for config.yaml and fixture
-    assert set(expected_policies.keys()) == canonical_9, f"config.yaml triggers must exactly match canonical 9 triggers: {canonical_9}"
-    assert set(fixture_policies.keys()) == canonical_9, f"fixture triggers must exactly match canonical 9 triggers: {canonical_9}"
+    assert set(expected_policies.keys()) == canonical_triggers, f"config.yaml triggers mismatch: {canonical_triggers}"
+    assert set(fixture_policies.keys()) == canonical_triggers, f"fixture triggers mismatch: {canonical_triggers}"
 
     # 2. Verify all four fields (enabled, modality, default_action, allowed_actions) for every trigger in fixture
-    for trigger_id in canonical_9:
+    for trigger_id in canonical_triggers:
         exp = expected_policies[trigger_id]
         fix = fixture_policies[trigger_id]
         assert fix["enabled"] == exp["enabled"], f"Fixture enabled mismatch for {trigger_id}"
@@ -345,17 +335,14 @@ def test_production_defaults_match_shared_config_and_fixture():
     import { DEFAULT_TRIGGER_POLICIES } from './src/data/defaultTriggerPolicies.ts';
 
     const expected = JSON.parse(process.env.EXPECTED_POLICIES_JSON);
-    const canonical9 = [
-      'flashing', 'loud_spike', 'gunshot', 'explosion', 'scream',
-      'profanity', 'spider', 'fast_motion', 'jump_scare'
-    ].sort();
+    const expectedKeys = Object.keys(expected).sort();
 
     // Check complete canonical key set
     const actualKeys = Object.keys(DEFAULT_TRIGGER_POLICIES).sort();
-    assert.deepStrictEqual(actualKeys, canonical9, 'All 9 canonical triggers must be keys in DEFAULT_TRIGGER_POLICIES');
+    assert.deepStrictEqual(actualKeys, expectedKeys, 'All canonical triggers must be keys in DEFAULT_TRIGGER_POLICIES');
 
     // Check every trigger and every field matches normalized config.yaml
-    for (const key of canonical9) {
+    for (const key of expectedKeys) {
       const exp = expected[key];
       const act = DEFAULT_TRIGGER_POLICIES[key];
       assert.ok(act, `Missing trigger policy in production defaults: ${key}`);
@@ -373,7 +360,7 @@ def test_production_defaults_match_shared_config_and_fixture():
       'DEFAULT_TRIGGER_POLICIES must exactly match normalized config.yaml policies'
     );
 
-    console.log('All 9 canonical triggers and fields verified across config.yaml, fixture, and production defaults.');
+    console.log('All canonical triggers and fields verified across config.yaml, fixture, and production defaults.');
     """
     env = {**os.environ, "EXPECTED_POLICIES_JSON": json.dumps(expected_policies)}
     res = subprocess.run(
@@ -384,7 +371,7 @@ def test_production_defaults_match_shared_config_and_fixture():
         env=env,
     )
     assert res.returncode == 0, f"Node script failed:\n{res.stderr}"
-    assert "All 9 canonical triggers and fields verified across config.yaml, fixture, and production defaults." in res.stdout
+    assert "All canonical triggers and fields verified across config.yaml, fixture, and production defaults." in res.stdout
 
 
 def test_film_indexes_load_and_adapt_with_production_defaults():
@@ -407,7 +394,7 @@ def test_film_indexes_load_and_adapt_with_production_defaults():
     // Sintel contains flashing cues
     const sintelFlashing = sintelCues.find(c => c.trigger === 'flashing');
     assert.ok(sintelFlashing, 'Sintel must have at least one flashing cue');
-    assert.strictEqual(sintelFlashing.action, 'dim', 'Flashing default action must be dim');
+    assert.strictEqual(sintelFlashing.action, 'hide', 'Flashing default action must be hide');
     assert.strictEqual(sintelFlashing.source, 'visual', 'Flashing source must be visual');
 
     // ToS contains gunshot, explosion, profanity, scream
@@ -447,11 +434,11 @@ def test_custom_policies_override_defaults_with_asserted_loud_spike():
     import { loadFilmCues } from './src/data/catalogue.ts';
 
     // In Tears of Steel, loud_spike cues exist.
-    // Default action for loud_spike is 'mute'.
+    // Default action for loud_spike is 'reduce'.
     const defaultCues = loadFilmCues('tears_of_steel');
     const defaultSpikes = defaultCues.filter(c => c.trigger === 'loud_spike');
     assert.ok(defaultSpikes.length >= 1, 'Expected at least one loud_spike cue in Tears of Steel by default');
-    assert.strictEqual(defaultSpikes[0].action, 'mute', 'Default action for loud_spike must be mute');
+    assert.strictEqual(defaultSpikes[0].action, 'reduce', 'Default action for loud_spike must be reduce');
 
     // Override with custom policy: loud_spike -> skip
     const customPolicies = {

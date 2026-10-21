@@ -154,21 +154,31 @@ export function isActionAllowedForTrigger(trigger: string, action: string): bool
  */
 export function resolveEffectiveAction(
   trigger?: string | null,
-  fallbackAction: CanonicalAction = 'hide',
+  fallbackAction: string = 'hide',
   actionOverrides?: Partial<Record<string, string>> | null,
-): CanonicalAction {
-  if (!trigger || !isCanonicalTrigger(trigger)) {
-    return isCanonicalAction(fallbackAction) ? fallbackAction : 'hide';
+): CanonicalAction | 'dim' {
+  if (trigger && isCanonicalTrigger(trigger)) {
+    const contract = TRIGGER_ACTION_CONTRACTS[trigger];
+    if (actionOverrides && trigger in actionOverrides) {
+      const override = actionOverrides[trigger];
+      if (override && isActionAllowedForTrigger(trigger, override)) {
+        return override as CanonicalAction;
+      }
+      return contract.defaultAction;
+    }
+    if (fallbackAction === 'dim') {
+      return 'dim';
+    }
+    if (isCanonicalAction(fallbackAction)) {
+      return fallbackAction;
+    }
+    return contract.defaultAction;
   }
 
-  const contract = TRIGGER_ACTION_CONTRACTS[trigger];
-  const override = actionOverrides?.[trigger];
-
-  if (override && isActionAllowedForTrigger(trigger, override)) {
-    return override as CanonicalAction;
+  if (fallbackAction === 'dim') {
+    return 'dim';
   }
-
-  return contract.defaultAction;
+  return isCanonicalAction(fallbackAction) ? fallbackAction : 'hide';
 }
 
 /**

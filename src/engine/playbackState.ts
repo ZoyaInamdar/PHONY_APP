@@ -9,7 +9,7 @@ export class PlaybackState {
   private recordedCueActionIds = new Set<string>();
   private appliedActions: AppliedAction[] = [];
   private currentTime = 0;
-  private currentVisualAction: 'hide' | 'blur' | null = null;
+  private currentVisualAction: 'hide' | 'blur' | 'dim' | null = null;
 
   /**
    * Resolve actions at the current playback time.
@@ -88,7 +88,7 @@ export class PlaybackState {
       if (
         actions.visualAction === 'hide' &&
         options.hideEnabled &&
-        (effectiveAction === 'hide' || effectiveAction === 'blur')
+        effectiveAction === 'hide'
       ) {
         if (!this.recordedCueActionIds.has(`visual_${cue.id}`)) {
           this.recordedCueActionIds.add(`visual_${cue.id}`);
@@ -102,6 +102,7 @@ export class PlaybackState {
           });
         }
       }
+
 
       // Audio mute recording
       if (
@@ -371,6 +372,21 @@ export class PlaybackState {
     }
 
     this.currentTime = newTime;
+    this.currentVisualAction = null;
+  }
+
+  /**
+   * Get the active visual action resolved at the current playback time.
+   */
+  getActiveVisualAction(): 'hide' | 'blur' | 'dim' | null {
+    return this.currentVisualAction;
+  }
+
+  /**
+   * Get the current playback time recorded by the engine.
+   */
+  getCurrentTime(): number {
+    return this.currentTime;
   }
 
   /**

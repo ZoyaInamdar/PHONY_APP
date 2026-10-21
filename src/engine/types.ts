@@ -44,11 +44,11 @@ export type CueSource = 'visual' | 'audio' | 'text' | 'audio_visual';
 /**
  * The canonical playback action for a cue.
  *
- * Supported canonical actions: 'hide' | 'blur' | 'mute' | 'reduce' | 'skip' | 'warn'.
- * 'dim' is not offered as a supported action while its runtime implementation is a no-op.
+ * Supported canonical actions: 'hide' | 'blur' | 'mute' | 'reduce' | 'skip' | 'warn' | 'dim'.
+ * 'dim' is supported for non-blackout visual dimming and backward compatibility.
  * 'beep' is excluded from the product action contract.
  */
-export type CueAction = CanonicalAction;
+export type CueAction = CanonicalAction | 'dim';
 
 export type CueStatus = 'ready' | 'needs_review';
 
@@ -114,9 +114,9 @@ export interface EffectiveActions {
    * The most specific visual action among active visual cues, or `null` when
    * there are no active visual cues.
    *
-   * Priority order (highest to lowest): hide > blur
+   * Priority order (highest to lowest): hide > blur > dim
    */
-  visualAction: 'hide' | 'blur' | null;
+  visualAction: 'hide' | 'blur' | 'dim' | null;
   soundGain: number;
   skipTo: number | null;
   activeCueIds: string[];

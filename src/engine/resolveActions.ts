@@ -12,7 +12,7 @@ import { applyReviewPolicy } from './reviewPolicy';
  * Visual action priority order for resolving the single `visualAction` output
  * when multiple visual cues are active simultaneously.
  *
- * hide > blur
+ * hide > blur > dim
  *
  * When both 'hide' and 'blur' cues overlap, 'hide' takes precedence.
  * If 'hide' ends while 'blur' remains active, visual protection restores to 'blur'.
@@ -20,6 +20,7 @@ import { applyReviewPolicy } from './reviewPolicy';
 const VISUAL_ACTION_PRIORITY: ReadonlyMap<CueAction, number> = new Map([
   ['hide', 3],
   ['blur', 2],
+  ['dim', 1],
 ]);
 
 export function resolveActions(
@@ -56,7 +57,7 @@ export function resolveActions(
   });
 
   let bestVisualActionPriority = 0;
-  let visualAction: 'hide' | 'blur' | null = null;
+  let visualAction: 'hide' | 'blur' | 'dim' | null = null;
   let soundGain = 1;
   let skipTo: number | null = null;
   const warnCueIds: string[] = [];
@@ -79,19 +80,19 @@ export function resolveActions(
     }
 
     // -------------------------------------------------------------------------
-    // Visual actions ('hide' | 'blur')
+    // Visual actions ('hide' | 'blur' | 'dim')
     // Governed by global hideEnabled safety setting.
-    // Precedence: hide (3) > blur (2).
+    // Precedence: hide (3) > blur (2) > dim (1).
     // -------------------------------------------------------------------------
     if (
-      (effectiveAction === 'hide' || effectiveAction === 'blur') &&
+      (effectiveAction === 'hide' || effectiveAction === 'blur' || effectiveAction === 'dim') &&
       options.hideEnabled
     ) {
       const priority = VISUAL_ACTION_PRIORITY.get(effectiveAction) ?? 0;
 
       if (priority > 0 && priority > bestVisualActionPriority) {
         bestVisualActionPriority = priority;
-        visualAction = effectiveAction as 'hide' | 'blur';
+        visualAction = effectiveAction as 'hide' | 'blur' | 'dim';
       }
     }
 

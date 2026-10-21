@@ -68,14 +68,14 @@ describe('loadAndValidateFilmIndex', () => {
       start: 1.8,
       end: 10.6,
       source: 'audio',
-      action: 'mute',
+      action: POLICIES.loud_spike.default_action,
     });
     expect(cues[1]).toMatchObject({
       id: 'cue-flash-1',
       start: 24.0,
       end: 25.5,
       source: 'visual',
-      action: 'dim',
+      action: POLICIES.flashing.default_action,
     });
   });
 
@@ -150,6 +150,7 @@ describe('resolvePackagedIndexPlayback', () => {
   const options: ViewerOptions = {
     ...DEFAULT_VIEWER_OPTIONS,
     muteEnabled: true,
+    actionOverrides: { loud_spike: 'mute' },
   };
 
   it('enforces half-open interval [start, end)', () => {

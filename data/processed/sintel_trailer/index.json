@@ -19,43 +19,19 @@
       "source": "loudness_detector"
     },
     {
-      "id": "cue_sintel_trailer_explosion_008640_009600",
-      "start": 8.64,
-      "end": 9.6,
-      "trigger": "explosion",
-      "score": 0.8318,
-      "source": "audio_event_classifier"
-    },
-    {
-      "id": "cue_sintel_trailer_gunshot_008640_009600",
-      "start": 8.64,
-      "end": 9.6,
-      "trigger": "gunshot",
-      "score": 0.7502,
-      "source": "audio_event_classifier"
-    },
-    {
-      "id": "cue_sintel_trailer_loud_spike_016600_017600",
-      "start": 16.6,
-      "end": 17.6,
+      "id": "cue_sintel_trailer_loud_spike_016000_018000",
+      "start": 16.0,
+      "end": 18.0,
       "trigger": "loud_spike",
       "score": 0.468,
       "source": "loudness_detector"
     },
     {
-      "id": "cue_sintel_trailer_flashing_029917_030958",
-      "start": 29.917,
-      "end": 30.958,
-      "trigger": "flashing",
-      "score": 0.4058,
-      "source": "flash_detector"
-    },
-    {
-      "id": "cue_sintel_trailer_loud_spike_040400_040500",
-      "start": 40.4,
-      "end": 40.5,
+      "id": "cue_sintel_trailer_loud_spike_029000_031000",
+      "start": 29.0,
+      "end": 31.0,
       "trigger": "loud_spike",
-      "score": 0.404,
+      "score": 0.65,
       "source": "loudness_detector"
     },
     {

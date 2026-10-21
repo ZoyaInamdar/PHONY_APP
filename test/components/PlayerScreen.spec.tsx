@@ -2774,8 +2774,8 @@ describe('PlayerScreen Component Tests', () => {
 
       // Continue button has preferred TV focus initially
       expect(continueBtn.props.hasTVPreferredFocus).toBe(true);
-      // Play control has focusable disabled while prompt dialog is active
-      expect(playCtrl.props.focusable).toBe(false);
+      // Play control remains focusable so viewing is not halted or interrupted
+      expect(playCtrl.props.focusable).toBe(true);
 
       // Focus skip button
       act(() => {

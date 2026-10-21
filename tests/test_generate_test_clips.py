@@ -477,17 +477,20 @@ def test_generate_negative_video_clips(tmp_path: Path):
 
 def test_canonical_triggers_loaded_from_config(tmp_path: Path):
     """Verify triggers are loaded dynamically from config.yaml and invalid triggers fail."""
-    # 1. Triggers loaded from config.yaml match the 9 canonical triggers
+    # 1. Triggers loaded from config.yaml match the canonical triggers
     expected_triggers = {
         "flashing",
         "loud_spike",
+        "sustained_loudness",
         "gunshot",
         "explosion",
         "scream",
         "profanity",
         "spider",
+        "insect",
         "fast_motion",
         "jump_scare",
+        "visible_blood",
     }
     assert CANONICAL_TRIGGERS == expected_triggers
 

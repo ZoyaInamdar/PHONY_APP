@@ -1,0 +1,37 @@
+name: Build Vega OS App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Note: Vega's templates assume npm or Yarn. If you use pnpm, 
+      # the CLI expects a flat node_modules, so you would need node-linker=hoisted.
+      - name: Install Dependencies
+        run: npm install
+
+      # Build the app using the command we set in package.json
+      # On Ubuntu (x86_64), this will generate a vpkg named like: build/x86_64-release/<appname>_x86_64.vpkg
+      - name: Build VPKG
+        run: npm run build:app
+
+      - name: Upload VPKG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vega-app-package
+          # The build directory structure depends on the architecture. 
+          # We use a wildcard to grab the generated package.
+          path: build/**/*release/*.vpkg

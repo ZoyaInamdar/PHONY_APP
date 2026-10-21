@@ -10,7 +10,7 @@
     "start:player": "bash scripts/launch_player.sh",
     "build:release": "react-native build-vega --build-type Release",
     "build:debug": "react-native build-vega --build-type Debug",
-    "build:app": "npm-run-all build:release",
+    "build:app": "react-native build-vega --build-type Release",
     "build": "npm-run-all build:release",
     "clean": "rm -rf node_modules buildinfo.json dist build",
     "lint": "eslint src test --ext .ts,.tsx",

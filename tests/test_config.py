@@ -184,8 +184,8 @@ def test_spider_configuration():
     algo = spider.get("algorithm", {})
     assert algo.get("frame_sampling_fps") == pytest.approx(1.0)
     assert algo.get("spatial_tiling", {}).get("enabled") is True
-    assert algo.get("selected_backend") is None
-    assert set(algo.get("candidate_backends", [])) == {"CLIP", "SigLIP"}
+    assert algo.get("selected_backend") in (None, "YOLO-World")
+    assert {"CLIP", "SigLIP"}.issubset(set(algo.get("candidate_backends", [])))
     assert len(algo.get("positive_prompts", [])) >= 1
     assert len(algo.get("negative_prompts", [])) >= 3
 

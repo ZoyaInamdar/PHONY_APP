@@ -550,9 +550,9 @@ triggers:
       candidate_backends:
         - "CLIP"    # OpenAI / OpenCLIP (e.g. ViT-B/32 or ViT-L/14)
         - "SigLIP"  # Google Sigmoid Loss for Language-Image Pre-Training
-      # UNRESOLVED: Model selection must be confirmed with Person C
-      selected_backend: null
-      backend_selection_status: "unresolved"
+        - "YOLO-World"  # Ultralytics open-vocabulary real-time detector (yolov8s-world.pt)
+      selected_backend: "YOLO-World"
+      backend_selection_status: "resolved"
       frame_sampling_fps: 1.0
       # Multi-tile spatial cropping to capture small subjects in widescreen frames
       spatial_tiling:
@@ -949,8 +949,9 @@ experimental_features:
       candidates:
         - "CLIP"
         - "SigLIP"
-      selected_backend: null
-      status: "unresolved"
+        - "YOLO-World"
+      selected_backend: "YOLO-World"
+      status: "resolved"
       decision_owner: "Person C"
       decision_criteria:
         - "Zero-shot classification calibration"

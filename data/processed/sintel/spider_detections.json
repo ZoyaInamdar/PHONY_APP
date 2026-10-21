@@ -1,0 +1,14 @@
+{
+  "film_id": "sintel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 888.042,
+    "fps": 24.0
+  },
+  "model": "yolov8s-world.pt",
+  "target_class": "spider",
+  "created_at": "2026-10-21T09:43:27.985680+00:00",
+  "sampling_rate_fps": 1.0,
+  "confidence_threshold": 0.15,
+  "detections": []
+}

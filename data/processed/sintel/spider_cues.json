@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel",
+  "trigger": "spider",
+  "target_class": "spider",
+  "model": "yolov8s-world.pt",
+  "created_at": "2026-10-21T08:59:40.454655+00:00",
+  "sampling_rate_fps": 1.0,
+  "confidence_threshold": 0.15,
+  "timeline": {
+    "duration_seconds": 888.042,
+    "fps": 24.0,
+    "total_frames": 21313,
+    "scanned_seconds": 888,
+    "interval_convention": "half_open"
+  },
+  "cues": [],
+  "detections": []
+}

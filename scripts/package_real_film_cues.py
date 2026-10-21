@@ -72,9 +72,14 @@ def package_film_cues(
 
 def run_command(cmd: List[str], desc: str) -> bool:
     """Run a subprocess command and print status."""
-    print(f"--> [{desc}] Running: {' '.join(cmd)}")
+    resolved_cmd = list(cmd)
+    if resolved_cmd and resolved_cmd[0] in ("python", "python3"):
+        w = shutil.which(resolved_cmd[0])
+        if not w or "WindowsApps" in w or (os.path.isfile(w) and os.path.getsize(w) == 0):
+            resolved_cmd[0] = sys.executable
+    print(f"--> [{desc}] Running: {' '.join(resolved_cmd)}")
     t0 = time.perf_counter()
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    res = subprocess.run(resolved_cmd, capture_output=True, text=True, check=False)
     elapsed = time.perf_counter() - t0
     if res.returncode != 0:
         print(f"    FAILED ({elapsed:.2f}s): {res.stderr.strip() or res.stdout.strip()}", file=sys.stderr)
@@ -170,7 +175,10 @@ def package_sintel_trailer(py: str) -> bool:
         return False
 
     # Standardize wrapped format with synthetic=False
+    spider_json = out_dir / "spider_detections.json"
     raw_files = [flashing_json, audio_events_json, jump_scare_json, fast_motion_json]
+    if spider_json.is_file():
+        raw_files.append(spider_json)
     for rf in raw_files:
         if rf.is_file():
             with rf.open("r", encoding="utf-8") as f:
@@ -187,15 +195,21 @@ def package_sintel_trailer(py: str) -> bool:
 
     # 7. Package cues into index.json
     index_json = out_dir / "index.json"
-    pkg_cmd = [
-        py,
-        str(REPO_ROOT / "scripts" / "package_cues.py"),
-        "--input",
+    pkg_inputs = [
         str(loudness_json),
         str(flashing_json),
         str(audio_events_json),
         str(jump_scare_json),
         str(fast_motion_json),
+    ]
+    if spider_json.is_file():
+        pkg_inputs.append(str(spider_json))
+
+    pkg_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "package_cues.py"),
+        "--input",
+        *pkg_inputs,
         "--output", str(index_json),
         "--config", str(CONFIG_PATH),
         "--schema", str(SCHEMA_PATH),
@@ -216,6 +230,88 @@ def package_sintel_trailer(py: str) -> bool:
         "--duration-tolerance", "0.1",
     ]
     return run_command(val_cmd, "Validate Index")
+
+
+def package_sintel(py: str) -> bool:
+    """Run cue packaging for full feature film Sintel (888.04s)."""
+    media_path = REPO_ROOT / "data" / "media" / "sintel.mkv"
+    out_dir = REPO_ROOT / "data" / "processed" / "sintel"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    spider_json = out_dir / "spider_detections.json"
+    subtitles_json = out_dir / "subtitles.json"
+    if not subtitles_json.is_file():
+        subtitles_json = out_dir / "cues.json"
+
+    # Standardize wrapped format if list
+    if spider_json.is_file():
+        with spider_json.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            wrapped = {
+                "film_id": "sintel",
+                "synthetic": False,
+                "timeline": {"duration_seconds": 888.042, "fps": 24.0},
+                "detections": data,
+            }
+            with spider_json.open("w", encoding="utf-8") as f:
+                json.dump(wrapped, f, indent=2)
+
+    if subtitles_json.is_file():
+        with subtitles_json.open("r", encoding="utf-8") as f:
+            s_data = json.load(f)
+        if isinstance(s_data, list):
+            s_wrapped = {
+                "film_id": "sintel",
+                "synthetic": False,
+                "timeline": {"duration_seconds": 888.042, "fps": 24.0},
+                "detections": s_data,
+            }
+            with subtitles_json.open("w", encoding="utf-8") as f:
+                json.dump(s_wrapped, f, indent=2)
+        elif isinstance(s_data, dict) and s_data.get("synthetic") is not False:
+            s_data["film_id"] = "sintel"
+            s_data["synthetic"] = False
+            s_data["timeline"] = {"duration_seconds": 888.042, "fps": 24.0}
+            with subtitles_json.open("w", encoding="utf-8") as f:
+                json.dump(s_data, f, indent=2)
+
+    inputs: List[str] = []
+    if spider_json.is_file():
+        inputs.append(str(spider_json))
+    if subtitles_json.is_file():
+        inputs.append(str(subtitles_json))
+
+    if not inputs:
+        print(f"[BLOCKER] No detections or cues found for Sintel in {out_dir}", file=sys.stderr)
+        return False
+
+    index_json = out_dir / "index.json"
+    pkg_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "package_cues.py"),
+        "--input",
+        *inputs,
+        "--output", str(index_json),
+        "--config", str(CONFIG_PATH),
+        "--schema", str(SCHEMA_PATH),
+        "--film-id", "sintel",
+        "--duration", "888.042",
+        "--fps", "24.0",
+        "--no-synthetic",
+    ]
+    if not run_command(pkg_cmd, "Package Sintel Full Film Cues"):
+        return False
+
+    val_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "validate_index.py"),
+        "--index", str(index_json),
+    ]
+    if media_path.is_file() and shutil.which("ffprobe"):
+        val_cmd.extend(["--media", str(media_path), "--duration-tolerance", "0.5"])
+
+    return run_command(val_cmd, "Validate Sintel Full Film Index")
 
 
 def package_tears_of_steel(py: str, allow_subtitles_only: bool = False) -> bool:
@@ -276,7 +372,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--film",
-        choices=["all", "sintel_trailer", "tears_of_steel"],
+        choices=["all", "sintel", "sintel_trailer", "tears_of_steel"],
         default="all",
         help="Film to process (default: all)",
     )
@@ -298,25 +394,34 @@ def main() -> int:
     print(f"Schema path:       {SCHEMA_PATH}")
     print("=" * 72)
 
-    sintel_ok = True
+    sintel_trailer_ok = True
+    sintel_full_ok = True
     tos_ok = True
 
     if args.film in ("all", "sintel_trailer"):
         print("\n--- Processing Film 1: Sintel Trailer (Real Media: data/media/sintel_trailer.mp4) ---")
-        sintel_ok = package_sintel_trailer(py)
+        sintel_trailer_ok = package_sintel_trailer(py)
+
+    if args.film in ("all", "sintel"):
+        print("\n--- Processing Film 2: Sintel Full Film (Real Media: data/media/sintel.mkv) ---")
+        sintel_full_ok = package_sintel(py)
 
     if args.film in ("all", "tears_of_steel"):
-        print("\n--- Processing Film 2: Tears of Steel (Subtitles: data/processed/tears_of_steel/) ---")
+        print("\n--- Processing Film 3: Tears of Steel (Subtitles: data/processed/tears_of_steel/) ---")
         tos_ok = package_tears_of_steel(py, allow_subtitles_only=args.allow_subtitles_only)
 
     print("\n" + "=" * 72)
     print("  SUMMARY OF REAL FILM PACKAGING")
     print("=" * 72)
-    print(f"Sintel Trailer:  {'SUCCESS (data/processed/sintel_trailer/index.json)' if sintel_ok else 'FAILED'}")
-    print(f"Tears of Steel:  {'SUCCESS (data/processed/tears_of_steel/index.json)' if tos_ok else 'BLOCKED (data/media/tears_of_steel.webm missing)'}")
+    if args.film in ("all", "sintel_trailer"):
+        print(f"Sintel Trailer:    {'SUCCESS (data/processed/sintel_trailer/index.json)' if sintel_trailer_ok else 'FAILED'}")
+    if args.film in ("all", "sintel"):
+        print(f"Sintel Full Film:  {'SUCCESS (data/processed/sintel/index.json)' if sintel_full_ok else 'FAILED'}")
+    if args.film in ("all", "tears_of_steel"):
+        print(f"Tears of Steel:    {'SUCCESS (data/processed/tears_of_steel/index.json)' if tos_ok else 'BLOCKED (data/media/tears_of_steel.webm missing)'}")
     print("=" * 72)
 
-    return 0 if (sintel_ok and tos_ok) else 1
+    return 0 if (sintel_trailer_ok and sintel_full_ok and tos_ok) else 1
 
 
 if __name__ == "__main__":

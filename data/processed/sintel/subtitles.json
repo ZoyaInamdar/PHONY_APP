@@ -12,5 +12,11 @@
     },
     "timestamp_utc": "2026-10-17T08:55:37.671577+00:00"
   },
-  "detections": []
+  "detections": [],
+  "film_id": "sintel",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 888.042,
+    "fps": 24.0
+  }
 }

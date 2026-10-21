@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "film_id": "sintel",
+  "synthetic": false,
+  "description": "Packaged player cue index for sintel.",
+  "timeline": {
+    "duration_seconds": 888.042,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 24.0
+  },
+  "cues": []
+}

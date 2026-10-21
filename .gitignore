@@ -46,3 +46,9 @@ data/media/
 # Local logs
 logs/
 .venv/
+
+# Machine learning model weights
+*.pt
+*.onnx
+*.bin
+weights/

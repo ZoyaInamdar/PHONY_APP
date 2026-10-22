@@ -134,6 +134,14 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "script": "scripts/detect_jump_scare.py",
         "method": "multimodal_compound_heuristic",
     },
+    "insect": {
+        "component": "insect_detector",
+        "modality": "visual",
+        "owner": "Person A",
+        "status": "ready_for_evaluation",
+        "script": "scripts/evaluate_insect.py",
+        "method": "zero_shot_multimodal",
+    },
 }
 
 

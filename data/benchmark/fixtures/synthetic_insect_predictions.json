@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "model_id": "synthetic_mock_detector_v1",
+  "model_version": "1.0.0-synthetic",
+  "generated_at": "2026-10-23T00:00:00Z",
+  "default_threshold": 0.5,
+  "predictions": [
+    {
+      "clip_id": "synthetic_clip_01_crawling_pos",
+      "threshold": 0.5,
+      "interval_events": [
+        {
+          "start": 2.2,
+          "end": 5.8,
+          "confidence": 0.88,
+          "trigger": "insect",
+          "action": "hide"
+        }
+      ],
+      "frame_detections": [
+        { "timestamp": 0.0, "confidence": 0.05 },
+        { "timestamp": 1.0, "confidence": 0.08 },
+        { "timestamp": 2.0, "confidence": 0.75 },
+        { "timestamp": 3.0, "confidence": 0.92 },
+        { "timestamp": 4.0, "confidence": 0.95 },
+        { "timestamp": 5.0, "confidence": 0.89 },
+        { "timestamp": 6.0, "confidence": 0.12 },
+        { "timestamp": 7.0, "confidence": 0.04 },
+        { "timestamp": 8.0, "confidence": 0.02 },
+        { "timestamp": 9.0, "confidence": 0.01 }
+      ]
+    },
+    {
+      "clip_id": "synthetic_clip_02_foliage_neg",
+      "threshold": 0.5,
+      "interval_events": [],
+      "frame_detections": [
+        { "timestamp": 0.0, "confidence": 0.02 },
+        { "timestamp": 1.0, "confidence": 0.05 },
+        { "timestamp": 2.0, "confidence": 0.08 },
+        { "timestamp": 3.0, "confidence": 0.04 },
+        { "timestamp": 4.0, "confidence": 0.03 },
+        { "timestamp": 5.0, "confidence": 0.06 },
+        { "timestamp": 6.0, "confidence": 0.02 },
+        { "timestamp": 7.0, "confidence": 0.01 }
+      ]
+    },
+    {
+      "clip_id": "synthetic_clip_03_partial_reviewed",
+      "threshold": 0.5,
+      "interval_events": [
+        {
+          "start": 3.2,
+          "end": 4.9,
+          "confidence": 0.91,
+          "trigger": "insect",
+          "action": "hide"
+        },
+        {
+          "start": 10.0,
+          "end": 12.0,
+          "confidence": 0.82,
+          "trigger": "insect",
+          "action": "hide"
+        }
+      ],
+      "frame_detections": []
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trigger-aware-player.org/schemas/insect_prediction.schema.json",
+  "title": "TriggerAwarePlayerInsectPrediction",
+  "description": "Validation schema for offline insect detector predictions. Supports interval predictions (events), timestamped frame-level detections, and threshold configurations.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "model_id",
+    "predictions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Prediction format schema version."
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the model or detector pipeline generating predictions."
+    },
+    "model_version": {
+      "type": "string",
+      "description": "Optional model version or checkpoint tag."
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp of inference generation."
+    },
+    "default_threshold": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.5,
+      "description": "Default threshold applied for binary classification."
+    },
+    "ground_truth_status": {
+      "type": "string",
+      "enum": ["unreviewed", "reviewed", "synthetic"],
+      "default": "unreviewed",
+      "description": "Status of the underlying media ground truth."
+    },
+    "prompt_configuration": {
+      "type": "object",
+      "description": "Optional prompt configuration used for zero-shot text-image scoring."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional execution notes or disclaimers."
+    },
+    "predictions": {
+      "type": "array",
+      "description": "List of per-clip predictions.",
+      "items": {
+        "$ref": "#/$defs/clip_predictions"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "predicted_interval": {
+      "type": "object",
+      "required": ["start", "end", "confidence"],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Start timestamp in seconds (inclusive)."
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "End timestamp in seconds (exclusive)."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Detection confidence score in [0.0, 1.0]."
+        },
+        "trigger": {
+          "type": "string",
+          "const": "insect"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["hide", "blur", "skip", "warn"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "frame_detection": {
+      "type": "object",
+      "required": ["timestamp", "confidence"],
+      "properties": {
+        "timestamp": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Timestamp of the sampled frame in seconds."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Derived confidence / affinity score at this frame in [0.0, 1.0]."
+        },
+        "decision": {
+          "type": "boolean",
+          "description": "Binary decision indicating whether confidence meets or exceeds threshold."
+        },
+        "raw_scores": {
+          "type": "object",
+          "description": "Uncalibrated raw similarity / logit scores for positive and negative prompt sets."
+        }
+      },
+      "additionalProperties": false
+    },
+    "clip_predictions": {
+      "type": "object",
+      "required": ["clip_id"],
+      "properties": {
+        "clip_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Matching clip_id in the benchmark annotation set."
+        },
+        "media_path": {
+          "type": "string",
+          "description": "Relative path to the evaluated media file."
+        },
+        "media_duration_seconds": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Media duration in seconds."
+        },
+        "sampled_frames_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of successfully decoded and sampled frames."
+        },
+        "processing_time_seconds": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Total processing time for this clip in seconds."
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Optional clip-specific threshold override."
+        },
+        "interval_events": {
+          "type": "array",
+          "description": "Packaged interval events [start, end) predicted by detector.",
+          "items": {
+            "$ref": "#/$defs/predicted_interval"
+          },
+          "default": []
+        },
+        "frame_detections": {
+          "type": "array",
+          "description": "Per-frame sampled detection scores.",
+          "items": {
+            "$ref": "#/$defs/frame_detection"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "film_id": "elephants_dream",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 653.83,
+    "fps": 24.0
+  },
+  "detections": []
+}

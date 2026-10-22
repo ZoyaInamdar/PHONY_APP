@@ -2217,10 +2217,11 @@ export const PlayerScreen = ({
             const code = err?.code ?? 'unknown';
             const msg = err?.message ?? 'no message';
             console.log(`[Player] onError — code: ${code} message: ${msg} src: ${videoSource}`);
-            if (currentFilmId === 'elephants_dream' && !videoSource.startsWith('https://archive.org')) {
-              console.log('[Player] Retrying Elephants Dream with fallback remote stream…');
+            const fallbackUrl = filmMetadata?.fallback_video_url;
+            if (fallbackUrl && videoSource !== fallbackUrl && !videoSourceOverride) {
+              console.log(`[Player] Primary source failed for "${currentFilmId}" (${code}: ${msg}); attempting fallback stream: ${fallbackUrl}`);
               setStatus('Retrying with remote stream…');
-              setVideoSourceOverride('https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4');
+              setVideoSourceOverride(fallbackUrl);
               return;
             }
             setStatus(`Error ${code}: ${msg}`);

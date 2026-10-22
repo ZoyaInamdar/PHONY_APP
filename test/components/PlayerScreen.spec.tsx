@@ -3631,6 +3631,39 @@ describe('PlayerScreen Component Tests', () => {
       );
     });
 
+    it('retries with fallback stream when Elephants Dream primary source encounters an error and avoids loops on repeat failure', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType, getByText } = render(
+        <PlayerScreen onBack={onBack} filmId="elephants_dream" />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.props.src).toBe(
+        'http://10.0.2.2:8080/data/media/elephant_dreams.mp4',
+      );
+
+      // Primary source fails (e.g. clean checkout without local media server)
+      act(() => {
+        videoComp.props.onError();
+      });
+
+      // Video source should now be updated to configured fallback URL
+      expect(videoComp.props.src).toBe(
+        'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4',
+      );
+      expect(getByText(/Retrying with remote stream…/i)).toBeTruthy();
+
+      // If the fallback stream ALSO fails, it must transition to error without looping
+      act(() => {
+        videoComp.props.onError();
+      });
+
+      expect(videoComp.props.src).toBe(
+        'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4',
+      );
+      expect(getByText(/Error unknown: no message/i)).toBeTruthy();
+    });
+
     it('applies visual hide during Elephants Dream real flashing cue and clears overlay after cue ends', () => {
       const onBack = jest.fn();
       const { queryByTestId, UNSAFE_getByType } = render(

@@ -1,0 +1,1109 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "trigger_aware_player_benchmark_v1",
+  "version": "1.0.0",
+  "created_at": "2026-10-22T09:08:45.952208+00:00",
+  "description": "Reproducible ground-truth benchmark foundation for Trigger-Aware Player detectors. Enforces strict separation of synthetic fixtures (train_dev), natural validation media, and locked test film scenes (Elephants Dream) with anti-leakage scene grouping. Pending-review annotations are strictly excluded from verified scoring.",
+  "splits": {
+    "train_dev": {
+      "description": "Synthetic unit fixtures with known physical parameters for detector development and regression testing.",
+      "usage": "Internal development, unit testing, and parameter tuning."
+    },
+    "validation": {
+      "description": "Verified natural audio clips (Freesound/OpenGameArt) and candidate natural film scenes (pending review; not verified ground truth).",
+      "usage": "Hyperparameter tuning and cross-validation prior to final test."
+    },
+    "locked_test": {
+      "description": "Held-out candidate natural film scenes from Elephants Dream (pending review; zero verified ground-truth events).",
+      "usage": "Locked evaluation only once human verification is completed; currently excluded from verified ground truth."
+    }
+  },
+  "clips": [
+    {
+      "clip_id": "audio_explosion_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_explosion_test.mp4",
+      "modality": "audio",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_explosion_test_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_explosion_test_mp4_00",
+          "trigger": "explosion",
+          "start": 1.0,
+          "end": 3.2,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized explosion ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "audio_gunshot_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_gunshot_test.mp4",
+      "modality": "audio",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_gunshot_test_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_gunshot_test_mp4_00",
+          "trigger": "gunshot",
+          "start": 1.5,
+          "end": 2.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized gunshot ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "audio_loud_spike_isolated.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_loud_spike_isolated.mp4",
+      "modality": "audio",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_loud_spike_isolated_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_loud_spike_isolated_mp4_00",
+          "trigger": "loud_spike",
+          "start": 1.5,
+          "end": 1.8,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized loud_spike ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "audio_loud_spike_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_loud_spike_test.mp4",
+      "modality": "audio",
+      "duration_seconds": 6.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_loud_spike_test_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_loud_spike_test_mp4_00",
+          "trigger": "loud_spike",
+          "start": 2.0,
+          "end": 2.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized loud_spike ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "audio_multi_event_mix.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_multi_event_mix.mp4",
+      "modality": "audio",
+      "duration_seconds": 9.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_multi_event_mix_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_multi_event_mix_mp4_00",
+          "trigger": "gunshot",
+          "start": 1.0,
+          "end": 1.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized gunshot ground truth."
+        },
+        {
+          "event_id": "evt_syn_audio_multi_event_mix_mp4_01",
+          "trigger": "scream",
+          "start": 3.0,
+          "end": 4.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized scream ground truth."
+        },
+        {
+          "event_id": "evt_syn_audio_multi_event_mix_mp4_02",
+          "trigger": "explosion",
+          "start": 6.0,
+          "end": 8.2,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized explosion ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "audio_negative_ambient.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_negative_ambient.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_negative_ambient_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "loud_spike",
+        "gunshot",
+        "explosion",
+        "scream",
+        "sustained_loudness"
+      ]
+    },
+    {
+      "clip_id": "audio_negative_dialogue.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_negative_dialogue.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_negative_dialogue_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "loud_spike",
+        "gunshot",
+        "explosion",
+        "scream",
+        "sustained_loudness"
+      ]
+    },
+    {
+      "clip_id": "audio_scream_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/audio_scream_test.mp4",
+      "modality": "audio",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_audio_scream_test_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_audio_scream_test_mp4_00",
+          "trigger": "scream",
+          "start": 1.2,
+          "end": 2.7,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized scream ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "detail_test_pattern.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/detail_test_pattern.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_detail_test_pattern_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "flashing"
+      ]
+    },
+    {
+      "clip_id": "fast_motion_negative.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/fast_motion_negative.mp4",
+      "modality": "video",
+      "duration_seconds": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_fast_motion_negative_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "fast_motion"
+      ]
+    },
+    {
+      "clip_id": "fast_motion_positive.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/fast_motion_positive.mp4",
+      "modality": "video",
+      "duration_seconds": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_fast_motion_positive_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_fast_motion_positive_mp4_00",
+          "trigger": "fast_motion",
+          "start": 0.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized fast_motion ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_area_half_24fps_4hz_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_area_half_24fps_4hz_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_area_half_24fps_4hz_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_area_half_24fps_4hz_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_area_quarter_24fps_4hz_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_area_quarter_24fps_4hz_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_area_quarter_24fps_4hz_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_area_quarter_24fps_4hz_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_area_small_patch_24fps_4hz_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_area_small_patch_24fps_4hz_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_area_small_patch_24fps_4hz_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_area_small_patch_24fps_4hz_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_contrast_005_24fps_4hz_full.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_contrast_005_24fps_4hz_full.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_contrast_005_24fps_4hz_full_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_contrast_005_24fps_4hz_full_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_contrast_010_24fps_4hz_full.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_contrast_010_24fps_4hz_full.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_contrast_010_24fps_4hz_full_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_contrast_010_24fps_4hz_full_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_contrast_020_24fps_4hz_full.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_contrast_020_24fps_4hz_full.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_contrast_020_24fps_4hz_full_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_contrast_020_24fps_4hz_full_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_edge_25fps_3hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_edge_25fps_3hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.56,
+      "fps": 25.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_edge_25fps_3hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_edge_25fps_3hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.56,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_edge_30fps_2hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_edge_30fps_2hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 6.267,
+      "fps": 30.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_edge_30fps_2hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_edge_30fps_2hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 5.267,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_edge_60fps_6hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_edge_60fps_6hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 3.333,
+      "fps": 60.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_edge_60fps_6hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_edge_60fps_6hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 2.333,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_fps_25fps_4hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_fps_25fps_4hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 3.92,
+      "fps": 25.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_fps_25fps_4hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_fps_25fps_4hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 2.92,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_fps_30fps_4hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_fps_30fps_4hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.133,
+      "fps": 30.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_fps_30fps_4hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_fps_30fps_4hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.133,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_fps_60fps_4hz_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_fps_60fps_4hz_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.133,
+      "fps": 60.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_fps_60fps_4hz_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_fps_60fps_4hz_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.133,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_rate_2hz_24fps_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_rate_2hz_24fps_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 6.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_rate_2hz_24fps_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_rate_2hz_24fps_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 5.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_rate_3hz_24fps_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_rate_3hz_24fps_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.667,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_rate_3hz_24fps_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_rate_3hz_24fps_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.667,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_rate_4hz_24fps_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_rate_4hz_24fps_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 4.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_rate_4hz_24fps_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_rate_4hz_24fps_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 3.0,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "flash_rate_6hz_24fps_full_c050.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/flash_rate_6hz_24fps_full_c050.mp4",
+      "modality": "video",
+      "duration_seconds": 3.333,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_flash_rate_6hz_24fps_full_c050_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_flash_rate_6hz_24fps_full_c050_mp4_00",
+          "trigger": "flashing",
+          "start": 1.0,
+          "end": 2.333,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized flashing ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "jump_scare_negative.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/jump_scare_negative.mp4",
+      "modality": "video",
+      "duration_seconds": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_jump_scare_negative_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "jump_scare"
+      ]
+    },
+    {
+      "clip_id": "jump_scare_positive.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/jump_scare_positive.mp4",
+      "modality": "video",
+      "duration_seconds": 3.0,
+      "fps": 30.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_jump_scare_positive_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_jump_scare_positive_mp4_00",
+          "trigger": "jump_scare",
+          "start": 1.5,
+          "end": 1.6,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized jump_scare ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "speech_triggers_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/speech_triggers_test.mp4",
+      "modality": "subtitles",
+      "duration_seconds": 17.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_speech_triggers_test_mp4",
+      "is_negative_control": false,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [
+        {
+          "event_id": "evt_syn_speech_triggers_test_mp4_00",
+          "trigger": "profanity",
+          "start": 1.0,
+          "end": 3.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized profanity ground truth."
+        },
+        {
+          "event_id": "evt_syn_speech_triggers_test_mp4_01",
+          "trigger": "profanity",
+          "start": 7.0,
+          "end": 9.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized profanity ground truth."
+        },
+        {
+          "event_id": "evt_syn_speech_triggers_test_mp4_02",
+          "trigger": "profanity",
+          "start": 10.5,
+          "end": 12.5,
+          "boundary_uncertainty_seconds": 0.0,
+          "annotator_id": "synthetic_generator",
+          "review_status": "verified",
+          "ambiguity_notes": "Programmatically synthesized profanity ground truth."
+        }
+      ]
+    },
+    {
+      "clip_id": "sync_test.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/sync_test.mp4",
+      "modality": "video",
+      "duration_seconds": 10.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_sync_test_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "gunshot",
+        "explosion",
+        "scream",
+        "fast_motion",
+        "jump_scare",
+        "spider"
+      ]
+    },
+    {
+      "clip_id": "video_negative_slow_fade.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/video_negative_slow_fade.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_video_negative_slow_fade_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "flashing"
+      ]
+    },
+    {
+      "clip_id": "video_negative_smooth_gradient.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/video_negative_smooth_gradient.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_video_negative_smooth_gradient_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "flashing"
+      ]
+    },
+    {
+      "clip_id": "video_negative_static.mp4",
+      "film_id": "synthetic_fixtures",
+      "media_relpath": "data/test_clips/video_negative_static.mp4",
+      "modality": "video",
+      "duration_seconds": 5.0,
+      "fps": 24.0,
+      "width": 640,
+      "height": 360,
+      "dataset_type": "synthetic",
+      "split": "train_dev",
+      "scene_id": "scene_syn_video_negative_static_mp4",
+      "is_negative_control": true,
+      "license": "Synthetic Test Generator (Internal MIT-equivalent fixture)",
+      "events": [],
+      "negative_triggers": [
+        "flashing"
+      ]
+    },
+    {
+      "clip_id": "explosion_freesound_156031.wav",
+      "film_id": "freesound_explosion_freesound_156031",
+      "media_relpath": "data/natural_validation/audio/explosion_freesound_156031.wav",
+      "modality": "audio",
+      "duration_seconds": 7.636,
+      "fps": 0.0,
+      "width": 0,
+      "height": 0,
+      "dataset_type": "natural",
+      "split": "validation",
+      "scene_id": "scene_nat_explosion_freesound_156031_wav",
+      "is_negative_control": false,
+      "license": "Freesound #156031 by Iwiploppenisse (CC BY 4.0)",
+      "events": [
+        {
+          "event_id": "evt_nat_explosion_freesound_156031_wav_01",
+          "trigger": "explosion",
+          "start": 0.05,
+          "end": 3.2,
+          "boundary_uncertainty_seconds": 0.05,
+          "annotator_id": "independent_acoustic_annotation",
+          "review_status": "verified",
+          "ambiguity_notes": "Verified natural audio event: explosion."
+        }
+      ]
+    },
+    {
+      "clip_id": "scream_dan_knoflicek_3.wav",
+      "film_id": "freesound_scream_dan_knoflicek_3",
+      "media_relpath": "data/natural_validation/audio/scream_dan_knoflicek_3.wav",
+      "modality": "audio",
+      "duration_seconds": 1.723,
+      "fps": 0.0,
+      "width": 0,
+      "height": 0,
+      "dataset_type": "natural",
+      "split": "validation",
+      "scene_id": "scene_nat_scream_dan_knoflicek_3_wav",
+      "is_negative_control": false,
+      "license": "OpenGameArt Screaming (Dan Knoflicek / CC-BY 3.0)",
+      "events": [
+        {
+          "event_id": "evt_nat_scream_dan_knoflicek_3_wav_01",
+          "trigger": "scream",
+          "start": 0.0,
+          "end": 1.65,
+          "boundary_uncertainty_seconds": 0.05,
+          "annotator_id": "independent_acoustic_annotation",
+          "review_status": "verified",
+          "ambiguity_notes": "Verified natural audio event: scream."
+        }
+      ]
+    },
+    {
+      "clip_id": "sintel_trailer_action_scene",
+      "film_id": "sintel_trailer",
+      "media_relpath": "data/media/sintel_trailer.mp4",
+      "modality": "audiovisual",
+      "duration_seconds": 52.208,
+      "fps": 24.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "natural",
+      "split": "validation",
+      "scene_id": "scene_sintel_trailer_combat",
+      "is_negative_control": false,
+      "license": "Creative Commons Attribution 3.0 Blender Foundation (durian.blender.org)",
+      "events": [
+        {
+          "event_id": "evt_cand_sintel_combat_01",
+          "trigger": "fast_motion",
+          "start": 20.0,
+          "end": 25.0,
+          "boundary_uncertainty_seconds": 0.25,
+          "annotator_id": "candidate_pipeline_detection",
+          "review_status": "pending_review",
+          "ambiguity_notes": "High-velocity combat montage; awaiting human review to establish gold boundary."
+        }
+      ]
+    },
+    {
+      "clip_id": "sintel_trailer_calm_intro",
+      "film_id": "sintel_trailer",
+      "media_relpath": "data/media/sintel_trailer.mp4",
+      "modality": "audiovisual",
+      "duration_seconds": 52.208,
+      "fps": 24.0,
+      "width": 1280,
+      "height": 720,
+      "dataset_type": "natural",
+      "split": "validation",
+      "scene_id": "scene_sintel_trailer_opening",
+      "is_negative_control": true,
+      "negative_triggers": [
+        "fast_motion",
+        "flashing",
+        "explosion",
+        "gunshot",
+        "scream",
+        "loud_spike",
+        "jump_scare",
+        "spider"
+      ],
+      "license": "Creative Commons Attribution 3.0 Blender Foundation (durian.blender.org)",
+      "events": []
+    },
+    {
+      "clip_id": "elephants_dream_flashing_room",
+      "film_id": "elephants_dream",
+      "media_relpath": "data/media/elephants_dream.mp4",
+      "modality": "audiovisual",
+      "duration_seconds": 653.827,
+      "fps": 24.0,
+      "width": 1920,
+      "height": 1080,
+      "dataset_type": "natural",
+      "split": "locked_test",
+      "scene_id": "scene_ed_flashing_strobe",
+      "is_negative_control": false,
+      "license": "Creative Commons Attribution 2.5 Blender Foundation (orange.blender.org)",
+      "events": [
+        {
+          "event_id": "evt_cand_ed_flash_01",
+          "trigger": "flashing",
+          "start": 27.292,
+          "end": 32.917,
+          "boundary_uncertainty_seconds": 0.1,
+          "annotator_id": "candidate_pipeline_detection",
+          "review_status": "pending_review",
+          "ambiguity_notes": "Machine room electrical strobe sequence; pending photosensitivity panel review."
+        }
+      ]
+    },
+    {
+      "clip_id": "elephants_dream_cable_burst",
+      "film_id": "elephants_dream",
+      "media_relpath": "data/media/elephants_dream.mp4",
+      "modality": "audiovisual",
+      "duration_seconds": 653.827,
+      "fps": 24.0,
+      "width": 1920,
+      "height": 1080,
+      "dataset_type": "natural",
+      "split": "locked_test",
+      "scene_id": "scene_ed_cable_explosion",
+      "is_negative_control": false,
+      "license": "Creative Commons Attribution 2.5 Blender Foundation (orange.blender.org)",
+      "events": [
+        {
+          "event_id": "evt_cand_ed_exp_01",
+          "trigger": "explosion",
+          "start": 307.68,
+          "end": 308.64,
+          "boundary_uncertainty_seconds": 0.2,
+          "annotator_id": "candidate_pipeline_detection",
+          "review_status": "pending_review",
+          "ambiguity_notes": "Acoustic cable rupture transient; pending human consensus review."
+        }
+      ]
+    },
+    {
+      "clip_id": "elephants_dream_quiet_walk",
+      "film_id": "elephants_dream",
+      "media_relpath": "data/media/elephants_dream.mp4",
+      "modality": "audiovisual",
+      "duration_seconds": 653.827,
+      "fps": 24.0,
+      "width": 1920,
+      "height": 1080,
+      "dataset_type": "natural",
+      "split": "locked_test",
+      "scene_id": "scene_ed_corridor_dialogue",
+      "is_negative_control": true,
+      "negative_triggers": [
+        "fast_motion",
+        "flashing",
+        "explosion",
+        "gunshot",
+        "scream",
+        "loud_spike",
+        "jump_scare",
+        "spider"
+      ],
+      "license": "Creative Commons Attribution 2.5 Blender Foundation (orange.blender.org)",
+      "events": []
+    }
+  ]
+}

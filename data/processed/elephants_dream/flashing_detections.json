@@ -1,0 +1,73 @@
+{
+  "film_id": "elephants_dream",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 653.83,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 27.292,
+      "end": 32.917,
+      "trigger": "flashing",
+      "score": 0.4473,
+      "source": "flash_detector"
+    },
+    {
+      "start": 315.0,
+      "end": 316.667,
+      "trigger": "flashing",
+      "score": 0.4016,
+      "source": "flash_detector"
+    },
+    {
+      "start": 317.833,
+      "end": 318.167,
+      "trigger": "flashing",
+      "score": 0.4461,
+      "source": "flash_detector"
+    },
+    {
+      "start": 338.25,
+      "end": 347.917,
+      "trigger": "flashing",
+      "score": 0.4501,
+      "source": "flash_detector"
+    },
+    {
+      "start": 349.0,
+      "end": 352.583,
+      "trigger": "flashing",
+      "score": 0.538,
+      "source": "flash_detector"
+    },
+    {
+      "start": 377.5,
+      "end": 379.958,
+      "trigger": "flashing",
+      "score": 0.59,
+      "source": "flash_detector"
+    },
+    {
+      "start": 399.167,
+      "end": 399.5,
+      "trigger": "flashing",
+      "score": 0.4933,
+      "source": "flash_detector"
+    },
+    {
+      "start": 415.208,
+      "end": 416.5,
+      "trigger": "flashing",
+      "score": 0.5151,
+      "source": "flash_detector"
+    },
+    {
+      "start": 427.792,
+      "end": 428.083,
+      "trigger": "flashing",
+      "score": 0.346,
+      "source": "flash_detector"
+    }
+  ]
+}

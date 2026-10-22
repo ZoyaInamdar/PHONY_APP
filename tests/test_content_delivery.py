@@ -277,6 +277,27 @@ def test_strict_rejection_and_no_silent_fallback():
       'getCuesForFilm must reject unknown film ID'
     );
 
+    // 2. Catalogue loads Elephants Dream index with matching film_id
+    const edIndex = loadFilmIndex('elephants_dream');
+    assert.strictEqual(edIndex.film_id, 'elephants_dream', 'Elephants Dream index must match film_id');
+
+    // 3. Catalogue loadFilmIndex strictly rejects mismatched film_id
+    import { FILM_CATALOGUE } from './src/data/catalogue.ts';
+    const originalEntry = FILM_CATALOGUE['elephants_dream'];
+    try {
+      FILM_CATALOGUE['elephants_dream'] = {
+        ...originalEntry,
+        loadIndex: () => ({ film_id: 'mismatched_film_id', cues: [] }),
+      };
+      assert.throws(
+        () => loadFilmIndex('elephants_dream'),
+        /Packaged index film_id mismatch: expected "elephants_dream", but found "mismatched_film_id"/,
+        'loadFilmIndex must strictly reject index with mismatched film_id'
+      );
+    } finally {
+      FILM_CATALOGUE['elephants_dream'] = originalEntry;
+    }
+
     console.log('Strict rejection verified without silent fallbacks.');
     """
     res = subprocess.run(

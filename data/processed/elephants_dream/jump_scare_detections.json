@@ -1,0 +1,73 @@
+{
+  "film_id": "elephants_dream",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 653.83,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 26.9,
+      "end": 29.4,
+      "trigger": "jump_scare",
+      "score": 0.7981,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 29.5,
+      "end": 30.6,
+      "trigger": "jump_scare",
+      "score": 0.6311,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 31.3,
+      "end": 32.2,
+      "trigger": "jump_scare",
+      "score": 0.5709,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 238.7,
+      "end": 239.2,
+      "trigger": "jump_scare",
+      "score": 0.4951,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 303.3,
+      "end": 305.8,
+      "trigger": "jump_scare",
+      "score": 0.644,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 377.0,
+      "end": 377.8,
+      "trigger": "jump_scare",
+      "score": 0.5775,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 377.9,
+      "end": 378.4,
+      "trigger": "jump_scare",
+      "score": 0.5109,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 385.3,
+      "end": 385.8,
+      "trigger": "jump_scare",
+      "score": 0.6595,
+      "source": "jump_scare_detector"
+    },
+    {
+      "start": 399.0,
+      "end": 399.9,
+      "trigger": "jump_scare",
+      "score": 0.6376,
+      "source": "jump_scare_detector"
+    }
+  ]
+}

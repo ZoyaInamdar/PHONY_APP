@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trigger-aware-player.org/schemas/benchmark_manifest.schema.json",
+  "title": "TriggerAwarePlayerBenchmarkManifest",
+  "description": "Validation schema for Trigger-Aware Player ground-truth benchmark manifest (manifest.json). Enforces dataset provenance, temporal interval integrity, anti-leakage scene grouping, split allocation, and review statuses.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "version",
+    "created_at",
+    "description",
+    "splits",
+    "clips"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Benchmark manifest schema version."
+    },
+    "benchmark_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this benchmark release."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the benchmark dataset."
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp of benchmark manifest generation."
+    },
+    "description": {
+      "type": "string",
+      "description": "High-level description of the benchmark dataset and intended evaluation protocol."
+    },
+    "splits": {
+      "type": "object",
+      "required": ["train_dev", "validation", "locked_test"],
+      "properties": {
+        "train_dev": {
+          "type": "object",
+          "required": ["description", "usage"],
+          "properties": {
+            "description": { "type": "string" },
+            "usage": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "validation": {
+          "type": "object",
+          "required": ["description", "usage"],
+          "properties": {
+            "description": { "type": "string" },
+            "usage": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "locked_test": {
+          "type": "object",
+          "required": ["description", "usage"],
+          "properties": {
+            "description": { "type": "string" },
+            "usage": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "clips": {
+      "type": "array",
+      "description": "List of annotated or negative-control clips forming the benchmark.",
+      "items": {
+        "$ref": "#/$defs/benchmark_clip"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "canonical_trigger": {
+      "type": "string",
+      "enum": [
+        "flashing",
+        "profanity",
+        "gunshot",
+        "explosion",
+        "scream",
+        "loud_spike",
+        "sustained_loudness",
+        "spider",
+        "insect",
+        "fast_motion",
+        "jump_scare",
+        "visible_blood"
+      ]
+    },
+    "benchmark_event": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "trigger",
+        "start",
+        "end",
+        "annotator_id",
+        "review_status"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deterministic unique identifier for this event annotation."
+        },
+        "trigger": {
+          "$ref": "#/$defs/canonical_trigger",
+          "description": "Canonical trigger category."
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Interval start presentation timestamp in seconds."
+        },
+        "end": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Interval end presentation timestamp in seconds. Must be strictly greater than start."
+        },
+        "boundary_uncertainty_seconds": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Estimated boundary uncertainty window in seconds (e.g. 0.05s)."
+        },
+        "annotator_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identifier of the human annotator, acoustic model, or synthetic generator."
+        },
+        "review_status": {
+          "type": "string",
+          "enum": ["verified", "pending_review", "rejected"],
+          "description": "Annotation verification status. Only 'verified' events may enter ground-truth scoring."
+        },
+        "ambiguity_notes": {
+          "type": "string",
+          "description": "Documentation of boundary ambiguity, acoustic overlap, or visual edge cases."
+        }
+      },
+      "additionalProperties": false
+    },
+    "benchmark_clip": {
+      "type": "object",
+      "required": [
+        "clip_id",
+        "film_id",
+        "media_relpath",
+        "modality",
+        "duration_seconds",
+        "dataset_type",
+        "split",
+        "scene_id",
+        "is_negative_control",
+        "license",
+        "events"
+      ],
+      "properties": {
+        "clip_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier for the benchmark clip."
+        },
+        "film_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identifier for the source film, collection, or fixture."
+        },
+        "media_relpath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative path from repository root to the playable media file."
+        },
+        "modality": {
+          "type": "string",
+          "enum": ["video", "audio", "audiovisual", "subtitles"],
+          "description": "Primary sensory modality."
+        },
+        "duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "description": "Total duration of the clip or media file in seconds."
+        },
+        "fps": {
+          "type": "number",
+          "minimum": 0.0,
+          "description": "Video frame rate in frames per second, if applicable (0 for pure audio)."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Video frame width in pixels, if applicable."
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Video frame height in pixels, if applicable."
+        },
+        "dataset_type": {
+          "type": "string",
+          "enum": ["synthetic", "natural"],
+          "description": "Provenance type: 'synthetic' for generated test fixtures, 'natural' for real media."
+        },
+        "split": {
+          "type": "string",
+          "enum": ["train_dev", "validation", "locked_test"],
+          "description": "Dataset partition. Anti-leakage rules enforce disjoint scene_ids across splits."
+        },
+        "scene_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Scene or sequence cluster ID. Used to enforce scene-level separation across splits."
+        },
+        "is_negative_control": {
+          "type": "boolean",
+          "description": "True if this clip is an explicit negative control containing zero target trigger events."
+        },
+        "negative_triggers": {
+          "type": "array",
+          "description": "Optional list of specific trigger categories for which this clip is an explicit negative control. If omitted, applies to modality-appropriate canonical triggers.",
+          "items": {
+            "$ref": "#/$defs/canonical_trigger"
+          }
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1,
+          "description": "License or provenance attribution for media rights integrity."
+        },
+        "events": {
+          "type": "array",
+          "description": "Annotated trigger intervals within this clip.",
+          "items": {
+            "$ref": "#/$defs/benchmark_event"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

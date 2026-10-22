@@ -1,0 +1,24 @@
+{
+  "film_id": "elephants_dream",
+  "synthetic": false,
+  "timeline": {
+    "duration_seconds": 653.83,
+    "fps": 24.0
+  },
+  "detections": [
+    {
+      "start": 307.68,
+      "end": 308.64,
+      "trigger": "explosion",
+      "score": 0.7466,
+      "source": "audio_event_classifier"
+    },
+    {
+      "start": 488.16,
+      "end": 489.12,
+      "trigger": "explosion",
+      "score": 0.8469,
+      "source": "audio_event_classifier"
+    }
+  ]
+}

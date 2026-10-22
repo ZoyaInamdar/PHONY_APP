@@ -1,0 +1,4 @@
+clip_id,film_id,scene_id,event_id,trigger,candidate_start,candidate_end,candidate_uncertainty,candidate_notes,review_decision,reviewed_start,reviewed_end,reviewed_uncertainty,reviewer_id,review_notes
+sintel_trailer_action_scene,sintel_trailer,scene_sintel_trailer_combat,evt_cand_sintel_combat_01,fast_motion,20.000,25.000,0.250,High-velocity combat montage; awaiting human review to establish gold boundary.,,,,,,
+elephants_dream_flashing_room,elephants_dream,scene_ed_flashing_strobe,evt_cand_ed_flash_01,flashing,27.292,32.917,0.100,Machine room electrical strobe sequence; pending photosensitivity panel review.,,,,,,
+elephants_dream_cable_burst,elephants_dream,scene_ed_cable_explosion,evt_cand_ed_exp_01,explosion,307.680,308.640,0.200,Acoustic cable rupture transient; pending human consensus review.,,,,,,

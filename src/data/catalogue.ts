@@ -14,6 +14,7 @@ export interface FilmCatalogueEntry {
   fps: number;
   video_url: string;
   vega_video_url?: string;
+  fallback_video_url?: string;
   index_path: string;
   loadIndex: () => unknown;
   subtitles_path?: string | null;
@@ -57,6 +58,7 @@ export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
     fps: 24.0,
     video_url: 'data/media/elephant_dreams.mp4',
     vega_video_url: 'http://10.0.2.2:8080/data/media/elephant_dreams.mp4',
+    fallback_video_url: 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4',
     index_path: 'data/elephants_dream_index.json',
     loadIndex: () => require('../../data/elephants_dream_index.json'),
     subtitles_path: null,

@@ -466,6 +466,37 @@ def load_ground_truth_labels(
     return labels_by_clip
 
 
+def load_negative_control_markers(
+    labels_csv_path: Path | str = DEFAULT_LABELS_PATH,
+) -> Dict[str, Set[str]]:
+    """Extract explicit negative control trigger markers from labels.csv (rows with empty start and end).
+
+    Returns:
+        Mapping of clip filename to set of trigger names explicitly marked negative.
+    """
+    path = Path(labels_csv_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Labels CSV file not found: {path.resolve()}")
+
+    neg_markers_by_clip: Dict[str, Set[str]] = {}
+
+    with path.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames or not {"clip", "trigger", "start", "end"}.issubset(set(reader.fieldnames)):
+            return {}
+
+        for row in reader:
+            clip_name = str(row.get("clip", "")).strip()
+            trigger = str(row.get("trigger", "")).strip()
+            start_raw = str(row.get("start", "")).strip()
+            end_raw = str(row.get("end", "")).strip()
+
+            if clip_name and trigger and not start_raw and not end_raw:
+                neg_markers_by_clip.setdefault(clip_name, set()).add(trigger)
+
+    return neg_markers_by_clip
+
+
 def load_clips_manifest(
     manifest_json_path: Path | str = DEFAULT_MANIFEST_PATH,
 ) -> Dict[str, Dict[str, Any]]:
@@ -498,12 +529,13 @@ def audit_annotation_coverage(
     manifest: Dict[str, Dict[str, Any]],
     labels_by_clip: Dict[str, List[Dict[str, Any]]],
     supported_triggers: Set[str],
+    negative_markers: Optional[Dict[str, Set[str]]] = None,
 ) -> Dict[str, Any]:
     """Audit label coverage across clips and triggers.
 
     Ensures annotation integrity:
     - Positive clips have verified ground truth for the trigger.
-    - Verified negative clips are explicitly defined in manifest as negative controls.
+    - Verified negative clips are explicitly defined in manifest as negative controls or via negative_markers.
     - Clips without annotations for a trigger that are NOT verified negative controls
       are flagged as unannotated/uncovered (and excluded from false positive calculation).
     """
@@ -548,20 +580,48 @@ def audit_annotation_coverage(
 
             if has_trig_labels:
                 positive_clips.append(clip_name)
+            elif negative_markers and trig in negative_markers.get(clip_name, set()):
+                negative_control_clips.append(clip_name)
             else:
                 meta = clip_meta.get("metadata", {})
                 event_type = meta.get("event_type", "")
                 is_negative_control = (
-                    (clip_meta.get("trigger") is None or meta.get("contains_trigger") is False or clip_meta.get("contains_trigger") is False)
-                    and (
-                        "negative" in clip_name.lower()
-                        or "ambient" in event_type
-                        or "dialogue" in event_type
-                        or "static" in event_type
+                    clip_meta.get("is_negative_control") is True
+                    or meta.get("is_negative_control") is True
+                    or meta.get("event_type") == "negative_control"
+                    or (
+                        (clip_meta.get("trigger") is None or meta.get("contains_trigger") is False or clip_meta.get("contains_trigger") is False)
+                        and (
+                            "negative" in clip_name.lower()
+                            or "ambient" in str(event_type).lower()
+                            or "dialogue" in str(event_type).lower()
+                            or "static" in str(event_type).lower()
+                        )
                     )
                 )
                 if is_negative_control:
-                    negative_control_clips.append(clip_name)
+                    neg_triggers = clip_meta.get("negative_triggers") or meta.get("negative_triggers")
+                    if neg_triggers:
+                        applies_to_trig = trig in neg_triggers
+                    else:
+                        # Modality check fallback if specific negative_triggers is omitted
+                        modality = clip_meta.get("modality") or meta.get("modality", "")
+                        audio_triggers = {"loud_spike", "gunshot", "explosion", "scream", "sustained_loudness"}
+                        visual_triggers = {"flashing", "fast_motion", "jump_scare", "spider", "insect", "visible_blood"}
+                        subtitle_triggers = {"profanity"}
+                        if modality == "audio" and trig in visual_triggers:
+                            applies_to_trig = False
+                        elif modality == "subtitles" and trig not in subtitle_triggers:
+                            applies_to_trig = False
+                        elif modality == "video" and trig in audio_triggers:
+                            applies_to_trig = False
+                        else:
+                            applies_to_trig = True
+
+                    if applies_to_trig:
+                        negative_control_clips.append(clip_name)
+                    else:
+                        uncovered_clips.append(clip_name)
                 else:
                     uncovered_clips.append(clip_name)
 
@@ -585,6 +645,7 @@ def run_detector_for_clip(
     clips_dir: Path = DEFAULT_CLIPS_DIR,
     working_dir: Optional[Path] = None,
     config: Optional[Dict[str, Any]] = None,
+    clip_metadata: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Execute the appropriate offline detector for a specific clip and trigger.
 
@@ -593,7 +654,16 @@ def run_detector_for_clip(
     """
     clip_file = clips_dir / clip_name
     if not clip_file.is_file():
-        raise FileNotFoundError(f"Media clip file not found: {clip_file.resolve()}")
+        # Check if media_relpath is provided in clip_metadata
+        rel_path = (clip_metadata or {}).get("metadata", {}).get("media_relpath") or (clip_metadata or {}).get("media_relpath")
+        if rel_path and (REPO_ROOT / rel_path).is_file():
+            clip_file = REPO_ROOT / rel_path
+        else:
+            raise FileNotFoundError(
+                f"Media clip file not found for '{clip_name}' in '{clips_dir.resolve()}'. "
+                f"Actionable resolution: verify that media exists at '{clip_file.resolve()}' "
+                + (f"or '{REPO_ROOT / rel_path}'." if rel_path else ".")
+            )
 
     if trigger == "loud_spike":
         # Extract audio to working_dir and run detect_loudness_from_wav
@@ -769,6 +839,7 @@ def evaluate_dataset(
     """Execute complete dataset evaluation across all evaluable clips and triggers."""
     manifest = load_clips_manifest(manifest_path)
     labels_by_clip = load_ground_truth_labels(labels_path)
+    neg_markers = load_negative_control_markers(labels_path)
     config = load_detector_config(config_path)
 
     # Determine supported triggers
@@ -780,7 +851,7 @@ def evaluate_dataset(
     else:
         eval_triggers = available_triggers
 
-    coverage_audit = audit_annotation_coverage(manifest, labels_by_clip, eval_triggers)
+    coverage_audit = audit_annotation_coverage(manifest, labels_by_clip, eval_triggers, negative_markers=neg_markers)
 
     per_clip_results: List[Dict[str, Any]] = []
     per_trigger_results: Dict[str, Any] = {}
@@ -812,7 +883,13 @@ def evaluate_dataset(
                         clips_dir=Path(clips_dir),
                         working_dir=working_path,
                         config=config,
+                        clip_metadata=clip_meta,
                     )
+                except FileNotFoundError as fnf_err:
+                    raise FileNotFoundError(
+                        f"Evaluation aborted: missing media file for clip '{clip_name}' (trigger '{trigger}'): {fnf_err}. "
+                        "Missing benchmark clips must produce an explicit actionable error and cannot be silently treated as empty detections."
+                    ) from fnf_err
                 except Exception as exc:
                     preds = []
 

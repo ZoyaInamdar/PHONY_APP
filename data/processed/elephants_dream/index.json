@@ -1,0 +1,414 @@
+{
+  "schema_version": 1,
+  "film_id": "elephants_dream",
+  "synthetic": false,
+  "description": "Packaged player cue index for elephants_dream.",
+  "timeline": {
+    "duration_seconds": 653.83,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 24.0
+  },
+  "cues": [
+    {
+      "id": "cue_elephants_dream_loud_spike_015400_023800",
+      "start": 15.4,
+      "end": 23.8,
+      "trigger": "loud_spike",
+      "score": 0.727,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_026400_032000",
+      "start": 26.4,
+      "end": 32.0,
+      "trigger": "loud_spike",
+      "score": 0.811,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_026900_032200",
+      "start": 26.9,
+      "end": 32.2,
+      "trigger": "jump_scare",
+      "score": 0.7981,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_027292_032917",
+      "start": 27.292,
+      "end": 32.917,
+      "trigger": "flashing",
+      "score": 0.4473,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_047100_047200",
+      "start": 47.1,
+      "end": 47.2,
+      "trigger": "loud_spike",
+      "score": 0.432,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_052900_058700",
+      "start": 52.9,
+      "end": 58.7,
+      "trigger": "loud_spike",
+      "score": 0.617,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_065600_066200",
+      "start": 65.6,
+      "end": 66.2,
+      "trigger": "loud_spike",
+      "score": 0.483,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_094600_095200",
+      "start": 94.6,
+      "end": 95.2,
+      "trigger": "loud_spike",
+      "score": 0.553,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_098000_098400",
+      "start": 98.0,
+      "end": 98.4,
+      "trigger": "loud_spike",
+      "score": 0.601,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_159600_171800",
+      "start": 159.6,
+      "end": 171.8,
+      "trigger": "loud_spike",
+      "score": 0.781,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_174800_175600",
+      "start": 174.8,
+      "end": 175.6,
+      "trigger": "loud_spike",
+      "score": 0.584,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_179900_180200",
+      "start": 179.9,
+      "end": 180.2,
+      "trigger": "loud_spike",
+      "score": 0.562,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_198300_199100",
+      "start": 198.3,
+      "end": 199.1,
+      "trigger": "loud_spike",
+      "score": 0.528,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_203000_203300",
+      "start": 203.0,
+      "end": 203.3,
+      "trigger": "loud_spike",
+      "score": 0.688,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_214800_216700",
+      "start": 214.8,
+      "end": 216.7,
+      "trigger": "loud_spike",
+      "score": 0.698,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_224500_227400",
+      "start": 224.5,
+      "end": 227.4,
+      "trigger": "loud_spike",
+      "score": 0.749,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_229600_230200",
+      "start": 229.6,
+      "end": 230.2,
+      "trigger": "loud_spike",
+      "score": 0.478,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_233200_233400",
+      "start": 233.2,
+      "end": 233.4,
+      "trigger": "loud_spike",
+      "score": 0.451,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_238700_239100",
+      "start": 238.7,
+      "end": 239.1,
+      "trigger": "loud_spike",
+      "score": 0.482,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_238700_239200",
+      "start": 238.7,
+      "end": 239.2,
+      "trigger": "jump_scare",
+      "score": 0.4951,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_245700_246700",
+      "start": 245.7,
+      "end": 246.7,
+      "trigger": "loud_spike",
+      "score": 0.688,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_249200_249500",
+      "start": 249.2,
+      "end": 249.5,
+      "trigger": "loud_spike",
+      "score": 0.669,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_279500_279600",
+      "start": 279.5,
+      "end": 279.6,
+      "trigger": "loud_spike",
+      "score": 0.422,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_303300_305800",
+      "start": 303.3,
+      "end": 305.8,
+      "trigger": "jump_scare",
+      "score": 0.644,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_303300_311100",
+      "start": 303.3,
+      "end": 311.1,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_explosion_307680_308640",
+      "start": 307.68,
+      "end": 308.64,
+      "trigger": "explosion",
+      "score": 0.7466,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_315000_318167",
+      "start": 315.0,
+      "end": 318.167,
+      "trigger": "flashing",
+      "score": 0.4461,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_328000_328100",
+      "start": 328.0,
+      "end": 328.1,
+      "trigger": "loud_spike",
+      "score": 0.448,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_338250_352583",
+      "start": 338.25,
+      "end": 352.583,
+      "trigger": "flashing",
+      "score": 0.538,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_359700_362000",
+      "start": 359.7,
+      "end": 362.0,
+      "trigger": "loud_spike",
+      "score": 0.68,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_364900_369400",
+      "start": 364.9,
+      "end": 369.4,
+      "trigger": "loud_spike",
+      "score": 0.644,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_374100_374200",
+      "start": 374.1,
+      "end": 374.2,
+      "trigger": "loud_spike",
+      "score": 0.403,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_377000_378100",
+      "start": 377.0,
+      "end": 378.1,
+      "trigger": "loud_spike",
+      "score": 0.512,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_377000_378400",
+      "start": 377.0,
+      "end": 378.4,
+      "trigger": "jump_scare",
+      "score": 0.5775,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_377500_379958",
+      "start": 377.5,
+      "end": 379.958,
+      "trigger": "flashing",
+      "score": 0.59,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_383700_385400",
+      "start": 383.7,
+      "end": 385.4,
+      "trigger": "loud_spike",
+      "score": 0.663,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_385300_385800",
+      "start": 385.3,
+      "end": 385.8,
+      "trigger": "jump_scare",
+      "score": 0.6595,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_jump_scare_399000_399900",
+      "start": 399.0,
+      "end": 399.9,
+      "trigger": "jump_scare",
+      "score": 0.6376,
+      "source": "jump_scare_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_399000_402700",
+      "start": 399.0,
+      "end": 402.7,
+      "trigger": "loud_spike",
+      "score": 0.795,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_399167_399500",
+      "start": 399.167,
+      "end": 399.5,
+      "trigger": "flashing",
+      "score": 0.4933,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_415208_416500",
+      "start": 415.208,
+      "end": 416.5,
+      "trigger": "flashing",
+      "score": 0.5151,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_418000_419600",
+      "start": 418.0,
+      "end": 419.6,
+      "trigger": "loud_spike",
+      "score": 0.539,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_flashing_427792_428083",
+      "start": 427.792,
+      "end": 428.083,
+      "trigger": "flashing",
+      "score": 0.346,
+      "source": "flash_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_428000_436000",
+      "start": 428.0,
+      "end": 436.0,
+      "trigger": "loud_spike",
+      "score": 0.657,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_439300_439400",
+      "start": 439.3,
+      "end": 439.4,
+      "trigger": "loud_spike",
+      "score": 0.446,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_465500_473300",
+      "start": 465.5,
+      "end": 473.3,
+      "trigger": "loud_spike",
+      "score": 0.778,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_487100_487200",
+      "start": 487.1,
+      "end": 487.2,
+      "trigger": "loud_spike",
+      "score": 0.416,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_explosion_488160_489120",
+      "start": 488.16,
+      "end": 489.12,
+      "trigger": "explosion",
+      "score": 0.8469,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_521900_522000",
+      "start": 521.9,
+      "end": 522.0,
+      "trigger": "loud_spike",
+      "score": 0.454,
+      "source": "loudness_detector"
+    },
+    {
+      "id": "cue_elephants_dream_loud_spike_567300_573000",
+      "start": 567.3,
+      "end": 573.0,
+      "trigger": "loud_spike",
+      "score": 1.0,
+      "source": "loudness_detector"
+    }
+  ]
+}

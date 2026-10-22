@@ -25,6 +25,7 @@ MEDIA_RIGHTS_PATH = REPO_ROOT / "docs" / "licenses" / "media_rights.json"
 
 SINTEL_INDEX = REPO_ROOT / "data" / "index.json"
 TOS_INDEX = REPO_ROOT / "data" / "tears_of_steel_index.json"
+ED_INDEX = REPO_ROOT / "data" / "elephants_dream_index.json"
 
 CATALOGUE_TS = REPO_ROOT / "src" / "data" / "catalogue.ts"
 PLAYBACK_CUES_TS = REPO_ROOT / "src" / "data" / "playbackCues.ts"
@@ -48,16 +49,16 @@ def test_catalogue_file_exists():
 
 
 def test_catalogue_discovery_metadata():
-    """Verify that both Sintel and Tears of Steel are discoverable with valid metadata."""
+    """Verify that Sintel, Tears of Steel, and Elephants Dream are discoverable with valid metadata."""
     node_script = """
     import assert from 'node:assert';
     import { getAllFilms, getFilm, getFilmMetadata } from './src/data/catalogue.ts';
 
     const films = getAllFilms();
-    assert.strictEqual(films.length, 2, 'Expected 2 films in catalogue');
+    assert.strictEqual(films.length, 3, 'Expected 3 films in catalogue');
 
     const filmIds = films.map(f => f.film_id).sort();
-    assert.deepStrictEqual(filmIds, ['sintel', 'tears_of_steel']);
+    assert.deepStrictEqual(filmIds, ['elephants_dream', 'sintel', 'tears_of_steel']);
 
     // Film 1: Sintel
     const sintel = getFilm('sintel');
@@ -77,6 +78,19 @@ def test_catalogue_discovery_metadata():
     assert.ok(tos.video_url.startsWith('https://'), 'Tears of Steel video URL must be https');
     assert.strictEqual(tos.index_path, 'data/tears_of_steel_index.json');
 
+    // Film 3: Elephants Dream
+    const ed = getFilm('elephants_dream');
+    assert.strictEqual(ed.film_id, 'elephants_dream');
+    assert.strictEqual(ed.title, 'Elephants Dream');
+    assert.strictEqual(ed.duration_seconds, 653.83);
+    assert.strictEqual(ed.fps, 24.0);
+    assert.strictEqual(ed.video_url, 'data/media/elephant_dreams.mp4');
+    assert.strictEqual(ed.index_path, 'data/elephants_dream_index.json');
+    const edIndex = ed.loadIndex();
+    assert.strictEqual(edIndex.film_id, 'elephants_dream');
+    assert.strictEqual(edIndex.synthetic, false);
+    assert.ok(Array.isArray(edIndex.cues) && edIndex.cues.length > 0, 'Elephants Dream cues must not be empty');
+
     // getFilmMetadata returns null for unknown, does not throw
     assert.strictEqual(getFilmMetadata('nonexistent'), null);
 
@@ -93,9 +107,10 @@ def test_catalogue_discovery_metadata():
 
 
 def test_packaged_indexes_exist_and_pass_validation():
-    """Verify that both Sintel and Tears of Steel packaged indexes exist and pass validate_index.py."""
+    """Verify that Sintel, Tears of Steel, and Elephants Dream packaged indexes exist and pass validate_index.py."""
     assert SINTEL_INDEX.is_file(), f"Missing {SINTEL_INDEX}"
     assert TOS_INDEX.is_file(), f"Missing {TOS_INDEX}"
+    assert ED_INDEX.is_file(), f"Missing {ED_INDEX}"
 
     # Validate Sintel index
     res_sintel = subprocess.run(
@@ -129,6 +144,26 @@ def test_packaged_indexes_exist_and_pass_validation():
     assert res_tos.returncode == 0, f"TOS index validation failed:\n{res_tos.stdout}\n{res_tos.stderr}"
     assert "SUCCESS: index.json passed all schema and domain validation checks." in res_tos.stdout
 
+    # Validate Elephants Dream index
+    ed_media = REPO_ROOT / "data" / "media" / "elephants_dream.mp4"
+    ed_val_cmd = [
+        sys.executable,
+        str(VALIDATE_SCRIPT),
+        "--index", str(ED_INDEX),
+        "--config", str(CONFIG_PATH),
+        "--schema", str(INDEX_SCHEMA_PATH),
+    ]
+    if ed_media.is_file():
+        ed_val_cmd.extend(["--media", str(ed_media), "--duration-tolerance", "0.6"])
+    res_ed = subprocess.run(
+        ed_val_cmd,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    assert res_ed.returncode == 0, f"Elephants Dream index validation failed:\n{res_ed.stdout}\n{res_ed.stderr}"
+    assert "SUCCESS: index.json passed all schema and domain validation checks." in res_ed.stdout
+
 
 def test_cue_isolation_and_no_cross_contamination():
     """Verify that loading cues for each film produces isolated cues without leakage."""
@@ -139,9 +174,11 @@ def test_cue_isolation_and_no_cross_contamination():
 
     const sintelCues = loadFilmCues('sintel');
     const tosCues = loadFilmCues('tears_of_steel');
+    const edCues = loadFilmCues('elephants_dream');
 
     assert.ok(sintelCues.length > 0, 'Sintel cues must not be empty');
     assert.ok(tosCues.length > 0, 'Tears of Steel cues must not be empty');
+    assert.ok(edCues.length > 0, 'Elephants Dream cues must not be empty');
 
     // Confirm playbackCues exports match catalogue
     assert.strictEqual(sintelIndexCues.length, sintelCues.length);
@@ -160,12 +197,29 @@ def test_cue_isolation_and_no_cross_contamination():
       assert.ok(cue.id.startsWith('cue_tears_of_steel_'), `ToS cue id prefix mismatch: ${cue.id}`);
     }
 
+    for (const cue of edCues) {
+      assert.ok(cue.start >= 0 && cue.end <= 653.83, `Elephants Dream cue out of range: ${cue.id}`);
+      assert.ok(cue.id.startsWith('cue_elephants_dream_'), `Elephants Dream cue id prefix mismatch: ${cue.id}`);
+    }
+
     // Ensure completely disjoint sets of IDs (no cue leakage across films)
     const sintelIds = new Set(sintelCues.map(c => c.id));
     const tosIds = new Set(tosCues.map(c => c.id));
+    const edIds = new Set(edCues.map(c => c.id));
     for (const id of sintelIds) {
       assert.ok(!tosIds.has(id), `Cue ${id} leaked into Tears of Steel!`);
+      assert.ok(!edIds.has(id), `Cue ${id} leaked into Elephants Dream!`);
     }
+    for (const id of edIds) {
+      assert.ok(!sintelIds.has(id), `Cue ${id} leaked into Sintel!`);
+      assert.ok(!tosIds.has(id), `Cue ${id} leaked into Tears of Steel!`);
+    }
+
+    // Verify canonical triggers represented in Elephants Dream
+    const edTriggers = new Set(edCues.map(c => c.trigger));
+    assert.ok(edTriggers.has('flashing'), 'Elephants Dream must contain flashing trigger');
+    assert.ok(edTriggers.has('loud_spike'), 'Elephants Dream must contain loud_spike trigger');
+    assert.ok(edTriggers.has('explosion'), 'Elephants Dream must contain explosion trigger');
 
     // Verify canonical triggers represented in ToS
     const tosTriggers = new Set(tosCues.map(c => c.trigger));

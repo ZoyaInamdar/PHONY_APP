@@ -98,6 +98,38 @@ def test_tears_of_steel_packaged_index_validity():
     validate_domain_rules(data, canonical_triggers=canonical_triggers)
 
 
+def test_elephants_dream_packaged_index_validity():
+    """Verify Elephants Dream packaged index is non-synthetic and passes all validations."""
+    index_path = REPO_ROOT / "data" / "processed" / "elephants_dream" / "index.json"
+    assert index_path.is_file(), f"Index file missing: {index_path}"
+
+    with index_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Core non-synthetic contract
+    assert data.get("synthetic") is False, "Elephants Dream index must be non-synthetic (synthetic=False)"
+    assert data.get("film_id") == "elephants_dream"
+    assert "timeline" in data
+    dur = float(data["timeline"]["duration_seconds"])
+    assert abs(dur - 653.83) < 0.1
+
+    # Cues bounded by media duration
+    cues = data.get("cues", [])
+    assert len(cues) > 0, "Elephants Dream must contain detected cues"
+    for cue in cues:
+        assert float(cue["start"]) >= 0.0
+        assert float(cue["end"]) > float(cue["start"])
+        assert float(cue["end"]) <= dur, f"Cue {cue['id']} exceeds film duration {dur}"
+        assert 0.0 <= float(cue["score"]) <= 1.0
+
+    # Full schema & domain compliance
+    schema = load_schema(DEFAULT_SCHEMA_PATH)
+    canonical_triggers = get_canonical_triggers_from_config(DEFAULT_CONFIG_PATH)
+
+    validate_schema_compliance(data, schema)
+    validate_domain_rules(data, canonical_triggers=canonical_triggers)
+
+
 def test_valid_cue_packaging(tmp_path: Path):
     """Verify package_film_cues produces a valid index with correct half-open intervals and IDs."""
     det1 = tmp_path / "det1.json"

@@ -559,7 +559,30 @@ export const PlayerScreen = ({
 
   const promptButtonToFocus = isSkipEligible ? focusedPromptButton : 'continue';
 
-  const videoSource = testVideoUrl ?? filmMetadata?.video_url ?? DEFAULT_VIDEO_URL;
+  const [videoSourceOverride, setVideoSourceOverride] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVideoSourceOverride(null);
+  }, [currentFilmId]);
+
+  const rawVideoSource =
+    testVideoUrl ??
+    filmMetadata?.vega_video_url ??
+    filmMetadata?.video_url ??
+    DEFAULT_VIDEO_URL;
+
+  const resolvedVideoSource = (() => {
+    if (
+      rawVideoSource.startsWith('http://') ||
+      rawVideoSource.startsWith('https://') ||
+      rawVideoSource.startsWith('pkg://')
+    ) {
+      return rawVideoSource;
+    }
+    return `http://10.0.2.2:8080/${rawVideoSource.replace(/^\/+/, '')}`;
+  })();
+
+  const videoSource = videoSourceOverride ?? resolvedVideoSource;
 
   // Derived video layout dimensions to satisfy W3CMedia Video numeric prop contract
   const initialWindowWidth = Dimensions.get('window').width;
@@ -1859,7 +1882,12 @@ export const PlayerScreen = ({
   };
 
   const toggleFilm = () => {
-    const nextFilmId = currentFilmId === 'sintel' ? 'tears_of_steel' : 'sintel';
+    const nextFilmId =
+      currentFilmId === 'sintel'
+        ? 'tears_of_steel'
+        : currentFilmId === 'tears_of_steel'
+        ? 'elephants_dream'
+        : 'sintel';
     handleFilmSwitch(nextFilmId);
   };
 
@@ -2189,6 +2217,12 @@ export const PlayerScreen = ({
             const code = err?.code ?? 'unknown';
             const msg = err?.message ?? 'no message';
             console.log(`[Player] onError — code: ${code} message: ${msg} src: ${videoSource}`);
+            if (currentFilmId === 'elephants_dream' && !videoSource.startsWith('https://archive.org')) {
+              console.log('[Player] Retrying Elephants Dream with fallback remote stream…');
+              setStatus('Retrying with remote stream…');
+              setVideoSourceOverride('https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4');
+              return;
+            }
             setStatus(`Error ${code}: ${msg}`);
           }}
           onAudioFocusGranted={() => {

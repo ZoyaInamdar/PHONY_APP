@@ -182,6 +182,27 @@ export function resolveEffectiveAction(
 }
 
 /**
+ * Checks whether an explicit, valid user override is set for a specific trigger and action.
+ */
+export function hasExplicitActionOverride(
+  trigger?: string | null,
+  action?: string | null,
+  actionOverrides?: Partial<Record<string, string>> | null,
+): boolean {
+  if (!trigger || !action || !actionOverrides) {
+    return false;
+  }
+  if (!isCanonicalTrigger(trigger) || !isCanonicalAction(action)) {
+    return false;
+  }
+  if (!(trigger in actionOverrides)) {
+    return false;
+  }
+  const override = actionOverrides[trigger];
+  return override === action && isActionAllowedForTrigger(trigger, action);
+}
+
+/**
  * Sanitizes an action overrides dictionary, keeping only canonical triggers with permitted actions.
  */
 export function sanitizeActionOverrides(

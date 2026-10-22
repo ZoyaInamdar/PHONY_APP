@@ -3,6 +3,7 @@ import {
   CueAction,
   EffectiveActions,
   ViewerOptions,
+  hasExplicitActionOverride,
   resolveEffectiveAction,
 } from './types';
 
@@ -70,6 +71,14 @@ export function resolveActions(
       options.actionOverrides,
     );
 
+    const isExplicitReduceOverride =
+      effectiveAction === 'reduce' &&
+      hasExplicitActionOverride(cue.trigger, 'reduce', options.actionOverrides);
+
+    const isExplicitSkipOverride =
+      effectiveAction === 'skip' &&
+      hasExplicitActionOverride(cue.trigger, 'skip', options.actionOverrides);
+
     // -------------------------------------------------------------------------
     // Warning actions
     // `warn` cues provide a heads-up alert without overriding audio, visual,
@@ -102,7 +111,10 @@ export function resolveActions(
     // -------------------------------------------------------------------------
     if (effectiveAction === 'mute' && options.muteEnabled) {
       soundGain = 0;
-    } else if (effectiveAction === 'reduce' && options.reduceEnabled) {
+    } else if (
+      effectiveAction === 'reduce' &&
+      (options.reduceEnabled || isExplicitReduceOverride)
+    ) {
       const gain = cue.gain ?? options.reduceGain;
 
       if (!Number.isFinite(gain) || gain < 0 || gain > 1) {
@@ -121,7 +133,7 @@ export function resolveActions(
 
     if (
       effectiveAction === 'skip' &&
-      options.skipEnabled &&
+      (options.skipEnabled || isExplicitSkipOverride) &&
       reviewAllowsSkip
     ) {
       skipTo = Math.max(skipTo ?? 0, cue.end);

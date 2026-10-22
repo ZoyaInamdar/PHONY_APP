@@ -48,6 +48,15 @@ export type BlurModeOption = (typeof BLUR_MODE_OPTIONS)[number];
 export const CANONICAL_TRIGGER_CATEGORIES = CANONICAL_TRIGGERS;
 export type CanonicalTriggerCategory = CanonicalTrigger;
 
+export const ACTION_DISPLAY_LABELS: Record<string, string> = {
+  hide: 'Hide / Blackout',
+  blur: 'Visual Blur',
+  mute: 'Mute Audio',
+  reduce: 'Reduce Volume',
+  skip: 'Skip Scene',
+  warn: 'Warning Alert',
+};
+
 export const PLAYER_PROFILES = [
   'standard',
   'verification',
@@ -833,11 +842,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               isSelected && styles.actionOptionTextSelected,
                               isFocused && styles.actionOptionFocusedText,
                             ]}>
-                            {act} {isDefault ? '(Default)' : ''}
+                            {ACTION_DISPLAY_LABELS[act] ?? act} {isDefault ? '(Default)' : ''}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
+                    {cat === 'profanity' && (
+                      <View
+                        style={[styles.actionOptionButton, styles.actionOptionButtonDisabled]}
+                        testID="action-option-profanity-beep"
+                        accessibilityRole="text"
+                        accessibilityLabel="profanity action beep unavailable on Vega OS">
+                        <Text style={[styles.actionOptionText, styles.actionOptionTextDisabled]}>
+                          Beep (Unavailable)
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               );
@@ -1328,5 +1348,14 @@ const styles = StyleSheet.create({
   actionOptionFocusedText: {
     color: '#000000',
     fontWeight: '800',
+  },
+  actionOptionButtonDisabled: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+    opacity: 0.5,
+  },
+  actionOptionTextDisabled: {
+    color: '#64748B',
+    fontStyle: 'italic',
   },
 });

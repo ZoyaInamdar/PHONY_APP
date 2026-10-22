@@ -90,6 +90,10 @@ export const App = ({
                 setSelectedFilmId('tears_of_steel');
                 setCatalogueError(null);
                 setShowPlayer(true);
+              } else if (tile.id === 'elephants-dream') {
+                setSelectedFilmId('elephants_dream');
+                setCatalogueError(null);
+                setShowPlayer(true);
               } else if (tile.id === 'debug') {
                 setShowSettings(true);
               } else if (tile.id === 'learn-more') {

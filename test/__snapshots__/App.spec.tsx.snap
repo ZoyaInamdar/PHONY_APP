@@ -403,6 +403,102 @@ Steel
       </View>
     </View>
     <View
+      accessibilityLabel="Watch Elephants Dream"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      hasTVPreferredFocus={false}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "backgroundColor": "#0074B8",
+          "borderRadius": 44,
+          "height": 320,
+          "opacity": 1,
+          "overflow": "hidden",
+          "padding": 20,
+          "width": 320,
+        }
+      }
+      testID="tile-elephants-dream"
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+            "justifyContent": "center",
+          }
+        }
+      >
+        <Image
+          accessible={false}
+          resizeMode="contain"
+          source={
+            {
+              "testUri": "../../../src/assets/get-started.png",
+            }
+          }
+          style={
+            {
+              "height": 80,
+              "tintColor": "#FFFFFF",
+              "width": 80,
+            }
+          }
+        />
+      </View>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flex": 1,
+            "justifyContent": "center",
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#FFFFFF",
+              "fontSize": 52,
+              "fontWeight": "bold",
+              "includeFontPadding": false,
+              "lineHeight": 52,
+              "textAlign": "center",
+            }
+          }
+        >
+          Elephants
+Dream
+        </Text>
+      </View>
+    </View>
+    <View
       accessibilityLabel="Test and Debug"
       accessibilityRole="button"
       accessibilityState={

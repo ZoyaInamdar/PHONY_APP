@@ -11,6 +11,7 @@ import {
   isActionAllowedForTrigger,
   isCanonicalAction,
   isCanonicalTrigger,
+  hasExplicitActionOverride,
   resolveEffectiveAction,
   sanitizeActionOverrides,
 } from './triggerContract';
@@ -28,6 +29,7 @@ export {
   isActionAllowedForTrigger,
   isCanonicalAction,
   isCanonicalTrigger,
+  hasExplicitActionOverride,
   resolveEffectiveAction,
   sanitizeActionOverrides,
 };

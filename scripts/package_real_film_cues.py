@@ -366,13 +366,160 @@ def package_tears_of_steel(py: str, allow_subtitles_only: bool = False) -> bool:
     return run_command(val_cmd, "Validate Tears of Steel Index")
 
 
+def package_elephants_dream(py: str) -> bool:
+    """Run full media ingestion, offline detectors, and packaging for Elephants Dream."""
+    media_path = REPO_ROOT / "data" / "media" / "elephants_dream.mp4"
+    if not media_path.is_file():
+        media_path = REPO_ROOT / "data" / "media" / "elephant_dreams.mp4"
+    if not media_path.is_file():
+        print(f"[BLOCKER] Elephants Dream media missing at: {media_path}", file=sys.stderr)
+        return False
+
+    out_dir = REPO_ROOT / "data" / "processed" / "elephants_dream"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    audio_wav = out_dir / "audio_mono_44100.wav"
+    if not audio_wav.is_file() or audio_wav.stat().st_size == 0:
+        extract_cmd = [
+            "ffmpeg",
+            "-nostdin",
+            "-y",
+            "-i", str(media_path),
+            "-vn",
+            "-ac", "1",
+            "-ar", "44100",
+            "-c:a", "pcm_s16le",
+            str(audio_wav),
+        ]
+        if not run_command(extract_cmd, "Audio Extraction"):
+            return False
+
+    # 1. Loudness detector
+    loudness_json = out_dir / "loudness_detections.json"
+    loudness_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "detect_loudness.py"),
+        "--input", str(audio_wav),
+        "--output", str(loudness_json),
+        "--config", str(CONFIG_PATH),
+        "--film-id", "elephants_dream",
+        "--mode", "spike",
+    ]
+    if not run_command(loudness_cmd, "Loudness Detector"):
+        return False
+
+    # 2. Flashing detector
+    flashing_json = out_dir / "flashing_detections.json"
+    flashing_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "detect_flashing.py"),
+        "--input", str(media_path),
+        "--output", str(flashing_json),
+        "--config", str(CONFIG_PATH),
+    ]
+    if not run_command(flashing_cmd, "Flashing Detector"):
+        return False
+
+    # 3. Audio event classifier
+    audio_events_json = out_dir / "audio_events_detections.json"
+    audio_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "classify_audio_events.py"),
+        "--input", str(audio_wav),
+        "--output", str(audio_events_json),
+        "--config", str(CONFIG_PATH),
+    ]
+    if not run_command(audio_cmd, "Audio Event Classifier"):
+        return False
+
+    # 4. Jump scare compound detector
+    jump_scare_json = out_dir / "jump_scare_detections.json"
+    js_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "detect_jump_scare.py"),
+        "--input", str(media_path),
+        "--output", str(jump_scare_json),
+        "--config", str(CONFIG_PATH),
+    ]
+    if not run_command(js_cmd, "Jump Scare Detector"):
+        return False
+
+    # 5. Fast motion detector
+    fast_motion_json = out_dir / "fast_motion_detections.json"
+    fm_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "detect_fast_motion.py"),
+        "--input", str(media_path),
+        "--output", str(fast_motion_json),
+        "--config", str(CONFIG_PATH),
+    ]
+    if not run_command(fm_cmd, "Fast Motion Detector"):
+        return False
+
+    # Standardize wrapped format with synthetic=False
+    raw_files = [flashing_json, audio_events_json, jump_scare_json, fast_motion_json]
+    for rf in raw_files:
+        if rf.is_file():
+            with rf.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                wrapped = {
+                    "film_id": "elephants_dream",
+                    "synthetic": False,
+                    "timeline": {"duration_seconds": 653.83, "fps": 24.0},
+                    "detections": data,
+                }
+                with rf.open("w", encoding="utf-8") as f:
+                    json.dump(wrapped, f, indent=2)
+
+    # 6. Package cues into index.json
+    index_json = out_dir / "index.json"
+    pkg_inputs = [
+        str(loudness_json),
+        str(flashing_json),
+        str(audio_events_json),
+        str(jump_scare_json),
+        str(fast_motion_json),
+    ]
+
+    pkg_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "package_cues.py"),
+        "--input",
+        *pkg_inputs,
+        "--output", str(index_json),
+        "--config", str(CONFIG_PATH),
+        "--schema", str(SCHEMA_PATH),
+        "--film-id", "elephants_dream",
+        "--duration", "653.83",
+        "--fps", "24.0",
+        "--no-synthetic",
+    ]
+    if not run_command(pkg_cmd, "Package Elephants Dream Cues"):
+        return False
+
+    # Copy to root data directory for application runtime loading
+    root_index = REPO_ROOT / "data" / "elephants_dream_index.json"
+    shutil.copy2(index_json, root_index)
+
+    # 7. Validate index
+    val_cmd = [
+        py,
+        str(REPO_ROOT / "scripts" / "validate_index.py"),
+        "--index", str(index_json),
+        "--media", str(media_path),
+        "--duration-tolerance", "0.6",
+    ]
+    return run_command(val_cmd, "Validate Elephants Dream Index")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="End-to-End Real Film Cue Ingestion & Packaging Pipeline."
     )
     parser.add_argument(
         "--film",
-        choices=["all", "sintel", "sintel_trailer", "tears_of_steel"],
+        choices=["all", "sintel", "sintel_trailer", "tears_of_steel", "elephants_dream"],
         default="all",
         help="Film to process (default: all)",
     )
@@ -397,6 +544,7 @@ def main() -> int:
     sintel_trailer_ok = True
     sintel_full_ok = True
     tos_ok = True
+    ed_ok = True
 
     if args.film in ("all", "sintel_trailer"):
         print("\n--- Processing Film 1: Sintel Trailer (Real Media: data/media/sintel_trailer.mp4) ---")
@@ -410,6 +558,10 @@ def main() -> int:
         print("\n--- Processing Film 3: Tears of Steel (Subtitles: data/processed/tears_of_steel/) ---")
         tos_ok = package_tears_of_steel(py, allow_subtitles_only=args.allow_subtitles_only)
 
+    if args.film in ("all", "elephants_dream"):
+        print("\n--- Processing Film 4: Elephants Dream (Real Media: data/media/elephants_dream.mp4) ---")
+        ed_ok = package_elephants_dream(py)
+
     print("\n" + "=" * 72)
     print("  SUMMARY OF REAL FILM PACKAGING")
     print("=" * 72)
@@ -419,9 +571,14 @@ def main() -> int:
         print(f"Sintel Full Film:  {'SUCCESS (data/processed/sintel/index.json)' if sintel_full_ok else 'FAILED'}")
     if args.film in ("all", "tears_of_steel"):
         print(f"Tears of Steel:    {'SUCCESS (data/processed/tears_of_steel/index.json)' if tos_ok else 'BLOCKED (data/media/tears_of_steel.webm missing)'}")
+    if args.film in ("all", "elephants_dream"):
+        print(f"Elephants Dream:   {'SUCCESS (data/processed/elephants_dream/index.json)' if ed_ok else 'FAILED'}")
     print("=" * 72)
 
-    return 0 if (sintel_trailer_ok and sintel_full_ok and tos_ok) else 1
+    all_ok = sintel_trailer_ok and sintel_full_ok and tos_ok and ed_ok
+    if args.film == "elephants_dream":
+        return 0 if ed_ok else 1
+    return 0 if all_ok else 1
 
 
 if __name__ == "__main__":

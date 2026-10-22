@@ -10,10 +10,12 @@ describe('App', () => {
     expect(screen).toMatchSnapshot();
   });
 
-  it('renders all four tiles', () => {
+  it('renders all tiles', () => {
     const screen = render(<App />);
     expect(screen.getByTestId('tile-home')).toBeTruthy();
     expect(screen.getByTestId('tile-get-started')).toBeTruthy();
+    expect(screen.getByTestId('tile-tears-of-steel')).toBeTruthy();
+    expect(screen.getByTestId('tile-elephants-dream')).toBeTruthy();
     expect(screen.getByTestId('tile-debug')).toBeTruthy();
     expect(screen.getByTestId('tile-learn-more')).toBeTruthy();
   });

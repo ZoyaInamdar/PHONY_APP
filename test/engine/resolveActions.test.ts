@@ -1,4 +1,5 @@
 import { resolveActions } from '../../src/engine/resolveActions';
+import { PlaybackState } from '../../src/engine/playbackState';
 import {
   Cue,
   DEFAULT_VIEWER_OPTIONS,
@@ -259,6 +260,331 @@ describe('resolveActions', () => {
       expect(res.hide).toBe(true);
       expect(res.soundGain).toBe(0);
       expect(res.activeCueIds).toEqual(['cue-spike', 'cue-flash', 'cue-profanity']);
+    });
+  });
+
+  describe('Per-Trigger Reduce/Skip Override Gating Regression Suite', () => {
+    it('1. applies reduction for an eligible trigger with an explicit reduce override while reduceEnabled === false', () => {
+      // gunshot default is mute, allowed alternatives: ['reduce', 'skip', 'warn']
+      const gunshotCue: Cue = {
+        id: 'cue-gunshot-reduce',
+        start: 10,
+        end: 15,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'gunshot',
+        gain: 0.35,
+      };
+      const result = resolveActions(12, [gunshotCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: false, // global toggle is false!
+        actionOverrides: { gunshot: 'reduce' },
+      });
+      expect(result.soundGain).toBe(0.35);
+    });
+
+    it('2. applies reduction for the same explicit override when reduceEnabled === true', () => {
+      const gunshotCue: Cue = {
+        id: 'cue-gunshot-reduce',
+        start: 10,
+        end: 15,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'gunshot',
+        gain: 0.35,
+      };
+      const result = resolveActions(12, [gunshotCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: true,
+        actionOverrides: { gunshot: 'reduce' },
+      });
+      expect(result.soundGain).toBe(0.35);
+    });
+
+    it('3. executes skip for an eligible trigger with an explicit skip override while skipEnabled === false', () => {
+      // flashing default is hide, allowed alternatives: ['skip', 'warn']
+      const flashCue: Cue = {
+        id: 'cue-flash-skip',
+        start: 20,
+        end: 25,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const result = resolveActions(22, [flashCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: false, // global toggle is false!
+        actionOverrides: { flashing: 'skip' },
+      });
+      expect(result.skipTo).toBe(25);
+      expect(result.visualAction).toBeNull();
+    });
+
+    it('4. executes skip for the same explicit skip override when skipEnabled === true', () => {
+      const flashCue: Cue = {
+        id: 'cue-flash-skip',
+        start: 20,
+        end: 25,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const result = resolveActions(22, [flashCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: true,
+        actionOverrides: { flashing: 'skip' },
+      });
+      expect(result.skipTo).toBe(25);
+      expect(result.visualAction).toBeNull();
+    });
+
+    it('5. retains existing global-toggle behavior for a default action when no explicit override is set', () => {
+      // explosion defaultAction is 'reduce', gain 0.2
+      const explosionCue: Cue = {
+        id: 'cue-explosion-default',
+        start: 30,
+        end: 35,
+        source: 'audio',
+        action: 'reduce',
+        trigger: 'explosion',
+        gain: 0.2,
+      };
+      // A. With reduceEnabled === false and no override, reduction is NOT applied
+      const resDisabled = resolveActions(32, [explosionCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: false,
+        actionOverrides: {},
+      });
+      expect(resDisabled.soundGain).toBe(1);
+
+      // B. With reduceEnabled === true and no override, reduction IS applied
+      const resEnabled = resolveActions(32, [explosionCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: true,
+        actionOverrides: {},
+      });
+      expect(resEnabled.soundGain).toBe(0.2);
+    });
+
+    it('6. retains correct behavior for an explicit action other than reduce or skip (e.g. blur or warn)', () => {
+      // spider default is 'hide', allowed: ['blur', 'skip', 'warn']
+      const spiderCue: Cue = {
+        id: 'cue-spider-blur',
+        start: 40,
+        end: 45,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'spider',
+      };
+      const resBlur = resolveActions(42, [spiderCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        hideEnabled: true,
+        actionOverrides: { spider: 'blur' },
+      });
+      expect(resBlur.visualAction).toBe('blur');
+      expect(resBlur.hide).toBe(false);
+
+      // fast_motion default is 'warn', override to 'hide'
+      const motionCue: Cue = {
+        id: 'cue-motion-hide',
+        start: 50,
+        end: 55,
+        source: 'visual',
+        action: 'warn',
+        trigger: 'fast_motion',
+      };
+      const resHide = resolveActions(52, [motionCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        hideEnabled: true,
+        actionOverrides: { fast_motion: 'hide' },
+      });
+      expect(resHide.visualAction).toBe('hide');
+      expect(resHide.hide).toBe(true);
+    });
+
+    it('7. ensures a disallowed override cannot bypass trigger-contract validation and falls back to default action', () => {
+      // loud_spike default is 'reduce', allowed alternatives are ['mute', 'warn']. 'skip' is disallowed!
+      const spikeCue: Cue = {
+        id: 'cue-spike-disallowed',
+        start: 60,
+        end: 65,
+        source: 'audio',
+        action: 'reduce',
+        trigger: 'loud_spike',
+        gain: 0.3,
+      };
+      const result = resolveActions(62, [spikeCue], {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: false,
+        reduceEnabled: false,
+        actionOverrides: { loud_spike: 'skip' as any }, // Disallowed action!
+      });
+      // Disallowed 'skip' falls back to default 'reduce'.
+      // Since reduce is the default and reduceEnabled is false, soundGain remains 1 and skipTo remains null.
+      expect(result.skipTo).toBeNull();
+      expect(result.soundGain).toBe(1);
+    });
+
+    it('8. ensures mute takes precedence over reduction when overlapping cues require both', () => {
+      const reduceCue: Cue = {
+        id: 'cue-override-reduce',
+        start: 70,
+        end: 80,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'gunshot',
+        gain: 0.3,
+      };
+      const muteCue: Cue = {
+        id: 'cue-profanity-mute',
+        start: 72,
+        end: 75,
+        source: 'text',
+        action: 'mute',
+        trigger: 'profanity',
+      };
+      const options = {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: false, // override reduce
+        muteEnabled: true,
+        actionOverrides: { gunshot: 'reduce' as const },
+      };
+
+      // At t=71, only gunshot is active -> reduction (0.3)
+      const res1 = resolveActions(71, [reduceCue, muteCue], options);
+      expect(res1.soundGain).toBe(0.3);
+
+      // At t=73, both are active -> mute (0) overrides reduction!
+      const res2 = resolveActions(73, [reduceCue, muteCue], options);
+      expect(res2.soundGain).toBe(0);
+
+      // At t=76, mute cue ended -> reduction (0.3) restored
+      const res3 = resolveActions(76, [reduceCue, muteCue], options);
+      expect(res3.soundGain).toBe(0.3);
+    });
+
+    it('9. ends reduction correctly when a cue ends, including when other non-audio cues remain active', () => {
+      const reduceCue: Cue = {
+        id: 'cue-reduce-end',
+        start: 80,
+        end: 85,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'gunshot',
+        gain: 0.4,
+      };
+      const visualCue: Cue = {
+        id: 'cue-visual-continue',
+        start: 80,
+        end: 90,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const options = {
+        ...DEFAULT_VIEWER_OPTIONS,
+        reduceEnabled: false,
+        hideEnabled: true,
+        actionOverrides: { gunshot: 'reduce' as const },
+      };
+
+      // During both cues at t=82
+      const during = resolveActions(82, [reduceCue, visualCue], options);
+      expect(during.soundGain).toBe(0.4);
+      expect(during.hide).toBe(true);
+
+      // After reduce cue ends at t=86 (visual cue still active)
+      const afterReduce = resolveActions(86, [reduceCue, visualCue], options);
+      expect(afterReduce.soundGain).toBe(1.0);
+      expect(afterReduce.hide).toBe(true);
+
+      // After all cues end at t=91
+      const allEnded = resolveActions(91, [reduceCue, visualCue], options);
+      expect(allEnded.soundGain).toBe(1.0);
+      expect(allEnded.hide).toBe(false);
+    });
+
+    it('10. ensures skip remains deduplicated and does not repeatedly seek during the same approach using PlaybackState', () => {
+      const playbackState = new PlaybackState();
+      const skipCue: Cue = {
+        id: 'cue-skip-dedup',
+        start: 100,
+        end: 105,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const options = {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: false, // global skip is false
+        actionOverrides: { flashing: 'skip' as const },
+      };
+
+      // 1. Initial approach at t=101: skip fires and seeks to 105
+      const first = playbackState.resolveAt(101, [skipCue], options);
+      expect(first.skipTo).toBe(105);
+      expect(playbackState.hasSkipFired('cue-skip-dedup')).toBe(true);
+
+      // 2. Playback lands at t=101.5 or t=102 on same approach: does NOT re-fire
+      const second = playbackState.resolveAt(102, [skipCue], options);
+      expect(second.skipTo).toBeNull();
+    });
+
+    it('11. retains existing skip-reset semantics when rewinding and replaying using PlaybackState', () => {
+      const playbackState = new PlaybackState();
+      const skipCue: Cue = {
+        id: 'cue-skip-rewind',
+        start: 110,
+        end: 115,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const options = {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: false,
+        actionOverrides: { flashing: 'skip' as const },
+      };
+
+      // 1. Skip fires at t=111
+      const res1 = playbackState.resolveAt(111, [skipCue], options);
+      expect(res1.skipTo).toBe(115);
+      expect(playbackState.hasSkipFired('cue-skip-rewind')).toBe(true);
+
+      // 2. User rewinds back to t=100 (before cue.start)
+      playbackState.seek(100, [skipCue], options);
+      expect(playbackState.hasSkipFired('cue-skip-rewind')).toBe(false);
+
+      // 3. Playback advances forward again to t=111: skip re-arms and fires again!
+      const res2 = playbackState.resolveAt(111, [skipCue], options);
+      expect(res2.skipTo).toBe(115);
+      expect(playbackState.hasSkipFired('cue-skip-rewind')).toBe(true);
+    });
+
+    it('12. ensures multiple overlapping cues with mixed overrides and defaults resolve with deterministic precedence', () => {
+      const multiCues: Cue[] = [
+        { id: 'c-flash-skip', start: 120, end: 128, source: 'visual', action: 'hide', trigger: 'flashing' },
+        { id: 'c-gunshot-reduce', start: 122, end: 126, source: 'audio', action: 'mute', trigger: 'gunshot', gain: 0.25 },
+        { id: 'c-spike-default', start: 123, end: 125, source: 'audio', action: 'reduce', trigger: 'loud_spike', gain: 0.5 },
+      ];
+      const options = {
+        ...DEFAULT_VIEWER_OPTIONS,
+        skipEnabled: false,
+        reduceEnabled: false,
+        actionOverrides: {
+          flashing: 'skip' as const,
+          gunshot: 'reduce' as const,
+        },
+      };
+
+      // At t=124:
+      // - flashing has explicit skip override -> skipTo: 128
+      // - gunshot has explicit reduce override -> soundGain: 0.25
+      // - loud_spike has no override (default reduce), and reduceEnabled is false -> ignored
+      const res = resolveActions(124, multiCues, options);
+      expect(res.skipTo).toBe(128);
+      expect(res.soundGain).toBe(0.25);
+      expect(res.visualAction).toBeNull();
     });
   });
 });

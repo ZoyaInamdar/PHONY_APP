@@ -45,6 +45,17 @@ export const tiles: TileData[] = [
     icon: require('../assets/get-started.png'),
   },
   {
+    id: 'elephants-dream',
+    label: 'Elephants\nDream',
+    accessibilityLabel: 'Watch Elephants Dream',
+    description: (
+      <>
+        Watch <Text style={descStyles.bold}>Elephants Dream</Text> (654s film) with trigger protections enabled.
+      </>
+    ),
+    icon: require('../assets/get-started.png'),
+  },
+  {
     id: 'debug',
     label: 'Test &\nDebug',
     accessibilityLabel: 'Test and Debug',

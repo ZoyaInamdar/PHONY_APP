@@ -1,5 +1,5 @@
 import { resolveActions } from './resolveActions';
-import { Cue, EffectiveActions, ViewerOptions, resolveEffectiveAction } from './types';
+import { Cue, EffectiveActions, ViewerOptions, hasExplicitActionOverride, resolveEffectiveAction } from './types';
 import { AppliedAction, PlaybackSessionPayload } from './recap';
 import { applyReviewPolicy } from './reviewPolicy';
 
@@ -63,11 +63,15 @@ export class PlaybackState {
       const reviewAllowsSkip =
         cue.status !== 'needs_review' || options.confirmReviewSkip;
 
+      const isExplicitSkipOverride =
+        effectiveAction === 'skip' &&
+        hasExplicitActionOverride(cue.trigger, 'skip', options.actionOverrides);
+
       // Skip evaluation & recording
       if (
         actions.skipTo !== null &&
         effectiveAction === 'skip' &&
-        options.skipEnabled &&
+        (options.skipEnabled || isExplicitSkipOverride) &&
         reviewAllowsSkip
       ) {
         this.firedSkipCueIds.add(cue.id);
@@ -123,11 +127,15 @@ export class PlaybackState {
         }
       }
 
+      const isExplicitReduceOverride =
+        effectiveAction === 'reduce' &&
+        hasExplicitActionOverride(cue.trigger, 'reduce', options.actionOverrides);
+
       // Audio reduce recording
       if (
         actions.soundGain > 0 &&
         actions.soundGain < 1 &&
-        options.reduceEnabled &&
+        (options.reduceEnabled || isExplicitReduceOverride) &&
         effectiveAction === 'reduce'
       ) {
         if (!this.recordedCueActionIds.has(`reduce_${cue.id}`)) {
@@ -220,7 +228,13 @@ export class PlaybackState {
    * 4. If status is 'needs_review', confirmReviewSkip must be true.
    */
   isCueEligibleForSkip(cue: Cue, options?: ViewerOptions): boolean {
-    if (options && options.skipEnabled === false) {
+    const isExplicitSkipOverride = hasExplicitActionOverride(
+      cue.trigger,
+      'skip',
+      options?.actionOverrides,
+    );
+
+    if (options && options.skipEnabled === false && !isExplicitSkipOverride) {
       return false;
     }
 

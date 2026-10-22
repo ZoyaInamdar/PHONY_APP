@@ -13,6 +13,7 @@ export interface FilmCatalogueEntry {
   duration_seconds: number;
   fps: number;
   video_url: string;
+  vega_video_url?: string;
   index_path: string;
   loadIndex: () => unknown;
   subtitles_path?: string | null;
@@ -46,6 +47,20 @@ export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
     loadIndex: () => require('../../data/tears_of_steel_index.json'),
     subtitles_path: 'data/processed/tears_of_steel/cues.json',
     loadSubtitles: () => require('../../data/processed/tears_of_steel/cues.json'),
+  },
+  elephants_dream: {
+    film_id: 'elephants_dream',
+    title: 'Elephants Dream',
+    description:
+      "Orange Open Movie Project (2006) by Blender Foundation. The world's first open movie.",
+    duration_seconds: 653.83,
+    fps: 24.0,
+    video_url: 'data/media/elephant_dreams.mp4',
+    vega_video_url: 'http://10.0.2.2:8080/data/media/elephant_dreams.mp4',
+    index_path: 'data/elephants_dream_index.json',
+    loadIndex: () => require('../../data/elephants_dream_index.json'),
+    subtitles_path: null,
+    loadSubtitles: () => [],
   },
 };
 

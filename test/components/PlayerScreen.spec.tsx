@@ -3580,8 +3580,15 @@ describe('PlayerScreen Component Tests', () => {
       expect(getByTestId('player-title').props.children).toContain('Tears of Steel');
       expect(getByText(/Profile: Tears of Steel Index/i)).toBeTruthy();
 
-      // Toggle back to Sintel
+      // Toggle to Elephants Dream
       fireEvent.press(getByText('Film: Tears of Steel'));
+
+      expect(getByText('Film: Elephants Dream')).toBeTruthy();
+      expect(getByTestId('player-title').props.children).toContain('Elephants Dream');
+      expect(getByText(/Profile: Elephants Dream Index/i)).toBeTruthy();
+
+      // Toggle back to Sintel
+      fireEvent.press(getByText('Film: Elephants Dream'));
 
       expect(getByText('Film: Sintel')).toBeTruthy();
       expect(getByTestId('player-title').props.children).toContain('Sintel');
@@ -3601,6 +3608,258 @@ describe('PlayerScreen Component Tests', () => {
 
       expect(queryByTestId('index-error-banner')).toBeNull();
       expect(getByTestId('player-title').props.children).toContain('Sintel');
+    });
+
+    it('loads Elephants Dream with its validated index, title, badge, and media URL', () => {
+      const onBack = jest.fn();
+      const { getByTestId, getByText, queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} filmId="elephants_dream" />,
+      );
+
+      // 1. Title and badge reflect Elephants Dream
+      expect(getByTestId('player-title').props.children).toContain('Elephants Dream');
+      expect(getByText(/Profile: Elephants Dream Index/i)).toBeTruthy();
+      expect(getByText('Film: Elephants Dream')).toBeTruthy();
+
+      // 2. Index successfully loaded with zero errors
+      expect(queryByTestId('index-error-banner')).toBeNull();
+
+      // 3. Video element uses configured media URL
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.props.src).toBe(
+        'http://10.0.2.2:8080/data/media/elephant_dreams.mp4',
+      );
+    });
+
+    it('applies visual hide during Elephants Dream real flashing cue and clears overlay after cue ends', () => {
+      const onBack = jest.fn();
+      const { queryByTestId, UNSAFE_getByType } = render(
+        <PlayerScreen onBack={onBack} filmId="elephants_dream" />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // Before cue at t=20.0s: overlay is null
+      act(() => {
+        videoComp.instance.currentTime = 20.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+
+      // Inside real flashing cue [27.292s - 32.917s]: overlay is active
+      act(() => {
+        videoComp.instance.currentTime = 28.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
+
+      // After cue at t=33.5s: overlay is removed
+      act(() => {
+        videoComp.instance.currentTime = 33.5;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
+    });
+
+    it('executes skip override for flashing in Elephants Dream even when global skipEnabled: false', () => {
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          filmId="elephants_dream"
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: false,
+            actionOverrides: { flashing: 'skip' },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // At cue start t=27.292s, player skips forward past cue to 32.917s
+      act(() => {
+        videoComp.instance.currentTime = 27.292;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.currentTime).toBe(32.917);
+    });
+
+    it('executes per-trigger mute and reduce overrides for real explosion cues in Elephants Dream', () => {
+      const onBack = jest.fn();
+      // Test mute override
+      const { UNSAFE_getByType: getMuteVideo } = render(
+        <PlayerScreen
+          onBack={onBack}
+          filmId="elephants_dream"
+          options={{
+            ...defaultPlaybackOptions,
+            muteEnabled: true,
+            actionOverrides: { explosion: 'mute' },
+          }}
+        />,
+      );
+      const muteVideo = getMuteVideo(Video);
+
+      // Enter real explosion cue [307.68s - 308.64s]
+      act(() => {
+        muteVideo.instance.currentTime = 308.0;
+        muteVideo.props.onTimeUpdate();
+      });
+      expect(muteVideo.instance.muted).toBe(true);
+
+      // Past explosion cue at t=309.0s: unmuted
+      act(() => {
+        muteVideo.instance.currentTime = 309.0;
+        muteVideo.props.onTimeUpdate();
+      });
+      expect(muteVideo.instance.muted).toBe(false);
+
+      // Test reduce override even when global reduceEnabled: false
+      const { UNSAFE_getByType: getReduceVideo } = render(
+        <PlayerScreen
+          onBack={onBack}
+          filmId="elephants_dream"
+          options={{
+            ...defaultPlaybackOptions,
+            reduceEnabled: false,
+            actionOverrides: { explosion: 'reduce' },
+          }}
+        />,
+      );
+      const reduceVideo = getReduceVideo(Video);
+      expect(reduceVideo.instance.volume).toBe(1.0);
+
+      // Enter explosion cue at t=308.0s: volume reduced
+      act(() => {
+        reduceVideo.instance.currentTime = 308.0;
+        reduceVideo.props.onTimeUpdate();
+      });
+      expect(reduceVideo.instance.volume).toBe(0.3);
+
+      // Past explosion cue at t=309.0s: volume restored to 1.0
+      act(() => {
+        reduceVideo.instance.currentTime = 309.0;
+        reduceVideo.props.onTimeUpdate();
+      });
+      expect(reduceVideo.instance.volume).toBe(1.0);
+    });
+  });
+
+  describe('Per-Trigger Action Overrides in Playback', () => {
+    it('executes skip for flashing cue when overridden to skip, even with global skipEnabled: false', () => {
+      const flashCue: Cue = {
+        id: 'cue-flash-override-skip',
+        start: 10.0,
+        end: 15.0,
+        source: 'visual',
+        action: 'hide',
+        trigger: 'flashing',
+      };
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={[flashCue]}
+          options={{
+            ...defaultPlaybackOptions,
+            skipEnabled: false,
+            actionOverrides: { flashing: 'skip' },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.instance).toBeTruthy();
+
+      // At t=10.0s (cue start), player skips forward past cue to 15.0s
+      act(() => {
+        videoComp.instance.currentTime = 10.0;
+        videoComp.props.onTimeUpdate();
+      });
+
+      expect(videoComp.instance.currentTime).toBe(15.0);
+    });
+
+    it('executes volume reduction for gunshot cue when overridden to reduce, even with global reduceEnabled: false', () => {
+      const gunshotCue: Cue = {
+        id: 'cue-gunshot-override-reduce',
+        start: 20.0,
+        end: 25.0,
+        source: 'audio',
+        action: 'mute',
+        trigger: 'gunshot',
+        gain: 0.35,
+      };
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={[gunshotCue]}
+          options={{
+            ...defaultPlaybackOptions,
+            reduceEnabled: false,
+            actionOverrides: { gunshot: 'reduce' },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+      expect(videoComp.instance.volume).toBe(1.0);
+
+      // 1. Enter cue at t=21.0s: volume reduced to 0.35
+      act(() => {
+        videoComp.instance.currentTime = 21.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.volume).toBe(0.35);
+      expect(videoComp.instance.muted).toBe(false);
+
+      // 2. Cue ends at t=25.0s: volume restored to 1.0
+      act(() => {
+        videoComp.instance.currentTime = 25.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.volume).toBe(1.0);
+    });
+
+    it('executes mute for explosion cue when overridden to mute and restores volume at cue end', () => {
+      const explosionCue: Cue = {
+        id: 'cue-explosion-override-mute',
+        start: 30.0,
+        end: 35.0,
+        source: 'audio',
+        action: 'reduce',
+        trigger: 'explosion',
+      };
+      const onBack = jest.fn();
+      const { UNSAFE_getByType } = render(
+        <PlayerScreen
+          onBack={onBack}
+          cues={[explosionCue]}
+          options={{
+            ...defaultPlaybackOptions,
+            muteEnabled: true,
+            actionOverrides: { explosion: 'mute' },
+          }}
+        />,
+      );
+
+      const videoComp = UNSAFE_getByType(Video);
+
+      // 1. Enter cue at t=31.0s: muted
+      act(() => {
+        videoComp.instance.currentTime = 31.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.muted).toBe(true);
+
+      // 2. Cue ends at t=35.0s: unmuted
+      act(() => {
+        videoComp.instance.currentTime = 35.0;
+        videoComp.props.onTimeUpdate();
+      });
+      expect(videoComp.instance.muted).toBe(false);
     });
   });
 });

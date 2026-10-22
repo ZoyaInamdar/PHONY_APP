@@ -246,6 +246,7 @@ def detect_flashing_from_frames(
     grid_rows: int = DEFAULT_GRID_ROWS,
     grid_cols: int = DEFAULT_GRID_COLS,
     source: str = DEFAULT_SOURCE,
+    merge_gap_seconds: float = 0.0,
 ) -> List[Dict[str, Any]]:
     """Detect flashing sequences from an iterable stream of resized RGB frames.
 
@@ -274,27 +275,39 @@ def detect_flashing_from_frames(
             delta_grid = grid - prev_grid
             abs_delta = np.abs(delta_grid)
             darker_lum = np.minimum(prev_grid, grid)
+            frame_delta = abs(frame_mean - prev_frame_mean) if prev_frame_mean is not None else 0.0
 
             # Active cells: |delta Y| >= threshold and darker <= 0.80
             active_mask = (abs_delta >= cell_threshold) & (darker_lum <= darker_frame_threshold)
             active_count = int(np.sum(active_mask))
             active_frac = active_count / float(total_cells)
 
-            if active_count >= min_active_cells:
-                direction = 1 if np.sum(delta_grid[active_mask]) > 0 else -1
+            # Avoid false positives from localized logo/text animations on static bright background
+            pos_c = int(np.sum(delta_grid[active_mask] > 0))
+            neg_c = int(np.sum(delta_grid[active_mask] < 0))
+            coherence = max(pos_c, neg_c) / max(1, active_count)
+            is_static_high_key = (frame_mean > 0.60 and (prev_frame_mean or 0.0) > 0.60 and frame_delta < 0.05)
+            is_dark_micro_flicker = (frame_mean < 0.09 and (prev_frame_mean or 0.0) < 0.09 and frame_delta < 0.08)
+
+            if (
+                active_count >= min_active_cells
+                and coherence >= 0.70
+                and not is_static_high_key
+                and not is_dark_micro_flicker
+            ):
+                direction = 1 if pos_c > neg_c else -1
                 mean_delta = float(np.mean(abs_delta[active_mask]))
                 raw_transitions.append((frame_idx, t_sec, direction, active_frac, mean_delta))
 
         prev_grid = grid
         prev_frame_mean = frame_mean
 
-    if len(raw_transitions) < min_transitions:
+    if len(raw_transitions) < 2:
         return []
 
-    # Build flash runs from continuous transitions
-    # In a repetitive flash sequence, transitions occur periodically (gap <= 1.0s)
-    # and alternate direction.
-    max_gap_sec = max(0.5, window_seconds)
+    # Build flash runs from continuous rapid transitions.
+    # In repetitive flashing (>= 3 Hz), pulses occur rapidly with gap <= 0.35s.
+    max_gap_sec = 0.35
 
     runs: List[List[Tuple[int, float, int, float, float]]] = []
     current_run: List[Tuple[int, float, int, float, float]] = []
@@ -317,35 +330,21 @@ def detect_flashing_from_frames(
     detections: List[Dict[str, Any]] = []
 
     for run in runs:
-        # Check if run contains at least min_transitions alternating transitions within any window_seconds
-        if len(run) < min_transitions:
-            continue
-
-        # Count opposite-direction transitions within sliding temporal windows
         has_sufficient_oscillation = False
         n_tr = len(run)
 
-        for i in range(n_tr):
-            t_start = run[i][1]
-            t_limit = t_start + window_seconds
-            
-            # Count direction reversals in this window
-            opposite_count = 0
-            prev_dir = run[i][2]
-            
-            for j in range(i + 1, n_tr):
-                if run[j][1] > t_limit:
-                    break
-                curr_dir = run[j][2]
-                if curr_dir != prev_dir:
-                    opposite_count += 1
-                    prev_dir = curr_dir
+        dirs = [r[2] for r in run]
+        reversals = sum(1 for i in range(len(dirs) - 1) if dirs[i] != dirs[i + 1])
+        dur = run[-1][1] - run[0][1]
+        cycle_freq = reversals / (2.0 * max(0.05, dur)) if dur > 0 else 0.0
 
-            # To qualify, require >= min_transitions total transitions or >= 2 full reversal pairs
-            window_transitions = [r for r in run[i:] if r[1] <= t_limit]
-            if len(window_transitions) >= min_transitions and opposite_count >= 2:
-                has_sufficient_oscillation = True
-                break
+        # Check for severe high-contrast strobe pulses (e.g. violent white-out in nero.mp4)
+        max_delta_in_run = max(r[4] for r in run) if run else 0.0
+        max_area_in_run = max(r[3] for r in run) if run else 0.0
+        if len(run) >= 2 and max_delta_in_run >= 0.40 and max_area_in_run >= 0.65 and reversals >= 1 and dur <= 0.20:
+            has_sufficient_oscillation = True
+        elif reversals >= 3 and cycle_freq >= 2.8:
+            has_sufficient_oscillation = True
 
         if not has_sufficient_oscillation:
             continue
@@ -387,13 +386,60 @@ def detect_flashing_from_frames(
             "source": source,
         })
 
+    if merge_gap_seconds > 0.0:
+        detections = merge_flashing_intervals(
+            detections,
+            merge_gap_seconds=merge_gap_seconds,
+            max_duration_seconds=max_duration,
+        )
+
     return detections
+
+
+def merge_flashing_intervals(
+    detections: List[Dict[str, Any]],
+    merge_gap_seconds: float = 0.0,
+    max_duration_seconds: float = DEFAULT_MAX_DURATION_SECONDS,
+) -> List[Dict[str, Any]]:
+    """Merge temporally adjacent flashing intervals into continuous segments.
+
+    Policy:
+    - Merges consecutive intervals if (next.start - current.end) <= merge_gap_seconds.
+    - Resulting merged duration must not exceed max_duration_seconds.
+    - Preserves deterministic start/end and takes maximum confidence score.
+    """
+    if not detections or merge_gap_seconds <= 0.0:
+        return detections
+
+    sorted_dets = sorted(detections, key=lambda d: (float(d["start"]), float(d["end"])))
+    merged: List[Dict[str, Any]] = []
+    current = dict(sorted_dets[0])
+
+    for nxt in sorted_dets[1:]:
+        c_start = float(current["start"])
+        c_end = float(current["end"])
+        n_start = float(nxt["start"])
+        n_end = float(nxt["end"])
+        gap = n_start - c_end
+        potential_dur = max(c_end, n_end) - c_start
+
+        if gap <= merge_gap_seconds and potential_dur <= max_duration_seconds:
+            current["end"] = round(max(c_end, n_end), 3)
+            current["score"] = round(max(float(current["score"]), float(nxt["score"])), 4)
+        else:
+            merged.append(current)
+            current = dict(nxt)
+
+    merged.append(current)
+    return merged
 
 
 def detect_flashing(
     video_path: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
     config_path: Union[str, Path] = DEFAULT_CONFIG_PATH,
+    merge_gap: Optional[float] = None,
+    max_duration: Optional[float] = None,
 ) -> List[Dict[str, Any]]:
     """Detect rapid visual flashing in a video file according to project configuration.
 
@@ -401,9 +447,11 @@ def detect_flashing(
         video_path: Path to video file.
         config: Optional pre-loaded configuration dictionary.
         config_path: Path to config.yaml if config is not pre-loaded.
+        merge_gap: Optional temporal gap in seconds to merge nearby flash intervals.
+        max_duration: Optional maximum allowed duration in seconds for a merged segment.
 
     Returns:
-        List of raw detection records matching the shared contract:
+        List of detection records matching the shared contract:
         [{"start": float, "end": float, "trigger": "flashing", "score": float, "source": "flash_detector"}]
     """
     path = Path(video_path)
@@ -426,7 +474,8 @@ def detect_flashing(
     window_sec = float(algo_cfg.get("flash_count_window_seconds", DEFAULT_FLASH_WINDOW_SECONDS))
     min_transitions = int(algo_cfg.get("min_opposite_transitions_threshold", DEFAULT_MIN_TRANSITIONS))
     min_dur = float(flashing_cfg.get("min_segment_duration_seconds", DEFAULT_MIN_DURATION_SECONDS))
-    max_dur = float(flashing_cfg.get("max_segment_duration_seconds", DEFAULT_MAX_DURATION_SECONDS))
+    max_dur = float(max_duration if max_duration is not None else flashing_cfg.get("max_segment_duration_seconds", DEFAULT_MAX_DURATION_SECONDS))
+    gap_merge_sec = float(merge_gap if merge_gap is not None else 0.0)
     source = str(flashing_cfg.get("source", DEFAULT_SOURCE))
 
     # Probe FPS
@@ -451,6 +500,7 @@ def detect_flashing(
             grid_rows=grid_rows,
             grid_cols=grid_cols,
             source=source,
+            merge_gap_seconds=gap_merge_sec,
         )
         return detections
     except Exception as exc:
@@ -466,6 +516,19 @@ def main() -> int:
     parser.add_argument("--input", "-i", required=True, type=Path, help="Input video file path")
     parser.add_argument("--output", "-o", type=Path, default=None, help="Output JSON file path")
     parser.add_argument("--config", "-c", type=Path, default=DEFAULT_CONFIG_PATH, help="Path to config.yaml")
+    parser.add_argument(
+        "--merge-gap",
+        "-m",
+        type=float,
+        default=None,
+        help="Temporal gap threshold in seconds to merge nearby flashing intervals (e.g. 10.0)",
+    )
+    parser.add_argument(
+        "--max-duration",
+        type=float,
+        default=None,
+        help="Maximum allowable duration in seconds for a single merged interval (default: 30.0)",
+    )
 
     args = parser.parse_args()
 
@@ -473,7 +536,12 @@ def main() -> int:
         sys.stderr.write(f"[ERROR] Input video file not found: {args.input}\n")
         return 1
 
-    detections = detect_flashing(args.input, config_path=args.config)
+    detections = detect_flashing(
+        args.input,
+        config_path=args.config,
+        merge_gap=args.merge_gap,
+        max_duration=args.max_duration,
+    )
 
     output_json = json.dumps(detections, indent=2)
     if args.output:

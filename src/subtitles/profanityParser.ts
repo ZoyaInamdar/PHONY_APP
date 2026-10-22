@@ -12,12 +12,12 @@ import {
  */
 export function parseSrtTimestamp(timestampStr: string): number {
   const trimmed = timestampStr.trim().replace(',', '.');
-  const match = /^(\d{2,}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/.exec(trimmed);
+  const match = /^(?:(\d{2,}):)?(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/.exec(trimmed);
   if (!match) {
     throw new Error(`Invalid SRT timestamp: "${timestampStr}"`);
   }
 
-  const hours = parseInt(match[1], 10);
+  const hours = match[1] !== undefined ? parseInt(match[1], 10) : 0;
   const minutes = parseInt(match[2], 10);
   const seconds = parseInt(match[3], 10);
   const millisRaw = match[4] || '0';
@@ -61,9 +61,25 @@ export function parseSubtitlesAndDetectProfanity(
     return { cues: [], detections: [] };
   }
 
+  // Strip UTF-8 BOM if present
+  let cleanContent = trimmed;
+  if (cleanContent.charCodeAt(0) === 0xFEFF) {
+    cleanContent = cleanContent.slice(1);
+  }
+
   // Normalize line endings
-  const normalized = trimmed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const blocks = normalized.split(/\n\n+/);
+  let normalized = cleanContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Handle WebVTT header block
+  if (normalized.startsWith('WEBVTT')) {
+    const vttBlocks = normalized.split(/\n\s*\n+/);
+    normalized = vttBlocks.slice(1).join('\n\n').trim();
+    if (!normalized) {
+      return { cues: [], detections: [] };
+    }
+  }
+
+  const blocks = normalized.split(/\n\s*\n+/);
 
   const cues: TimedCue[] = [];
   const detections: RawDetection[] = [];
@@ -81,14 +97,26 @@ export function parseSubtitlesAndDetectProfanity(
 
   for (const block of blocks) {
     const lines = block.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    if (lines.length === 0) {
+      continue;
+    }
+
+    // Skip WebVTT NOTE, STYLE, REGION blocks
+    if (lines[0].startsWith('NOTE') || lines[0].startsWith('STYLE') || lines[0].startsWith('REGION')) {
+      continue;
+    }
+
     if (lines.length < 2) {
       throw new Error(`Invalid subtitle block at block ${cueCounter}: insufficient lines.`);
     }
 
     let timestampLineIndex = 0;
-    // Optional integer cue index on line 0
-    if (/^\d+$/.test(lines[0]) && lines.length >= 3) {
+    if (lines[0].includes('-->')) {
+      timestampLineIndex = 0;
+    } else if (lines.length >= 2 && lines[1].includes('-->')) {
       timestampLineIndex = 1;
+    } else {
+      throw new Error(`Invalid SRT timestamp format in cue ${cueCounter}: "${lines[0]}"`);
     }
 
     const timestampLine = lines[timestampLineIndex];
@@ -100,7 +128,8 @@ export function parseSubtitlesAndDetectProfanity(
     }
 
     const start = parseSrtTimestamp(arrowParts[0]);
-    const end = parseSrtTimestamp(arrowParts[1]);
+    const endToken = arrowParts[1].trim().split(/\s+/)[0];
+    const end = parseSrtTimestamp(endToken);
 
     if (end <= start) {
       throw new Error(

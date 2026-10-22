@@ -465,6 +465,8 @@ triggers:
     padding_before_seconds: 1.0  # Conservative 1.0 second lead padding
     padding_after_seconds: 1.0   # Conservative 1.0 second trail padding
     merge_gap_seconds: 2.0
+    word_level_merge_gap_seconds: 0.0
+    preserve_word_precision: true
     min_segment_duration_seconds: 0.2
     max_segment_duration_seconds: 10.0
 
@@ -510,8 +512,8 @@ triggers:
         candidate_backends:
           - "faster-whisper"      # Local offline STT via CTranslate2
           - "Amazon Transcribe"   # Cloud-based managed speech recognition
-        selected_backend: null
-        backend_selection_status: "unresolved"
+        selected_backend: "faster-whisper"
+        backend_selection_status: "configured"
         local_model_size: "base.en"
       # Downstream caption censorship metadata
       caption_censorship:

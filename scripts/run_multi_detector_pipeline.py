@@ -94,6 +94,9 @@ class PipelineOptions:
     generate_media: bool = False
     dry_run: bool = False
     include_experimental: bool = False
+    enable_stt: bool = False
+    stt_backend: Optional[str] = None
+    stt_model: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,7 @@ def check_prerequisites(
     paths: PipelinePaths,
     check_ffmpeg: bool = True,
     check_experimental: bool = False,
+    enable_stt: bool = False,
 ) -> List[str]:
     """Check required input files and binaries. Returns list of error messages (empty if OK)."""
     errors: List[str] = []
@@ -120,8 +124,9 @@ def check_prerequisites(
     if not paths.input_media.is_file():
         errors.append(f"Input media clip not found: {paths.input_media}")
 
-    if not paths.input_srt.is_file():
-        errors.append(f"Input subtitle file not found: {paths.input_srt}")
+    sub_file_ok = paths.input_srt.is_file()
+    if not sub_file_ok and not enable_stt:
+        errors.append(f"Input subtitle file not found: {paths.input_srt} (and STT fallback is disabled)")
 
     if not paths.wordlist.is_file():
         errors.append(f"Profanity wordlist not found: {paths.wordlist}")
@@ -218,22 +223,41 @@ def build_pipeline_stages(
     current_id += 1
 
     # Stage 3: Subtitle Parsing / Profanity Detection
+    stage3_cmd = [
+        py,
+        str(paths.repo_root / "scripts" / "parse_subtitles.py"),
+    ]
+    if paths.input_srt.is_file():
+        stage3_cmd.append(str(paths.input_srt))
+    stage3_cmd.extend([
+        "--wordlist",
+        str(paths.wordlist),
+        "--out-detections",
+        str(paths.profanity_detections),
+        "--source",
+        "profanity_detector",
+        "--config",
+        str(paths.config_yaml),
+        "--audio",
+        str(paths.audio_wav),
+        "--film-id",
+        options.film_id,
+        "--duration",
+        str(options.duration),
+    ])
+    if options.enable_stt:
+        stage3_cmd.append("--enable-stt")
+    if options.stt_backend:
+        stage3_cmd.extend(["--stt-backend", options.stt_backend])
+    if options.stt_model:
+        stage3_cmd.extend(["--stt-model", options.stt_model])
+
     stages.append(
         PipelineStage(
             stage_id=current_id,
-            name="Parse Subtitles (profanity_detector)",
-            command=[
-                py,
-                str(paths.repo_root / "scripts" / "parse_subtitles.py"),
-                str(paths.input_srt),
-                "--wordlist",
-                str(paths.wordlist),
-                "--out-detections",
-                str(paths.profanity_detections),
-                "--source",
-                "profanity_detector",
-            ],
-            description="Matches subtitle cues against profanity wordlist.",
+            name="Parse Subtitles / Profanity (profanity_detector)",
+            command=stage3_cmd,
+            description="Matches subtitle cues or audio fallback against profanity wordlist.",
             expected_output=paths.profanity_detections,
         )
     )
@@ -379,7 +403,7 @@ def execute_pipeline(
 
     # Validate prerequisites
     if check_env:
-        errors = check_prerequisites(paths, check_ffmpeg=True, check_experimental=options.include_experimental)
+        errors = check_prerequisites(paths, check_ffmpeg=True, check_experimental=options.include_experimental, enable_stt=options.enable_stt)
         if errors:
             print("=================================================================", file=sys.stderr)
             print("[ERROR] Pipeline prerequisites check failed:", file=sys.stderr)
@@ -508,6 +532,29 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Print stages and commands without executing them.",
     )
+    parser.add_argument(
+        "--enable-stt",
+        action="store_true",
+        help="Explicitly enable speech-to-text fallback when subtitles are missing or unusable.",
+    )
+    parser.add_argument(
+        "--stt-backend",
+        type=str,
+        default=None,
+        help="Speech-to-text backend to use (default: faster-whisper).",
+    )
+    parser.add_argument(
+        "--stt-model",
+        type=str,
+        default=None,
+        help="Local STT model size or path (default: base.en).",
+    )
+    parser.add_argument(
+        "--subtitles",
+        type=Path,
+        default=None,
+        help="Path to input subtitle file (.srt or .vtt).",
+    )
     return parser.parse_args(argv)
 
 
@@ -537,6 +584,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             dataset_report_md=reports_dir / "detection_evaluation_report.md",
         )
 
+    if args.subtitles:
+        paths = dataclass_replace(paths, input_srt=args.subtitles.resolve())
+    elif not paths.input_srt.is_file() and paths.input_srt.with_suffix(".vtt").is_file():
+        paths = dataclass_replace(paths, input_srt=paths.input_srt.with_suffix(".vtt"))
+
     options = PipelineOptions(
         film_id=args.film_id,
         duration=args.duration,
@@ -545,6 +597,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         generate_media=args.generate_media,
         dry_run=args.dry_run,
         include_experimental=args.include_experimental,
+        enable_stt=args.enable_stt,
+        stt_backend=args.stt_backend,
+        stt_model=args.stt_model,
     )
 
     return execute_pipeline(paths, options)

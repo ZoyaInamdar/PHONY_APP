@@ -75,6 +75,13 @@
       "items": {
         "$ref": "#/$defs/packaged_cue"
       }
+    },
+    "trigger_coverage": {
+      "type": "object",
+      "description": "Optional coverage status per trigger (e.g. 'ok', 'fallback_used', 'skipped', 'unavailable', 'failed').",
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false,

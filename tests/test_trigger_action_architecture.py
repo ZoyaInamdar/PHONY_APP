@@ -29,9 +29,7 @@ CANONICAL_CONTRACT = {
     "scream": {"default": "reduce", "allowed": ["mute", "skip", "warn"]},
     "loud_spike": {"default": "reduce", "allowed": ["mute", "warn"]},
     "sustained_loudness": {"default": "reduce", "allowed": ["mute", "warn", "skip"]},
-    "spider": {"default": "hide", "allowed": ["blur", "skip", "warn"]},
     "insect": {"default": "hide", "allowed": ["blur", "skip", "warn"]},
-    "fast_motion": {"default": "warn", "allowed": ["hide", "skip"]},
     "jump_scare": {"default": "warn", "allowed": ["hide", "mute", "skip"]},
     "visible_blood": {"default": "hide", "allowed": ["blur", "skip", "warn"]},
 }
@@ -50,7 +48,7 @@ def run_node_test(ts_script: str) -> subprocess.CompletedProcess:
 
 
 def test_typescript_centralized_contract_definitions():
-    """Verify TypeScript contract definitions, 12 triggers, default actions and allowed alternatives."""
+    """Verify TypeScript contract definitions, 10 triggers, default actions and allowed alternatives."""
     node_script = """
     import assert from 'node:assert';
     import {
@@ -64,12 +62,12 @@ def test_typescript_centralized_contract_definitions():
       sanitizeActionOverrides,
     } from './src/engine/triggerContract.ts';
 
-    // 1. Verify 12 canonical triggers
-    assert.strictEqual(CANONICAL_TRIGGERS.length, 12);
-    const expectedTriggers = [
+    // 1. Verify 10 canonical triggers
+    assert.strictEqual(CANONICAL_TRIGGERS.length, 10);
+        const expectedTriggers = [
       'flashing', 'profanity', 'gunshot', 'explosion', 'scream',
-      'loud_spike', 'sustained_loudness', 'spider', 'insect',
-      'fast_motion', 'jump_scare', 'visible_blood'
+      'loud_spike', 'sustained_loudness', 'insect',
+      'jump_scare', 'visible_blood'
     ];
     for (const t of expectedTriggers) {
       assert.ok(isCanonicalTrigger(t), `Trigger ${t} must be canonical`);
@@ -80,7 +78,7 @@ def test_typescript_centralized_contract_definitions():
     assert.ok(!isCanonicalAction('dim'), 'dim must NOT be a canonical action');
     assert.ok(!isCanonicalAction('beep'), 'beep must NOT be a canonical action');
 
-    // 3. Verify exact default mapping and allowed alternatives for all 12 triggers
+    // 3. Verify exact default mapping and allowed alternatives for all 10 triggers
     const contracts = {
       flashing: { default: 'hide', allowed: ['skip', 'warn'] },
       profanity: { default: 'mute', allowed: ['skip', 'warn'] },
@@ -89,9 +87,7 @@ def test_typescript_centralized_contract_definitions():
       scream: { default: 'reduce', allowed: ['mute', 'skip', 'warn'] },
       loud_spike: { default: 'reduce', allowed: ['mute', 'warn'] },
       sustained_loudness: { default: 'reduce', allowed: ['mute', 'warn', 'skip'] },
-      spider: { default: 'hide', allowed: ['blur', 'skip', 'warn'] },
       insect: { default: 'hide', allowed: ['blur', 'skip', 'warn'] },
-      fast_motion: { default: 'warn', allowed: ['hide', 'skip'] },
       jump_scare: { default: 'warn', allowed: ['hide', 'mute', 'skip'] },
       visible_blood: { default: 'hide', allowed: ['blur', 'skip', 'warn'] },
     };
@@ -148,14 +144,14 @@ def test_every_permitted_trigger_action_combination_and_rejection():
       flashing: 'skip',            // Allowed alternative
       loud_spike: 'dim',           // Disallowed (dim removed)
       gunshot: 'reduce',          // Allowed alternative
-      spider: 'mute',              // Disallowed (spider only allows hide, blur, skip, warn)
+      insect: 'mute',              // Disallowed (insect only allows hide, blur, skip, warn)
       non_existent_trigger: 'warn' // Invalid trigger
     });
 
     assert.strictEqual(sanitized.flashing, 'skip');
     assert.strictEqual(sanitized.gunshot, 'reduce');
     assert.strictEqual(sanitized.loud_spike, undefined);
-    assert.strictEqual(sanitized.spider, undefined);
+    assert.strictEqual(sanitized.insect, undefined);
     assert.strictEqual(sanitized.non_existent_trigger, undefined);
 
     console.log('Permitted combinations and rejection fallback verified.');
@@ -174,7 +170,7 @@ def test_action_resolution_and_overlapping_precedence():
     // 1. Independent coexistence: warning banner and audio protection
     const cues1 = [
       { id: 'audio_1', start: 10, end: 20, source: 'audio', action: 'mute', trigger: 'profanity' },
-      { id: 'warn_1', start: 12, end: 18, source: 'visual', action: 'warn', trigger: 'fast_motion' },
+      { id: 'warn_1', start: 12, end: 18, source: 'visual', action: 'warn', trigger: 'jump_scare' },
     ];
     const res1 = resolveActions(15, cues1, { ...DEFAULT_VIEWER_OPTIONS, muteEnabled: true });
     assert.strictEqual(res1.soundGain, 0, 'Audio must remain muted');
@@ -182,9 +178,9 @@ def test_action_resolution_and_overlapping_precedence():
     assert.strictEqual(res1.visualAction, null, 'No visual hiding active');
 
     // 2. Visual Precedence: hide (3) > blur (2)
-    // When spider (default hide) and insect (configured with blur override) overlap:
+    // When visible_blood (default hide) and insect (configured with blur override) overlap:
     const cues2 = [
-      { id: 'spider_hide', start: 30, end: 40, source: 'visual', action: 'hide', trigger: 'spider' },
+      { id: 'blood_hide', start: 30, end: 40, source: 'visual', action: 'hide', trigger: 'visible_blood' },
       { id: 'insect_blur', start: 32, end: 45, source: 'visual', action: 'blur', trigger: 'insect' },
     ];
     const visualOptions = {
@@ -197,7 +193,7 @@ def test_action_resolution_and_overlapping_precedence():
     assert.strictEqual(res2A.visualAction, 'hide');
     assert.strictEqual(res2A.hide, true);
 
-    // B. At t=42, spider_hide ended -> blur restored deterministically!
+    // B. At t=42, blood_hide ended -> blur restored deterministically!
     const res2B = resolveActions(42, cues2, visualOptions);
     assert.strictEqual(res2B.visualAction, 'blur');
     assert.strictEqual(res2B.hide, false);
@@ -250,15 +246,15 @@ def test_disabled_categories_and_global_safety_settings():
     import { DEFAULT_VIEWER_OPTIONS } from './src/engine/types.ts';
 
     const cues = [
-      { id: 'c_spider', start: 10, end: 20, source: 'visual', action: 'hide', trigger: 'spider' },
+      { id: 'c_insect', start: 10, end: 20, source: 'visual', action: 'hide', trigger: 'insect' },
       { id: 'c_gunshot', start: 10, end: 20, source: 'audio', action: 'mute', trigger: 'gunshot' },
       { id: 'c_explosion', start: 10, end: 20, source: 'audio', action: 'reduce', trigger: 'explosion' },
     ];
 
-    // 1. With spider disabled, no visual hide occurs
+    // 1. With insect disabled, no visual hide occurs
     const res1 = resolveActions(15, cues, {
       ...DEFAULT_VIEWER_OPTIONS,
-      disabledCategories: ['spider'],
+      disabledCategories: ['insect'],
       muteEnabled: true,
     });
     assert.strictEqual(res1.visualAction, null);
@@ -295,7 +291,7 @@ def test_playback_state_lifecycle_seek_and_recap():
 
     const cues = [
       { id: 'skip_1', start: 10, end: 15, source: 'visual', action: 'hide', trigger: 'flashing' },
-      { id: 'skip_2', start: 11, end: 20, source: 'visual', action: 'hide', trigger: 'spider' },
+      { id: 'skip_2', start: 11, end: 20, source: 'visual', action: 'hide', trigger: 'insect' },
       { id: 'mute_1', start: 25, end: 30, source: 'audio', action: 'mute', trigger: 'profanity' },
     ];
 
@@ -304,7 +300,7 @@ def test_playback_state_lifecycle_seek_and_recap():
       ...DEFAULT_VIEWER_OPTIONS,
       skipEnabled: true,
       muteEnabled: true,
-      actionOverrides: { flashing: 'skip', spider: 'skip' }
+      actionOverrides: { flashing: 'skip', insect: 'skip' }
     };
 
     // 1. Resolve at t=12 -> skip fires and chains to max end (20)
@@ -333,14 +329,15 @@ def test_playback_state_lifecycle_seek_and_recap():
     assert res.returncode == 0, f"Node script failed:\n{res.stderr}"
 
 
-def test_packaged_index_adapter_adapts_12_triggers():
-    """Verify adaptPackagedIndex handles all 12 triggers and rejects unrepresentable actions."""
+def test_packaged_index_adapter_adapts_10_triggers():
+    """Verify adaptPackagedIndex handles all 10 triggers and rejects unrepresentable actions."""
     node_script = """
     import assert from 'node:assert';
     import fs from 'node:fs';
     import { adaptPackagedIndex } from './src/engine/packagedIndexAdapter.ts';
 
     const rawPolicies = JSON.parse(fs.readFileSync('./test/fixtures/triggerPolicies.json', 'utf8'));
+    rawPolicies.policies.insect.enabled = true;
 
     const sampleIndex = {
       schema_version: 1,
@@ -352,7 +349,7 @@ def test_packaged_index_adapter_adapts_12_triggers():
       },
       cues: [
         { id: 'cue_1', start: 5, end: 10, trigger: 'flashing', score: 0.95, source: 'flash_detector' },
-        { id: 'cue_2', start: 12, end: 18, trigger: 'spider', score: 0.88, source: 'spider_detector' },
+        { id: 'cue_2', start: 12, end: 18, trigger: 'insect', score: 0.88, source: 'insect_detector' },
         { id: 'cue_3', start: 20, end: 25, trigger: 'loud_spike', score: 0.90, source: 'loudness_detector' },
       ],
     };
@@ -360,7 +357,7 @@ def test_packaged_index_adapter_adapts_12_triggers():
     const cues = adaptPackagedIndex(sampleIndex, rawPolicies.policies);
     assert.strictEqual(cues.length, 3);
     assert.strictEqual(cues[0].action, 'hide', 'Flashing adapted to hide default');
-    assert.strictEqual(cues[1].action, 'hide', 'Spider adapted to hide default');
+    assert.strictEqual(cues[1].action, 'hide', 'Insect adapted to hide default');
     assert.strictEqual(cues[2].action, 'reduce', 'Loud spike adapted to reduce default');
 
     console.log('Packaged index adapter verification passed.');

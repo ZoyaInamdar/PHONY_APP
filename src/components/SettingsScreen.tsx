@@ -537,7 +537,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
 
           <Text style={styles.sectionDescription}>
-            Applies visual filter degradation to spiders and disturbing scenes.
+            Applies visual filter degradation to insects and disturbing scenes.
             Action semantics note: 'blur' is spatial video softening. It does NOT alias
             to 'reduce' (audio) and 'dim' does NOT alias to 'hide' (blackout). If blur
             rendering is unsupported by hardware, player falls back safely to blackout.

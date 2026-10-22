@@ -357,7 +357,7 @@ def test_resolve_actions_pure_deterministic_heads_up_prompts():
       { id: 'cue-b', start: 10.0, end: 12.0, source: 'visual', action: 'hide', trigger: 'flashing' },
       { id: 'cue-a', start: 10.0, end: 12.0, source: 'audio', action: 'mute', trigger: 'loud_spike' },
       { id: 'cue-review-skip', start: 20.0, end: 25.0, source: 'visual', action: 'skip', trigger: 'jump_scare', status: 'needs_review' },
-      { id: 'cue-spider', start: 30.0, end: 35.0, source: 'visual', action: 'hide', trigger: 'spider' },
+      { id: 'cue-insect', start: 30.0, end: 35.0, source: 'visual', action: 'hide', trigger: 'insect' },
     ];
 
     // 1. Prompts disabled by default (missing headsUpPrompts or enabled: false) -> promptCue: null
@@ -387,16 +387,16 @@ def test_resolve_actions_pure_deterministic_heads_up_prompts():
     const resBeforeWindow = resolveActions(4.99, cues, enabledOptions);
     assert.strictEqual(resBeforeWindow.promptCue, null, 'Prompt must not be active before windowStart');
 
-    // 5. Disabled-category filtering: if 'spider' is disabled, cue-spider must not prompt
-    const optsSpiderDisabled = {
+    // 5. Disabled-category filtering: if 'insect' is disabled, cue-insect must not prompt
+    const optsInsectDisabled = {
       ...enabledOptions,
-      disabledCategories: ['spider'],
+      disabledCategories: ['insect'],
     };
-    const resSpiderDisabled = resolveActions(27.0, cues, optsSpiderDisabled);
-    assert.strictEqual(resSpiderDisabled.promptCue, null, 'Disabled category trigger must not prompt');
+    const resInsectDisabled = resolveActions(27.0, cues, optsInsectDisabled);
+    assert.strictEqual(resInsectDisabled.promptCue, null, 'Disabled category trigger must not prompt');
 
-    const resSpiderEnabled = resolveActions(27.0, cues, enabledOptions);
-    assert.strictEqual(resSpiderEnabled.promptCue?.id, 'cue-spider', 'Enabled category trigger must prompt');
+    const resInsectEnabled = resolveActions(27.0, cues, enabledOptions);
+    assert.strictEqual(resInsectEnabled.promptCue?.id, 'cue-insect', 'Enabled category trigger must prompt');
 
     // 6. Review-policy filtering:
     // cue-review-skip is 'needs_review' with action 'skip'.
@@ -484,7 +484,7 @@ def test_playback_state_runtime_actions_and_prompt_lifecycle_integration():
         end: 45.0,
         source: 'visual',
         action: 'hide',
-        trigger: 'spider',
+        trigger: 'insect',
       },
       {
         id: 'cue-chained-skip',
@@ -492,7 +492,7 @@ def test_playback_state_runtime_actions_and_prompt_lifecycle_integration():
         end: 48.0,
         source: 'visual',
         action: 'hide',
-        trigger: 'spider',
+        trigger: 'insect',
       },
       {
         id: 'cue-skip-primary',
@@ -657,7 +657,7 @@ def test_playback_state_runtime_actions_and_prompt_lifecycle_integration():
       source: 'visual',
       action: 'skip',
       status: 'needs_review',
-      trigger: 'spider',
+      trigger: 'insect',
     };
     state.currentTime = 49.0;
     const noConfirmOptions = { ...baseOptions, confirmReviewSkip: false };
@@ -668,7 +668,7 @@ def test_playback_state_runtime_actions_and_prompt_lifecycle_integration():
     // F. Disabled Trigger Categories
     // -------------------------------------------------------------------------
     state.reset();
-    const filteredOptions = { ...baseOptions, disabledCategories: ['spider'] };
+    const filteredOptions = { ...baseOptions, disabledCategories: ['insect'] };
     assert.strictEqual(state.resolveAt(36.0, testCues, filteredOptions).promptCue, null);
     assert.strictEqual(state.resolveAt(41.0, testCues, filteredOptions).hide, false);
 
@@ -752,7 +752,7 @@ def test_playback_state_skip_chaining_policy_enforcement():
       const state = new PlaybackState();
       const cues = [
         { id: 'skip-1', start: 10.0, end: 15.0, action: 'skip', trigger: 'jump_scare' },
-        { id: 'hide-cue', start: 14.0, end: 25.0, action: 'hide', trigger: 'spider' },
+        { id: 'hide-cue', start: 14.0, end: 25.0, action: 'hide', trigger: 'insect' },
         { id: 'mute-cue', start: 14.0, end: 26.0, action: 'mute', trigger: 'loud_spike' },
       ];
       const dest = state.handlePromptSkip(cues[0], cues, 100.0, baseOptions);
@@ -761,18 +761,18 @@ def test_playback_state_skip_chaining_policy_enforcement():
       assert.strictEqual(state.isPromptAcknowledged('mute-cue'), false);
     }
 
-    // 5. A disabled trigger does NOT extend a skip: [10, 15) skip (jump_scare) and [14, 24) skip (spider)
-    // with disabledCategories: ['spider'] -> destination stays 15.0
+    // 5. A disabled trigger does NOT extend a skip: [10, 15) skip (jump_scare) and [14, 24) skip (insect)
+    // with disabledCategories: ['insect'] -> destination stays 15.0
     {
       const state = new PlaybackState();
       const cues = [
         { id: 'skip-1', start: 10.0, end: 15.0, action: 'skip', trigger: 'jump_scare' },
-        { id: 'skip-spider', start: 14.0, end: 24.0, action: 'skip', trigger: 'spider' },
+        { id: 'skip-insect', start: 14.0, end: 24.0, action: 'skip', trigger: 'insect' },
       ];
-      const opts = { ...baseOptions, disabledCategories: ['spider'] };
+      const opts = { ...baseOptions, disabledCategories: ['insect'] };
       const dest = state.handlePromptSkip(cues[0], cues, 100.0, opts);
       assert.strictEqual(dest, 15.0, 'Disabled trigger must not extend skip destination');
-      assert.strictEqual(state.isPromptAcknowledged('skip-spider'), false);
+      assert.strictEqual(state.isPromptAcknowledged('skip-insect'), false);
     }
 
     // 6. An unconfirmed needs_review cue cannot be skipped indirectly through chaining:

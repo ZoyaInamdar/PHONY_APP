@@ -43,7 +43,7 @@ def test_calculate_false_alarms_per_minute():
 def test_determine_confidence_label():
     """Verify confidence tier assignment reflects availability and F1."""
     # Unimplemented detector
-    assert "dropped" in determine_confidence_label("spider", "baseline", False, None)
+    assert "dropped" in determine_confidence_label("insect", "baseline", False, None)
     # Configured experimental
     assert "experimental" in determine_confidence_label("jump_scare", "experimental", True, None)
     # High F1 baseline
@@ -66,8 +66,8 @@ def test_extract_trigger_config():
     assert "flashing" in extracted
     assert extracted["flashing"]["threshold"] == 3.0
     assert extracted["flashing"]["status"] == "baseline"
-    assert "spider" in extracted
-    assert extracted["spider"]["status"] == "UNVERIFIED"
+    assert "insect" in extracted
+    assert extracted["insect"]["status"] == "UNVERIFIED"
 
 
 def test_get_library_versions():

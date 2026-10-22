@@ -48,20 +48,6 @@
       "source": "profanity_detector"
     },
     {
-      "start": 34.0,
-      "end": 36.5,
-      "trigger": "spider",
-      "score": 0.81,
-      "source": "spider_detector"
-    },
-    {
-      "start": 40.0,
-      "end": 42.0,
-      "trigger": "fast_motion",
-      "score": 0.65,
-      "source": "motion_detector"
-    },
-    {
       "start": 45.0,
       "end": 46.2,
       "trigger": "jump_scare",

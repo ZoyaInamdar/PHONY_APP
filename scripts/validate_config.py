@@ -32,9 +32,7 @@ CANONICAL_TRIGGER_IDS = [
     "scream",
     "loud_spike",
     "sustained_loudness",
-    "spider",
     "insect",
-    "fast_motion",
     "jump_scare",
     "visible_blood",
 ]
@@ -169,7 +167,7 @@ def validate_domain_rules(config: Dict[str, Any]) -> List[str]:
     # 5. Experimental features policy
     exp = config.get("experimental_features", {})
     stretch = exp.get("stretch_features", {})
-    for s_name in ["fast_motion", "jump_scare"]:
+    for s_name in ["jump_scare"]:
         if s_name in stretch:
             if stretch[s_name].get("enabled") is True:
                 errors.append(

@@ -139,7 +139,7 @@ def test_typescript_sanitize_viewer_options_logic():
     // Test sanitizer logic standalone
     const CANONICAL_TRIGGER_CATEGORIES = [
       'flashing', 'loud_spike', 'gunshot', 'explosion', 'scream',
-      'profanity', 'spider', 'fast_motion', 'jump_scare'
+      'sustained_loudness', 'profanity', 'insect', 'jump_scare', 'visible_blood'
     ];
 
     function sanitizeViewerOptions(raw, fallback = DEFAULT_VIEWER_OPTIONS) {
@@ -181,8 +181,8 @@ def test_typescript_sanitize_viewer_options_logic():
     assert.strictEqual(invalidGain.reduceGain, 0.3);
 
     // 4. Invalid category filters out cleanly
-    const cats = sanitizeViewerOptions({ disabledCategories: ['spider', 'invalid_foo'] });
-    assert.deepStrictEqual(cats.disabledCategories, ['spider']);
+    const cats = sanitizeViewerOptions({ disabledCategories: ['insect', 'invalid_foo'] });
+    assert.deepStrictEqual(cats.disabledCategories, ['insect']);
 
     console.log('Sanitize viewer options tests passed successfully.');
     """
@@ -244,7 +244,7 @@ def test_settings_storage_roundtrip_persistence_and_reset():
 
     const CANONICAL_TRIGGER_CATEGORIES = [
       'flashing', 'loud_spike', 'gunshot', 'explosion', 'scream',
-      'profanity', 'spider', 'fast_motion', 'jump_scare'
+      'sustained_loudness', 'profanity', 'insect', 'jump_scare', 'visible_blood'
     ];
 
     function sanitizeViewerOptions(raw, fallback = DEFAULT_VIEWER_OPTIONS) {
@@ -290,7 +290,7 @@ def test_settings_storage_roundtrip_persistence_and_reset():
       ...loadedOptions,
       reduceEnabled: true,
       reduceGain: 0.5,
-      disabledCategories: ['spider', 'flashing'],
+      disabledCategories: ['insect', 'flashing'],
       headsUpPrompts: { enabled: true, leadTimeSeconds: 4.0 },
     };
     const modifiedProfile = 'verification';
@@ -304,7 +304,7 @@ def test_settings_storage_roundtrip_persistence_and_reset():
     const restoredOptions = sanitizeViewerOptions(rawRestored);
     assert.strictEqual(restoredOptions.reduceEnabled, true);
     assert.strictEqual(restoredOptions.reduceGain, 0.5);
-    assert.deepStrictEqual(restoredOptions.disabledCategories, ['spider', 'flashing']);
+    assert.deepStrictEqual(restoredOptions.disabledCategories, ['insect', 'flashing']);
     assert.strictEqual(restoredOptions.headsUpPrompts.enabled, true);
     assert.strictEqual(restoredOptions.headsUpPrompts.leadTimeSeconds, 4.0);
     assert.strictEqual(storedProfile, 'verification');
@@ -348,12 +348,12 @@ def test_saved_preferences_affect_cue_handling_during_playback():
         trigger: 'loud_spike',
       },
       {
-        id: 'cue-spider-hide',
+        id: 'cue-insect-hide',
         start: 20.0,
         end: 25.0,
         source: 'visual',
         action: 'hide',
-        trigger: 'spider',
+        trigger: 'insect',
       },
       {
         id: 'cue-gunshot-warn',
@@ -393,7 +393,7 @@ def test_saved_preferences_affect_cue_handling_during_playback():
     // 4. Under saved preferences with hideEnabled: false
     const optionsWithHideDisabled = { ...DEFAULT_VIEWER_OPTIONS, hideEnabled: false };
     a = state.resolveAt(22.0, testCues, optionsWithHideDisabled);
-    // Spider hide cue is not hidden
+    // Insect hide cue is not hidden
     assert.strictEqual(a.hide, false);
 
     // 5. Under saved preferences with headsUpPrompts enabled
@@ -401,10 +401,10 @@ def test_saved_preferences_affect_cue_handling_during_playback():
       ...DEFAULT_VIEWER_OPTIONS,
       headsUpPrompts: { enabled: true, leadTimeSeconds: 4.0 },
     };
-    // Spider starts at 20.0 -> prompt window is [16.0, 20.0)
+    // Insect starts at 20.0 -> prompt window is [16.0, 20.0)
     assert.strictEqual(state.resolveAt(15.9, testCues, optionsWithPrompts).promptCue, null);
     const prompt = state.resolveAt(17.0, testCues, optionsWithPrompts).promptCue;
-    assert.strictEqual(prompt?.id, 'cue-spider-hide');
+    assert.strictEqual(prompt?.id, 'cue-insect-hide');
 
     console.log('Saved preferences playback cue handling tests passed successfully.');
     """

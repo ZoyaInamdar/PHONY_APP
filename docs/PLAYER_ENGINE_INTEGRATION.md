@@ -78,7 +78,7 @@ The engine consumes the packaged index emitted by `scripts/package_cues.py`. The
   - `id`: Unique, non-empty deterministic string.
   - `start`: Float in seconds ($\ge 0.0$).
   - `end`: Float in seconds ($> \text{start}$, $\le \text{duration\_seconds}$).
-  - `trigger`: One of the 9 canonical trigger IDs (`flashing`, `loud_spike`, `gunshot`, `explosion`, `scream`, `profanity`, `spider`, `fast_motion`, `jump_scare`).
+  - `trigger`: One of the 10 canonical trigger IDs (`flashing`, `gunshot`, `explosion`, `scream`, `loud_spike`, `sustained_loudness`, `profanity`, `insect`, `jump_scare`, `visible_blood`).
   - `score`: Normalized float in $[0.0, 1.0]$.
   - `source`: Detector component string (e.g., `loudness_detector`, `flash_detector`).
   - `status`: Optional review status string (`"ready"` or `"needs_review"`). Defaults to `"ready"` in `adaptPackagedIndex` if omitted.

@@ -95,13 +95,14 @@ def get_canonical_triggers_from_config(config_path: Path | str = DEFAULT_CONFIG_
     return {
         "flashing",
         "loud_spike",
+        "sustained_loudness",
         "gunshot",
         "explosion",
         "scream",
         "profanity",
-        "spider",
-        "fast_motion",
+        "insect",
         "jump_scare",
+        "visible_blood",
     }
 
 

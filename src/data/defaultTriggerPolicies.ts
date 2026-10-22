@@ -61,23 +61,11 @@ export const DEFAULT_TRIGGER_POLICIES: TriggerPolicies = {
     default_action: 'reduce',
     allowed_actions: ['reduce', 'mute', 'warn', 'skip'],
   },
-  spider: {
-    enabled: true,
-    modality: 'visual',
-    default_action: 'hide',
-    allowed_actions: ['hide', 'blur', 'skip', 'warn'],
-  },
   insect: {
     enabled: false,
     modality: 'visual',
     default_action: 'hide',
     allowed_actions: ['hide', 'blur', 'skip', 'warn'],
-  },
-  fast_motion: {
-    enabled: false,
-    modality: 'visual',
-    default_action: 'warn',
-    allowed_actions: ['warn', 'hide', 'skip'],
   },
   jump_scare: {
     enabled: false,

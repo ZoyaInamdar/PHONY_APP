@@ -27,7 +27,7 @@ All timing is based on the playback file's absolute timeline in seconds (float).
 - `end`: (float) End time in seconds.
 
 ### Allowed Values
-* **Triggers (The 9 Canonical):** `flashing`, `loud_spike`, `gunshot`, `explosion`, `scream`, `profanity`, `spider`, `fast_motion`, `jump_scare`.
+* **Triggers (The 10 Canonical):** `flashing`, `gunshot`, `explosion`, `scream`, `loud_spike`, `sustained_loudness`, `profanity`, `insect`, `jump_scare`, `visible_blood`.
 * **Modality:** `audio`, `video`, `subtitle`.
 * **Actions:** `blackout`, `blur`, `mute`, `reduce`, `warn`, `skip`.
 
@@ -48,7 +48,7 @@ To ensure safety boundaries, raw detection intervals `[start, end)` receive enfo
 | `gunshot` / `explosion` | -0.2s | +0.5s |
 | `loud_spike` / `scream` | -0.2s | +0.5s |
 | `profanity` | 0.0s (Matches subtitle duration) | 0.0s |
-| `spider` / `fast_motion` | -1.0s | +1.0s |
+| `insect` / `visible_blood` | -1.0s | +1.0s |
 
 ## 6. Minimal Example
 

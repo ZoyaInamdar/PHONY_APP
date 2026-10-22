@@ -109,13 +109,14 @@ export interface PlayerScreenProps {
 export const CANONICAL_TRIGGER_CATEGORIES = [
   'flashing',
   'loud_spike',
+  'sustained_loudness',
   'gunshot',
   'explosion',
   'scream',
   'profanity',
-  'spider',
-  'fast_motion',
+  'insect',
   'jump_scare',
+  'visible_blood',
 ] as const;
 
 export type CanonicalTriggerCategory =
@@ -1297,7 +1298,7 @@ export const PlayerScreen = ({
       );
       const isBlurTrigger = activeCueList.some(
         (c) =>
-          c.trigger === 'spider' ||
+          c.trigger === 'insect' ||
           c.trigger === 'flashing' ||
           c.action === 'blur' ||
           c.action === 'hide' ||

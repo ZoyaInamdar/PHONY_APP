@@ -25,7 +25,7 @@ describe('Person B - SettingsScreen UI Component', () => {
     it('defines agreed blur modes and canonical trigger categories', () => {
       expect(BLUR_MODE_OPTIONS).toEqual(['off', 'standard', 'high']);
       expect(CANONICAL_TRIGGER_CATEGORIES).toContain('flashing');
-      expect(CANONICAL_TRIGGER_CATEGORIES).toContain('spider');
+      expect(CANONICAL_TRIGGER_CATEGORIES).toContain('insect');
       expect(CANONICAL_TRIGGER_CATEGORIES).toContain('profanity');
       expect(CANONICAL_TRIGGER_CATEGORIES).toContain('loud_spike');
     });
@@ -34,13 +34,13 @@ describe('Person B - SettingsScreen UI Component', () => {
       const sanitized = sanitizeViewerOptions({
         reduceGain: 0.25,
         hideEnabled: false,
-        disabledCategories: ['spider', 'invalid_category'],
+        disabledCategories: ['insect', 'invalid_category'],
       });
 
       expect(sanitized.reduceGain).toBe(0.25);
       expect(sanitized.hideEnabled).toBe(false);
       expect(sanitized.muteEnabled).toBe(true); // default
-      expect(sanitized.disabledCategories).toEqual(['spider']);
+      expect(sanitized.disabledCategories).toEqual(['insect']);
     });
   });
 
@@ -112,15 +112,15 @@ describe('Person B - SettingsScreen UI Component', () => {
 
       const { getByTestId } = render(<SettingsScreen />);
 
-      const spiderPill = getByTestId('toggle-category-spider');
+      const insectPill = getByTestId('toggle-category-insect');
       await act(async () => {
-        fireEvent.press(spiderPill);
+        fireEvent.press(insectPill);
       });
 
       expect(setItemSpy).toHaveBeenCalledWith(
         storageModule.STORAGE_KEYS.USER_SETTINGS,
         expect.objectContaining({
-          disabledCategories: ['spider'],
+          disabledCategories: ['insect'],
         }),
       );
 

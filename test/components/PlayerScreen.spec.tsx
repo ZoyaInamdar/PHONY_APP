@@ -141,12 +141,12 @@ describe('PlayerScreen Component Tests', () => {
   it('activates honest blackout fallback for blur cues on Vega OS and records blacked_out appliedEffect with requestedAction blur', () => {
     const blurCues: Cue[] = [
       {
-        id: 'cue-spider-blur',
+        id: 'cue-insect-blur',
         start: 20.0,
         end: 25.0,
         source: 'visual',
         action: 'blur',
-        trigger: 'spider',
+        trigger: 'insect',
       },
     ];
 
@@ -173,7 +173,7 @@ describe('PlayerScreen Component Tests', () => {
 
     // Blackout overlay IS rendered to protect the viewer
     expect(queryByTestId('trigger-hidden-overlay')).toBeTruthy();
-    expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+    expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
     // Audio is NOT muted or reduced for a visual-only trigger
     expect(videoComp.instance.muted).toBe(false);
     expect(videoComp.instance.volume).toBe(1.0);
@@ -217,8 +217,8 @@ describe('PlayerScreen Component Tests', () => {
     });
 
     expect(getByTestId('recap-view')).toBeTruthy();
-    // Exactly 1 spider scene blacked out recorded (no duplication from repeated ticks!)
-    expect(getByText('1 spider scene blacked out')).toBeTruthy();
+    // Exactly 1 insect scene blacked out recorded (no duplication from repeated ticks!)
+    expect(getByText('1 insect scene blacked out')).toBeTruthy();
     // Recap must NEVER claim unrendered blur occurred
     expect(queryByText(/blurred/i)).toBeNull();
   });
@@ -239,7 +239,7 @@ describe('PlayerScreen Component Tests', () => {
         end: 18.0,
         source: 'visual',
         action: 'blur',
-        trigger: 'spider',
+        trigger: 'insect',
       },
     ];
 
@@ -287,7 +287,7 @@ describe('PlayerScreen Component Tests', () => {
         end: 35.0,
         source: 'visual',
         action: 'warn',
-        trigger: 'fast_motion',
+        trigger: 'jump_scare',
       },
     ];
 
@@ -312,7 +312,7 @@ describe('PlayerScreen Component Tests', () => {
       videoComp.props.onTimeUpdate();
     });
     expect(queryByTestId('warning-banner')).toBeTruthy();
-    expect(getByText('⚠️ Heads-Up Warning: fast_motion')).toBeTruthy();
+    expect(getByText('⚠️ Heads-Up Warning: jump_scare')).toBeTruthy();
 
     // Cue end at t=35.0s: warning banner expires
     act(() => {
@@ -335,7 +335,7 @@ describe('PlayerScreen Component Tests', () => {
       fireEvent.press(getByText('Forward 10s'));
     });
     expect(queryByTestId('warning-banner')).toBeTruthy();
-    expect(getByText('⚠️ Heads-Up Warning: fast_motion')).toBeTruthy();
+    expect(getByText('⚠️ Heads-Up Warning: jump_scare')).toBeTruthy();
 
     // Seek forward 10s -> 42.0s (out of warning cue): clears banner
     act(() => {
@@ -1715,7 +1715,6 @@ describe('PlayerScreen Component Tests', () => {
             123,
             null,
             '',
-            'spider',
           ],
         }),
       );
@@ -1731,13 +1730,13 @@ describe('PlayerScreen Component Tests', () => {
         fireEvent.press(screen.getByTestId('control-settings'));
       });
 
-      // Flashing and spider are canonical and recognized
+      // Flashing and insect are canonical and recognized
       const rawVal = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
       const sanitized = sanitizeViewerOptions(
         JSON.parse(rawVal!),
         defaultPlaybackOptions,
       );
-      expect(sanitized.disabledCategories).toEqual(['flashing', 'spider']);
+      expect(sanitized.disabledCategories).toEqual(['flashing', 'insect']);
     });
   });
 
@@ -1757,8 +1756,6 @@ describe('PlayerScreen Component Tests', () => {
         'explosion',
         'scream',
         'profanity',
-        'spider',
-        'fast_motion',
         'jump_scare',
       ]);
     });
@@ -1798,12 +1795,12 @@ describe('PlayerScreen Component Tests', () => {
   describe('Dual-Video Blur Switching and Fallback in PlayerScreen', () => {
     const blurTestCues: Cue[] = [
       {
-        id: 'cue-spider-blur-test',
+        id: 'cue-insect-blur-test',
         start: 20.0,
         end: 25.0,
         source: 'visual',
         action: 'blur',
-        trigger: 'spider',
+        trigger: 'insect',
       },
     ];
 
@@ -1869,7 +1866,7 @@ describe('PlayerScreen Component Tests', () => {
       // Surface attached to alternate player, blackout overlay is lifted
       expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
       expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
-      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+      expect(getByText(/🌫️ Video Blurred \[insect\]/)).toBeTruthy();
 
       // Clean video remains sole audio master
       expect(videoComp.instance.muted).toBe(false);
@@ -1890,7 +1887,7 @@ describe('PlayerScreen Component Tests', () => {
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blurred/)).toBeTruthy();
+      expect(getByText(/1 insect scene blurred/)).toBeTruthy();
     });
 
     it('shields screen with blackout handover mask while alternate player is seeking', async () => {
@@ -1926,7 +1923,7 @@ describe('PlayerScreen Component Tests', () => {
 
       expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
       expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
-      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+      expect(getByText(/🌫️ Video Blurred \[insect\]/)).toBeTruthy();
     });
 
     it('falls back to honest blackout if alternate seek times out', async () => {
@@ -1958,7 +1955,7 @@ describe('PlayerScreen Component Tests', () => {
 
       // Still blacked out
       expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
-      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
       expect(altPlayer.surfaceHandle).toBeNull();
 
       // Late seeked event does NOT switch to blur
@@ -1972,7 +1969,7 @@ describe('PlayerScreen Component Tests', () => {
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+      expect(getByText(/1 insect scene blacked out/)).toBeTruthy();
     });
 
     it('falls back to blackout overlay when alternate player emits error', async () => {
@@ -2006,24 +2003,24 @@ describe('PlayerScreen Component Tests', () => {
       // Immediate fallback to blackout overlay
       expect(altPlayer.surfaceHandle).toBeNull();
       expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
-      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
 
       // Verify recap records honest blacked_out
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+      expect(getByText(/1 insect scene blacked out/)).toBeTruthy();
     });
 
     it('prioritizes visual hide cues over blur cues during overlap', async () => {
       const overlappingCues: Cue[] = [
         {
-          id: 'cue-spider-blur',
+          id: 'cue-insect-blur',
           start: 20.0,
           end: 30.0,
           source: 'visual',
           action: 'blur',
-          trigger: 'spider',
+          trigger: 'insect',
         },
         {
           id: 'cue-flash-hide',
@@ -2070,7 +2067,7 @@ describe('PlayerScreen Component Tests', () => {
       });
       expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
       expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
-      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+      expect(getByText(/🌫️ Video Blurred \[insect\]/)).toBeTruthy();
     });
 
     it('synchronizes seeking into, within, and out of a blur cue', async () => {
@@ -2094,7 +2091,7 @@ describe('PlayerScreen Component Tests', () => {
       expect(altPlayer.currentTime).toBe(22.0);
       expect(altPlayer.surfaceHandle).toBe('mock-surface-handle-1');
       expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
-      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+      expect(getByText(/🌫️ Video Blurred \[insect\]/)).toBeTruthy();
 
       // 2. Seek within blur cue from t=22.0s to t=24.0s
       act(() => {
@@ -2149,7 +2146,7 @@ describe('PlayerScreen Component Tests', () => {
       });
 
       // Recap correctly counts the re-armed cue
-      expect(getByText(/1 spider scene blurred/)).toBeTruthy();
+      expect(getByText(/1 insect scene blurred/)).toBeTruthy();
     });
 
     it('falls back safely to blackout overlay when setSurfaceHandle throws an exception', async () => {
@@ -2178,12 +2175,12 @@ describe('PlayerScreen Component Tests', () => {
 
       // Blackout overlay displayed and honest blackout recorded
       expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
-      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
 
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+      expect(getByText(/1 insect scene blacked out/)).toBeTruthy();
     });
 
     it('falls back safely to blackout overlay when alternate currentTime assignment throws', async () => {
@@ -2219,12 +2216,12 @@ describe('PlayerScreen Component Tests', () => {
 
       // Blackout overlay displayed and honest blackout recorded
       expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
-      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
 
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+      expect(getByText(/1 insect scene blacked out/)).toBeTruthy();
 
       // Restore property descriptor
       if (originalSetter) {
@@ -2274,7 +2271,7 @@ describe('PlayerScreen Component Tests', () => {
       // Surface attached and blur mode activated
       expect(altPlayer.surfaceHandle).toBe('delayed-surface-handle-99');
       expect(queryByTestId('trigger-hidden-overlay')).toBeNull();
-      expect(getByText(/🌫️ Video Blurred \[spider\]/)).toBeTruthy();
+      expect(getByText(/🌫️ Video Blurred \[insect\]/)).toBeTruthy();
     });
 
     it('falls back safely to blackout overlay when alternate player initialize() rejects', async () => {
@@ -2307,13 +2304,13 @@ describe('PlayerScreen Component Tests', () => {
 
       // Blackout overlay displayed and honest blackout recorded
       expect(getByTestId('trigger-hidden-overlay')).toBeTruthy();
-      expect(getByText(/👁️ Visual Hidden \[spider\]/)).toBeTruthy();
+      expect(getByText(/👁️ Visual Hidden \[insect\]/)).toBeTruthy();
       expect(altPlayer.surfaceHandle).toBeNull();
 
       act(() => {
         videoComp.props.onEnded();
       });
-      expect(getByText(/1 spider scene blacked out/)).toBeTruthy();
+      expect(getByText(/1 insect scene blacked out/)).toBeTruthy();
 
       initSpy.mockRestore();
     });
@@ -2352,7 +2349,7 @@ describe('PlayerScreen Component Tests', () => {
         end: 45.0,
         source: 'visual',
         action: 'hide',
-        trigger: 'spider',
+        trigger: 'insect',
       },
     ];
 
@@ -3064,7 +3061,7 @@ describe('PlayerScreen Component Tests', () => {
 
       const videoComp = UNSAFE_getByType(Video);
 
-      // Switch to Scenario 2 (Review Unconfirmed: spider at 20.0s, confirmReviewSkip: false)
+      // Switch to Scenario 2 (Review Unconfirmed: insect at 20.0s, confirmReviewSkip: false)
       act(() => {
         fireEvent.press(getByTestId('harness-scenario-1'));
       });
@@ -3081,7 +3078,7 @@ describe('PlayerScreen Component Tests', () => {
 
       // Scenario 2 prompt appears immediately without stale Scenario 1 gunshot cue
       expect(getByTestId('heads-up-prompt-dialog')).toBeTruthy();
-      expect(getByText(/spider/i)).toBeTruthy();
+      expect(getByText(/insect/i)).toBeTruthy();
       expect(getByText(/00:20/)).toBeTruthy();
       expect(queryByText(/gunshot/i)).toBeNull();
 
@@ -3273,7 +3270,7 @@ describe('PlayerScreen Component Tests', () => {
           end: 25.0,
           source: 'visual',
           action: 'skip',
-          trigger: 'spider',
+          trigger: 'insect',
           status: 'needs_review',
         },
       ];

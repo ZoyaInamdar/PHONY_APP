@@ -126,30 +126,19 @@ class TestStageBuilding:
         options = PipelineOptions(include_experimental=True)
         stages = build_pipeline_stages(paths, options, python_exe="test_python")
 
-        assert len(stages) == 9
+        assert len(stages) == 8
         stage_names = [s.name for s in stages]
         assert "Extract Audio" in stage_names[0]
         assert "Detect Loud Spikes" in stage_names[1]
         assert "Parse Subtitles" in stage_names[2]
-        assert "Detect Fast Motion" in stage_names[3]
-        assert "Detect Jump Scares" in stage_names[4]
-        assert "Package Multi-Detector Cues" in stage_names[5]
-        assert "Validate Packaged Index" in stage_names[6]
-        assert "Score Packaged Index" in stage_names[7]
-        assert "Score Complete Dataset" in stage_names[8]
-
-        # Verify fast motion detector stage arguments
-        motion_stage = stages[3]
-        assert "detect_fast_motion.py" in motion_stage.command[1]
-        assert "--input" in motion_stage.command
-        assert str(paths.input_media) in motion_stage.command
-        assert "--output" in motion_stage.command
-        assert str(paths.fast_motion_path) in motion_stage.command
-        assert "--config" in motion_stage.command
-        assert str(paths.config_yaml) in motion_stage.command
+        assert "Detect Jump Scares" in stage_names[3]
+        assert "Package Multi-Detector Cues" in stage_names[4]
+        assert "Validate Packaged Index" in stage_names[5]
+        assert "Score Packaged Index" in stage_names[6]
+        assert "Score Complete Dataset" in stage_names[7]
 
         # Verify jump scare detector stage arguments
-        jump_stage = stages[4]
+        jump_stage = stages[3]
         assert "detect_jump_scare.py" in jump_stage.command[1]
         assert "--input" in jump_stage.command
         assert str(paths.input_media) in jump_stage.command
@@ -158,13 +147,12 @@ class TestStageBuilding:
         assert "--config" in jump_stage.command
         assert str(paths.config_yaml) in jump_stage.command
 
-        # Verify packaging stage includes all 4 detector outputs
-        pkg_stage = stages[5]
+        # Verify packaging stage includes all 3 detector outputs
+        pkg_stage = stages[4]
         input_idx = pkg_stage.command.index("--input")
-        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 5]
+        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 4]
         assert str(paths.loudness_detections) in pkg_inputs
         assert str(paths.profanity_detections) in pkg_inputs
-        assert str(paths.fast_motion_path) in pkg_inputs
         assert str(paths.jump_scare_path) in pkg_inputs
 
 
@@ -235,8 +223,7 @@ class TestPrerequisitesCheck:
         paths.index_schema.touch()
 
         errors = check_prerequisites(paths, check_ffmpeg=False, check_experimental=True)
-        assert len(errors) == 2
-        assert any("detect_fast_motion.py" in e for e in errors)
+        assert len(errors) == 1
         assert any("detect_jump_scare.py" in e for e in errors)
 
 
@@ -432,7 +419,6 @@ class TestCLIInvocation:
             assert captured_paths.audio_wav == tmp_path / "audio.wav"
             assert captured_paths.loudness_detections == tmp_path / "loudness_detections.json"
             assert captured_paths.profanity_detections == tmp_path / "profanity_detections.json"
-            assert captured_paths.fast_motion_detections == tmp_path / "fast_motion_detections.json"
             assert captured_paths.jump_scare_detections == tmp_path / "jump_scare_detections.json"
             assert captured_paths.index_json == tmp_path / "index.json"
 

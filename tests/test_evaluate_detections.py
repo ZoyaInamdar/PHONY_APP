@@ -1105,16 +1105,15 @@ class TestEvaluatorRegressionEdgeCases:
 # ==============================================================================
 
 class TestExperimentalTriggerEvaluationReadiness:
-    """Verifies evaluation harness readiness for experimental triggers (jump_scare, fast_motion).
+    """Verifies evaluation harness readiness for experimental triggers (jump_scare, sustained_loudness).
 
     Confirms:
     1. Evaluation with synthetic ground truth calculates correct TP, FP, FN, precision,
-       recall, F1, and mean_iou for jump_scare and fast_motion cues in evaluate_index.
+       recall, F1, and mean_iou for jump_scare and sustained_loudness cues in evaluate_index.
     2. When ground truth is absent for experimental triggers (as in current production labels.csv),
        unannotated experimental cues evaluate cleanly as false positives without crashing
        or corrupting baseline trigger evaluations.
-    3. Annotation coverage audit accurately flags zero positive clips for fast_motion and jump_scare
-       in the existing test clips dataset.
+    3. Annotation coverage audit accurately flags positive and negative control clips for jump_scare.
     """
 
     @pytest.fixture
@@ -1139,12 +1138,12 @@ class TestExperimentalTriggerEvaluationReadiness:
                     "source": "loudness_detector",
                 },
                 {
-                    "id": "cue_motion_01",
+                    "id": "cue_sustained_01",
                     "start": 3.0,
                     "end": 5.0,
-                    "trigger": "fast_motion",
+                    "trigger": "sustained_loudness",
                     "score": 0.85,
-                    "source": "motion_detector",
+                    "source": "loudness_detector",
                 },
                 {
                     "id": "cue_jump_01",
@@ -1169,32 +1168,32 @@ class TestExperimentalTriggerEvaluationReadiness:
     def experimental_ground_truth(self) -> List[Dict[str, Any]]:
         return [
             {"clip": "multi_trigger_test.mp4", "trigger": "loud_spike", "start": 1.0, "end": 2.0},
-            {"clip": "multi_trigger_test.mp4", "trigger": "fast_motion", "start": 3.0, "end": 5.0},
+            {"clip": "multi_trigger_test.mp4", "trigger": "sustained_loudness", "start": 3.0, "end": 5.0},
             {"clip": "multi_trigger_test.mp4", "trigger": "jump_scare", "start": 6.0, "end": 7.5},
-            {"clip": "multi_trigger_test.mp4", "trigger": "fast_motion", "start": 8.0, "end": 9.5},  # Missed by detector -> FN
+            {"clip": "multi_trigger_test.mp4", "trigger": "sustained_loudness", "start": 8.0, "end": 9.5},  # Missed by detector -> FN
         ]
 
     def test_experimental_triggers_evaluation_with_ground_truth(
         self, experimental_packaged_index, experimental_ground_truth
     ):
-        """Harness evaluates fast_motion and jump_scare correctly when ground truth is provided."""
+        """Harness evaluates sustained_loudness and jump_scare correctly when ground truth is provided."""
         res = evaluate_index(
             index=experimental_packaged_index,
             ground_truth=experimental_ground_truth,
             film_id="multi_trigger_test",
         )
         assert res["film_id"] == "multi_trigger_test"
-        assert sorted(res["summary"]["evaluated_triggers"]) == ["fast_motion", "jump_scare", "loud_spike"]
+        assert sorted(res["summary"]["evaluated_triggers"]) == ["jump_scare", "loud_spike", "sustained_loudness"]
 
-        # fast_motion: 1 match [3.0, 5.0), 1 missed GT [8.0, 9.5) -> TP=1, FP=0, FN=1
-        fm_res = res["per_trigger"]["fast_motion"]
-        assert fm_res["counts"]["true_positives"] == 1
-        assert fm_res["counts"]["false_positives"] == 0
-        assert fm_res["counts"]["false_negatives"] == 1
-        assert fm_res["classification_metrics"]["precision"] == 1.0
-        assert fm_res["classification_metrics"]["recall"] == 0.5
-        assert fm_res["classification_metrics"]["f1"] == pytest.approx(2 / 3, abs=1e-3)
-        assert fm_res["temporal_metrics"]["mean_iou"] == pytest.approx(1.0)
+        # sustained_loudness: 1 match [3.0, 5.0), 1 missed GT [8.0, 9.5) -> TP=1, FP=0, FN=1
+        sl_res = res["per_trigger"]["sustained_loudness"]
+        assert sl_res["counts"]["true_positives"] == 1
+        assert sl_res["counts"]["false_positives"] == 0
+        assert sl_res["counts"]["false_negatives"] == 1
+        assert sl_res["classification_metrics"]["precision"] == 1.0
+        assert sl_res["classification_metrics"]["recall"] == 0.5
+        assert sl_res["classification_metrics"]["f1"] == pytest.approx(2 / 3, abs=1e-3)
+        assert sl_res["temporal_metrics"]["mean_iou"] == pytest.approx(1.0)
 
         # jump_scare: 1 match [6.0, 7.5), 1 spurious pred [10.0, 11.0) -> TP=1, FP=1, FN=0
         js_res = res["per_trigger"]["jump_scare"]
@@ -1224,7 +1223,7 @@ class TestExperimentalTriggerEvaluationReadiness:
             ground_truth=baseline_only_gt,
             film_id="multi_trigger_test",
         )
-        assert sorted(res["summary"]["evaluated_triggers"]) == ["fast_motion", "jump_scare", "loud_spike"]
+        assert sorted(res["summary"]["evaluated_triggers"]) == ["jump_scare", "loud_spike", "sustained_loudness"]
 
         # Baseline trigger is unaffected
         ls_res = res["per_trigger"]["loud_spike"]
@@ -1235,14 +1234,14 @@ class TestExperimentalTriggerEvaluationReadiness:
         assert ls_res["classification_metrics"]["recall"] == 1.0
         assert ls_res["classification_metrics"]["f1"] == 1.0
 
-        # fast_motion has 1 pred, 0 GT -> TP=0, FP=1, FN=0
-        fm_res = res["per_trigger"]["fast_motion"]
-        assert fm_res["counts"]["true_positives"] == 0
-        assert fm_res["counts"]["false_positives"] == 1
-        assert fm_res["counts"]["false_negatives"] == 0
-        assert fm_res["classification_metrics"]["precision"] == 0.0
-        assert fm_res["classification_metrics"]["recall"] is None
-        assert fm_res["classification_metrics"]["f1"] is None
+        # sustained_loudness has 1 pred, 0 GT -> TP=0, FP=1, FN=0
+        sl_res = res["per_trigger"]["sustained_loudness"]
+        assert sl_res["counts"]["true_positives"] == 0
+        assert sl_res["counts"]["false_positives"] == 1
+        assert sl_res["counts"]["false_negatives"] == 0
+        assert sl_res["classification_metrics"]["precision"] == 0.0
+        assert sl_res["classification_metrics"]["recall"] is None
+        assert sl_res["classification_metrics"]["f1"] is None
 
         # jump_scare has 2 preds, 0 GT -> TP=0, FP=2, FN=0
         js_res = res["per_trigger"]["jump_scare"]
@@ -1254,17 +1253,14 @@ class TestExperimentalTriggerEvaluationReadiness:
         assert js_res["classification_metrics"]["f1"] is None
 
     def test_audit_annotation_coverage_for_experimental_triggers(self):
-        """Coverage audit confirms positive clips and negative controls for fast_motion and jump_scare."""
+        """Coverage audit confirms positive clips and negative controls for jump_scare."""
         manifest = load_clips_manifest()
         labels_by_clip = load_ground_truth_labels()
         audit = audit_annotation_coverage(
             manifest=manifest,
             labels_by_clip=labels_by_clip,
-            supported_triggers={"fast_motion", "jump_scare", "loud_spike", "flashing", "profanity"},
+            supported_triggers={"jump_scare", "loud_spike", "flashing", "profanity"},
         )
-        assert len(audit["per_trigger_coverage"]["fast_motion"]["positive_clips"]) == 1
-        assert "fast_motion_positive.mp4" in audit["per_trigger_coverage"]["fast_motion"]["positive_clips"]
-        assert "fast_motion_negative.mp4" in audit["per_trigger_coverage"]["fast_motion"]["negative_control_clips"]
         assert len(audit["per_trigger_coverage"]["jump_scare"]["positive_clips"]) == 1
         assert "jump_scare_positive.mp4" in audit["per_trigger_coverage"]["jump_scare"]["positive_clips"]
         assert "jump_scare_negative.mp4" in audit["per_trigger_coverage"]["jump_scare"]["negative_control_clips"]

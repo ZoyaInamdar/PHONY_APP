@@ -109,16 +109,17 @@ detection:
 # ------------------------------------------------------------------------------
 # 3. Canonical Trigger Definitions
 # ------------------------------------------------------------------------------
-# All detectors and player components must use these 9 canonical identifiers:
+# All detectors and player components must use these 10 canonical identifiers:
 # 1. flashing
 # 2. loud_spike
-# 3. gunshot
-# 4. explosion
-# 5. scream
-# 6. profanity
-# 7. spider
-# 8. fast_motion  (stretch / experimental)
+# 3. sustained_loudness
+# 4. gunshot
+# 5. explosion
+# 6. scream
+# 7. profanity
+# 8. insect
 # 9. jump_scare   (stretch / experimental)
+# 10. visible_blood
 # ------------------------------------------------------------------------------
 triggers:
 
@@ -519,87 +520,6 @@ triggers:
         redaction_replacement_string: "[BLEEP]"
 
   # ----------------------------------------------------------------------------
-  # G. Spider (Visual — Zero-Shot Multimodal Image-Text Matching)
-  # ----------------------------------------------------------------------------
-  spider:
-    display_name: "Spiders / Arachnids"
-    description: "Visual appearance of spiders, tarantulas, webs, or arachnid creatures for phobia avoidance."
-    enabled: true
-    status: "baseline"
-    modality: "visual"
-    method: "zero_shot_multimodal"
-    ml_model_required: true
-    input: "Precomputed video frames sampled at 1 frame per second (1 fps)"
-    timing_resolution_seconds: 1.0
-    source: "spider_detector"
-    threshold: 0.70  # Softmax probability threshold over positive and negative prompt set
-    default_action: "hide"
-    allowed_actions:
-      - "hide"
-      - "blur"
-      - "skip"
-      - "warn"
-    padding_before_seconds: 1.0
-    padding_after_seconds: 1.5
-    merge_gap_seconds: 3.0
-    min_segment_duration_seconds: 1.0
-    max_segment_duration_seconds: 60.0
-
-    # Model and prompt configuration
-    algorithm:
-      candidate_backends:
-        - "CLIP"    # OpenAI / OpenCLIP (e.g. ViT-B/32 or ViT-L/14)
-        - "SigLIP"  # Google Sigmoid Loss for Language-Image Pre-Training
-        - "YOLO-World"  # Ultralytics open-vocabulary real-time detector (yolov8s-world.pt)
-      selected_backend: "YOLO-World"
-      backend_selection_status: "resolved"
-      frame_sampling_fps: 1.0
-      # Multi-tile spatial cropping to capture small subjects in widescreen frames
-      spatial_tiling:
-        enabled: true
-        num_tiles: 3  # Left, center, right square crops across 16:9 frame
-        overlap_ratio: 0.25
-        include_full_frame: true
-      # Positive target prompts
-      positive_prompts:
-        - "a photo of a spider"
-        - "a close-up photo of a tarantula"
-        - "a large spider or arachnid crawling"
-      # Negative contrastive prompts to suppress false positives on background clutter
-      negative_prompts:
-        - "a photo of a room"
-        - "a photo of a person"
-        - "a natural landscape"
-        - "tree branches and leaves"
-        - "indoor furniture and walls"
-        - "a dark empty background"
-      # Scoring semantics
-      scoring:
-        method: "cosine_similarity_with_softmax"
-        temperature: 0.05
-        score_semantics_notes: >
-          Raw cosine similarity between image and text embeddings is in [-1.0, 1.0] and is
-          NOT a probability. The reported score is computed via softmax with temperature 0.05
-          over the combined positive and negative prompt sets, representing relative affinity.
-          Scores are not calibrated posterior probabilities.
-      # Temporal filtering to eliminate single-frame transient false positives
-      temporal_filtering:
-        min_consecutive_positive_seconds: 2  # Requires at least 2 consecutive qualifying seconds
-        segment_building_policy: "first_to_last_qualifying_frame"
-      # Feature caching to accelerate iterative parameter tuning
-      caching:
-        cache_image_embeddings: true
-        cache_prompt_embeddings: true
-        cache_directory: "data/cache/embeddings"
-      # Documented visual limitations
-      limitation_notes: >
-        Small spiders occupying < 5% of screen area may be missed. Spiders appearing briefly
-        between 1 fps samples (< 1.0s duration) will escape detection. Dark scenes, heavy motion
-        blur, and visually similar objects (crabs, scorpions, octopus tentacles, bare twigs,
-        dense cobwebs) can trigger false positives.
-
-
-  # ----------------------------------------------------------------------------
   # Insect (Visual — Zero-Shot Multimodal Image-Text Matching)
   # ----------------------------------------------------------------------------
   insect:
@@ -625,48 +545,6 @@ triggers:
     merge_gap_seconds: 3.0
     min_segment_duration_seconds: 1.0
     max_segment_duration_seconds: 60.0
-
-  # ----------------------------------------------------------------------------
-  # H. Fast Motion (Visual — Stretch Feature / Experimental)
-  # ----------------------------------------------------------------------------
-  fast_motion:
-    display_name: "Rapid Motion / Camera Shake"
-    description: "Intense camera shaking, chaotic motion, or rapid panning causing motion sickness or disorientation."
-    enabled: false  # STRETCH FEATURE: Disabled by default for baseline pipeline
-    status: "experimental"
-    modality: "visual"
-    method: "frame_difference_rule"
-    ml_model_required: false
-    input: "Native-rate small RGB frames (128x72)"
-    timing_resolution_seconds: 1.0
-    source: "motion_detector"
-    threshold: 0.20  # Provisional mean absolute difference (MAD) threshold
-    default_action: "warn"
-    allowed_actions:
-      - "warn"
-      - "hide"
-      - "skip"
-    padding_before_seconds: 0.5
-    padding_after_seconds: 0.5
-    merge_gap_seconds: 2.0
-    min_segment_duration_seconds: 1.0
-    max_segment_duration_seconds: 30.0
-
-    algorithm:
-      frame_dimensions:
-        width: 128
-        height: 72
-      metric: "mean_absolute_difference"
-      temporal_smoothing_window_seconds: 1.0
-      cut_detector_integration:
-        exclude_hard_cuts: true
-        hard_cut_mad_threshold: 0.40  # Single-frame jumps exceeding this are flagged as cuts, not motion
-      optical_flow_enabled: false  # Explicitly disabled; Farneback dense flow is NOT part of initial detector
-      segment_building_policy: "continuous_above_threshold"
-      limitation_notes: >
-        STRETCH FEATURE. Frame difference rule confuses rapid editorial montage cuts with motion.
-        Dense optical flow (Farneback or RAFT) is NOT enabled in this initial configuration due
-        to compute constraints. This detector must not be used in demo without ground-truth validation.
 
   # ----------------------------------------------------------------------------
   # I. Jump Scare (Audio-Visual — Stretch Feature / Experimental)
@@ -768,7 +646,7 @@ visual_processing:
     height: 72
     pixel_format: "rgb24"
     output_dir: "data/frames/low_res"
-  # Low-frequency snapshot extraction for multimodal zero-shot classification (spider)
+  # Low-frequency snapshot extraction for multimodal zero-shot classification (object detection)
   snapshot_sampling:
     fps: 1.0
     max_dimension: 512
@@ -826,9 +704,7 @@ merge:
       - "scream"
       - "loud_spike"
       - "sustained_loudness"
-      - "spider"
       - "insect"
-      - "fast_motion"
       - "jump_scare"
       - "visible_blood"
     score_rules:
@@ -904,11 +780,6 @@ evaluation:
 experimental_features:
   # Stretch features that are experimental and disabled by default
   stretch_features:
-    fast_motion:
-      enabled: false
-      status: "experimental"
-      decision_owner: "Person C"
-      notes: "Heuristic frame-difference rule unvalidated against varied camera motions."
     jump_scare:
       enabled: false
       status: "experimental"
@@ -945,7 +816,7 @@ experimental_features:
         - "Transcription accuracy on noisy movie dialogue"
 
     zero_shot_visual_classifier:
-      description: "Vision-language foundation model for spider / object detection"
+      description: "Vision-language foundation model for object detection"
       candidates:
         - "CLIP"
         - "SigLIP"

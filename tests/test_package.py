@@ -68,8 +68,8 @@ def test_generate_cue_id_millisecond_rounding():
 def test_generate_cue_id_submillisecond_duration_safety():
     """Verify that when end > start but rounding would yield end_ms <= start_ms, end_ms is bumped."""
     # 1.0001s -> 1000ms; 1.0003s -> 1000ms. end_ms bumped to 1001ms.
-    cid = generate_cue_id("sintel", "spider", 1.0001, 1.0003)
-    assert cid == "cue_sintel_spider_001000_001001"
+    cid = generate_cue_id("sintel", "insect", 1.0001, 1.0003)
+    assert cid == "cue_sintel_insect_001000_001001"
 
 
 def test_generate_cue_id_rejects_invalid_timestamps():
@@ -171,7 +171,7 @@ def test_merge_duration_exceeded_splits_cleanly():
 def test_single_raw_detection_longer_than_maximum_rejected():
     """Verify that a single raw detection exceeding max_segment_duration is rejected with a validation error."""
     dets = [
-        {"start": 0.0, "end": 65.0, "trigger": "spider", "score": 0.75, "source": "spider_detector"}
+        {"start": 0.0, "end": 65.0, "trigger": "insect", "score": 0.75, "source": "insect_detector"}
     ]
     with pytest.raises(ValueError, match="exceeds configured maximum allowable segment duration"):
         merge_detections(dets, max_segment_duration=60.0)
@@ -246,7 +246,7 @@ def test_package_cues_valid_fixture():
     assert index_data["timeline"]["fps"] == 24.0
 
     cues = index_data["cues"]
-    assert len(cues) == 9
+    assert len(cues) == 7
     represented_triggers = {c["trigger"] for c in cues}
     assert represented_triggers.issubset(set(CANONICAL_TRIGGER_IDS))
 
@@ -1390,8 +1390,8 @@ def test_overlapping_cues_different_triggers_co_temporal_and_containment():
             # Co-temporal: exact same interval [5.0, 10.0), two different canonical triggers
             {"start": 5.0, "end": 10.0, "trigger": "flashing", "score": 0.9, "source": "flash_detector"},
             {"start": 5.0, "end": 10.0, "trigger": "loud_spike", "score": 0.85, "source": "loudness_detector"},
-            # Containment: spider [2.0, 15.0) completely contains scream [6.0, 8.0)
-            {"start": 2.0, "end": 15.0, "trigger": "spider", "score": 0.92, "source": "spider_detector"},
+            # Containment: insect [2.0, 15.0) completely contains scream [6.0, 8.0)
+            {"start": 2.0, "end": 15.0, "trigger": "insect", "score": 0.92, "source": "insect_detector"},
             {"start": 6.0, "end": 8.0, "trigger": "scream", "score": 0.78, "source": "audio_clf"},
             # Partial overlap: gunshot [12.0, 18.0) overlaps explosion [14.0, 20.0)
             {"start": 12.0, "end": 18.0, "trigger": "gunshot", "score": 0.95, "source": "audio_clf"},
@@ -1406,11 +1406,11 @@ def test_overlapping_cues_different_triggers_co_temporal_and_containment():
 
     # Verify triggers are preserved exactly
     triggers = [c["trigger"] for c in cues]
-    assert sorted(triggers) == sorted(["flashing", "loud_spike", "spider", "scream", "gunshot", "explosion"])
+    assert sorted(triggers) == sorted(["flashing", "loud_spike", "insect", "scream", "gunshot", "explosion"])
 
     # Verify chronological ordering by (start, end, trigger, source)
-    # 1. spider [2.0, 15.0)
-    assert cues[0]["trigger"] == "spider" and cues[0]["start"] == 2.0 and cues[0]["end"] == 15.0
+    # 1. insect [2.0, 15.0)
+    assert cues[0]["trigger"] == "insect" and cues[0]["start"] == 2.0 and cues[0]["end"] == 15.0
     # 2 & 3. flashing and loud_spike both start at 5.0 and end at 10.0; sorted alphabetically by trigger
     assert cues[1]["start"] == 5.0 and cues[1]["end"] == 10.0 and cues[1]["trigger"] == "flashing"
     assert cues[2]["start"] == 5.0 and cues[2]["end"] == 10.0 and cues[2]["trigger"] == "loud_spike"
@@ -1440,14 +1440,14 @@ def test_deterministic_cue_ids_stability_under_permutations():
         {"start": 1.0, "end": 3.0, "trigger": "loud_spike", "score": 0.8, "source": "src1"},
         {"start": 4.5, "end": 7.25, "trigger": "flashing", "score": 0.9, "source": "src2"},
         {"start": 8.0, "end": 12.0, "trigger": "profanity", "score": 1.0, "source": "src3"},
-        {"start": 15.0, "end": 20.0, "trigger": "spider", "score": 0.7, "source": "src4"},
+        {"start": 15.0, "end": 20.0, "trigger": "insect", "score": 0.7, "source": "src4"},
     ]
 
     expected_ids = [
         "cue_determinism_test_loud_spike_001000_003000",
         "cue_determinism_test_flashing_004500_007250",
         "cue_determinism_test_profanity_008000_012000",
-        "cue_determinism_test_spider_015000_020000",
+        "cue_determinism_test_insect_015000_020000",
     ]
 
     # Run in forward, reverse, and multiple random permutations
@@ -1614,7 +1614,7 @@ def test_provenance_preservation_across_distinct_sources_and_merges():
         # Overlapping cue with same trigger 'loud_spike' but different source 'hardware_mic_sensor' -> MUST NOT MERGE
         {"start": 2.0, "end": 4.0, "trigger": "loud_spike", "score": 0.95, "source": "hardware_mic_sensor"},
         # Visual detector cue
-        {"start": 5.0, "end": 7.0, "trigger": "spider", "score": 0.85, "source": "visual_yolo_detector"},
+        {"start": 5.0, "end": 7.0, "trigger": "insect", "score": 0.85, "source": "visual_yolo_detector"},
         # Profanity detector cue
         {"start": 8.0, "end": 10.0, "trigger": "profanity", "score": 1.0, "source": "profanity_detector"},
     ]
@@ -1629,7 +1629,7 @@ def test_provenance_preservation_across_distinct_sources_and_merges():
     # We expect:
     # 1. Merged loud_spike from audio_pipeline_v1: [1.0, 3.5) score=0.9, source='audio_pipeline_v1'
     # 2. Distinct loud_spike from hardware_mic_sensor: [2.0, 4.0) score=0.95, source='hardware_mic_sensor'
-    # 3. spider from visual_yolo_detector: [5.0, 7.0) score=0.85, source='visual_yolo_detector'
+    # 3. insect from visual_yolo_detector: [5.0, 7.0) score=0.85, source='visual_yolo_detector'
     # 4. profanity from profanity_detector: [8.0, 10.0) score=1.0, source='profanity_detector'
     assert len(cues) == 4
 
@@ -1652,7 +1652,7 @@ def test_provenance_preservation_across_distinct_sources_and_merges():
     assert cues[1]["score"] == 0.95
 
     # Cue 3: visual_yolo_detector
-    assert cues[2]["trigger"] == "spider"
+    assert cues[2]["trigger"] == "insect"
     assert cues[2]["source"] == "visual_yolo_detector"
 
     # Cue 4: profanity_detector
@@ -1661,7 +1661,7 @@ def test_provenance_preservation_across_distinct_sources_and_merges():
 
 
 # ------------------------------------------------------------------------------
-# 11. Experimental Detectors (jump_scare & fast_motion) Packaging Integration
+# 11. Experimental Detectors (jump_scare) Packaging Integration
 # ------------------------------------------------------------------------------
 
 def test_package_synthetic_jump_scare_cue():
@@ -1695,42 +1695,12 @@ def test_package_synthetic_jump_scare_cue():
     assert cue["id"] == "cue_sintel_jump_scare_002123_003789"
 
 
-def test_package_synthetic_fast_motion_cue():
-    """Verify a valid synthetic fast_motion cue is accepted, formatted, and packaged."""
-    raw_fast_motion = {
-        "start": 5.0,
-        "end": 7.5,
-        "trigger": "fast_motion",
-        "score": 0.65,
-        "source": "motion_detector",
-    }
-    config = load_config_data(CONFIG_PATH)
-    schema = load_schema(SCHEMA_PATH)
-
-    res = package_cues(
-        raw_data={"detections": [raw_fast_motion]},
-        film_id="tears_of_steel",
-        duration_seconds=100.0,
-        config=config,
-        schema=schema,
-    )
-
-    cues = res["cues"]
-    assert len(cues) == 1
-    cue = cues[0]
-    assert cue["trigger"] == "fast_motion"
-    assert cue["score"] == 0.65
-    assert cue["source"] == "motion_detector"
-    assert cue["start"] == 5.0
-    assert cue["end"] == 7.5
-    assert cue["id"] == "cue_tears_of_steel_fast_motion_005000_007500"
-
 
 def test_packaged_index_with_experimental_cues_validates_against_schema(tmp_path: Path):
     """Verify packaged index containing experimental cues passes full schema and domain validation."""
     raw_detections = [
         {"start": 1.0, "end": 2.0, "trigger": "loud_spike", "score": 0.9, "source": "loudness_detector"},
-        {"start": 3.0, "end": 4.5, "trigger": "fast_motion", "score": 0.75, "source": "motion_detector"},
+        {"start": 3.0, "end": 4.5, "trigger": "sustained_loudness", "score": 0.75, "source": "loudness_detector"},
         {"start": 6.0, "end": 7.2, "trigger": "jump_scare", "score": 0.88, "source": "jump_scare_detector"},
     ]
 
@@ -1760,9 +1730,9 @@ def test_packaged_index_with_experimental_cues_validates_against_schema(tmp_path
 def test_experimental_cue_invariants_and_merge_preservation():
     """Verify trigger IDs, score fields, sources, and half-open intervals are preserved correctly."""
     raw_detections = [
-        # Two contiguous fast_motion cues from motion_detector with gap 0.5s <= merge_gap 2.0s -> MUST MERGE
-        {"start": 1.0, "end": 2.5, "trigger": "fast_motion", "score": 0.6, "source": "motion_detector"},
-        {"start": 3.0, "end": 5.0, "trigger": "fast_motion", "score": 0.85, "source": "motion_detector"},
+        # Two contiguous sustained_loudness cues with gap 0.5s <= merge_gap 2.0s -> MUST MERGE
+        {"start": 1.0, "end": 2.5, "trigger": "sustained_loudness", "score": 0.6, "source": "loudness_detector"},
+        {"start": 3.0, "end": 5.0, "trigger": "sustained_loudness", "score": 0.85, "source": "loudness_detector"},
         # Overlapping jump_scare cue on [2.0, 4.0) with different trigger & source -> MUST NOT MERGE
         {"start": 2.0, "end": 4.0, "trigger": "jump_scare", "score": 0.92, "source": "jump_scare_detector"},
     ]
@@ -1779,13 +1749,13 @@ def test_experimental_cue_invariants_and_merge_preservation():
     assert len(cues) == 2
 
     # Chronologically sorted by (start, end)
-    # Cue 1: Merged fast_motion [1.0, 5.0) score=0.85
-    assert cues[0]["trigger"] == "fast_motion"
-    assert cues[0]["source"] == "motion_detector"
+    # Cue 1: Merged sustained_loudness [1.0, 5.0) score=0.85
+    assert cues[0]["trigger"] == "sustained_loudness"
+    assert cues[0]["source"] == "loudness_detector"
     assert cues[0]["start"] == 1.0
     assert cues[0]["end"] == 5.0
     assert cues[0]["score"] == 0.85
-    assert cues[0]["id"] == "cue_invariants_test_fast_motion_001000_005000"
+    assert cues[0]["id"] == "cue_invariants_test_sustained_loudness_001000_005000"
 
     # Cue 2: jump_scare [2.0, 4.0) score=0.92
     assert cues[1]["trigger"] == "jump_scare"
@@ -1814,7 +1784,7 @@ def test_existing_packaging_unchanged_without_experimental_detectors():
     cues = res["cues"]
     assert len(cues) == 2
     assert [c["trigger"] for c in cues] == ["loud_spike", "profanity"]
-    assert all(c["trigger"] not in ("fast_motion", "jump_scare") for c in cues)
+    assert all(c["trigger"] != "jump_scare" for c in cues)
 
 
 def test_disabled_experimental_viewer_policies_prevent_playback_application():
@@ -1850,20 +1820,11 @@ def test_disabled_experimental_viewer_policies_prevent_playback_application():
           score: 0.85,
           source: 'jump_scare_detector',
         },
-        {
-          id: 'cue_fast_motion_01',
-          start: 10.0,
-          end: 12.0,
-          trigger: 'fast_motion',
-          score: 0.7,
-          source: 'motion_detector',
-        },
-      ],
+              ],
     };
 
-    // 1. With standard production default policies (both experimental triggers are disabled):
+    // 1. With standard production default policies (jump_scare is disabled):
     assert.strictEqual(DEFAULT_TRIGGER_POLICIES.jump_scare.enabled, false);
-    assert.strictEqual(DEFAULT_TRIGGER_POLICIES.fast_motion.enabled, false);
 
     const standardCues = adaptPackagedIndex(testIndex, DEFAULT_TRIGGER_POLICIES);
     assert.strictEqual(standardCues.length, 1, 'Only enabled cues should be adapted');
@@ -1881,18 +1842,6 @@ def test_disabled_experimental_viewer_policies_prevent_playback_application():
     assert.ok(jumpScareCue);
     assert.strictEqual(jumpScareCue.action, 'warn');
     assert.strictEqual(jumpScareCue.source, 'audio_visual');
-
-    // 3. Explicitly enable fast_motion via custom policy:
-    const customMotionPolicies = {
-      ...DEFAULT_TRIGGER_POLICIES,
-      fast_motion: { ...DEFAULT_TRIGGER_POLICIES.fast_motion, enabled: true },
-    };
-    const motionCues = adaptPackagedIndex(testIndex, customMotionPolicies);
-    assert.strictEqual(motionCues.length, 2);
-    const motionCue = motionCues.find(c => c.trigger === 'fast_motion');
-    assert.ok(motionCue);
-    assert.strictEqual(motionCue.action, 'warn');
-    assert.strictEqual(motionCue.source, 'visual');
 
     console.log('Experimental policies playback prevention verified successfully.');
     """

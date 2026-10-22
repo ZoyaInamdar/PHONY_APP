@@ -27,7 +27,7 @@ const triggerPolicies = {
     action: 'mute',
     source: 'audio',
   },
-  fast_motion: {
+  jump_scare: {
     enabled: false,
     action: 'warn',
     source: 'visual',
@@ -37,7 +37,7 @@ const triggerPolicies = {
     action: 'dim',
     source: 'visual',
   },
-  spider: {
+  insect: {
     enabled: true,
     action: 'blur',
     source: 'visual',
@@ -64,7 +64,7 @@ describe('adaptPackagedIndex', () => {
       cues: [
         {
           ...packagedIndex.cues[0],
-          trigger: 'fast_motion',
+          trigger: 'jump_scare',
         },
       ],
     };
@@ -92,7 +92,7 @@ describe('adaptPackagedIndex', () => {
     expect(result[0].action).not.toBe('hide');
   });
 
-  it('carries blur action faithfully without converting it to hide (spider trigger)', () => {
+  it('carries blur action faithfully without converting it to hide (insect trigger)', () => {
     // blur is a representable action. The adapter must NOT throw and must NOT
     // convert blur to hide. The caller is responsible for knowing that blur has
     // no Phase 0 rendering implementation.
@@ -101,7 +101,7 @@ describe('adaptPackagedIndex', () => {
       cues: [
         {
           ...packagedIndex.cues[0],
-          trigger: 'spider',
+          trigger: 'insect',
         },
       ],
     };
@@ -246,11 +246,11 @@ describe('adaptPackagedIndex', () => {
     expect(result[0].action).not.toBe('hide');
   });
 
-  it('does not silently convert blur into hide (shared config spider)', () => {
+  it('does not silently convert blur into hide (shared config insect)', () => {
     // blur is now representable. The adapter must carry it as 'blur', not
     // convert it to 'hide'. This test confirms no silent conversion occurs.
     const sharedPolicies = {
-      spider: {
+      insect: {
         enabled: true,
         modality: 'visual',
         default_action: 'blur',
@@ -263,7 +263,7 @@ describe('adaptPackagedIndex', () => {
       cues: [
         {
           ...packagedIndex.cues[0],
-          trigger: 'spider',
+          trigger: 'insect',
         },
       ],
     };

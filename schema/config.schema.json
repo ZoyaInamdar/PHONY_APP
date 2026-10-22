@@ -36,12 +36,16 @@
       "properties": {
         "timestamp_unit": {
           "type": "string",
-          "enum": ["seconds"],
+          "enum": [
+            "seconds"
+          ],
           "description": "Unit of timestamps across all detectors and cues. Must be 'seconds'."
         },
         "interval_convention": {
           "type": "string",
-          "enum": ["half_open"],
+          "enum": [
+            "half_open"
+          ],
           "description": "Mathematical interval convention. Must be 'half_open' [start, end)."
         },
         "allow_fractional_seconds": {
@@ -57,18 +61,32 @@
     },
     "detection": {
       "type": "object",
-      "required": ["common_record_fields"],
+      "required": [
+        "common_record_fields"
+      ],
       "properties": {
         "common_record_fields": {
           "type": "array",
-          "items": { "type": "string" },
-          "contains": { "const": "start" },
+          "items": {
+            "type": "string"
+          },
+          "contains": {
+            "const": "start"
+          },
           "description": "Mandatory record fields produced by all detectors: start, end, trigger, score, source."
         },
-        "field_contracts": { "type": "object" },
-        "score_semantics_note": { "type": "string" },
-        "packaging_metadata_note": { "type": "string" },
-        "field_naming_note": { "type": "string" }
+        "field_contracts": {
+          "type": "object"
+        },
+        "score_semantics_note": {
+          "type": "string"
+        },
+        "packaging_metadata_note": {
+          "type": "string"
+        },
+        "field_naming_note": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
@@ -82,46 +100,87 @@
         "scream",
         "loud_spike",
         "sustained_loudness",
-        "spider",
         "insect",
-        "fast_motion",
         "jump_scare",
         "visible_blood"
       ],
       "properties": {
-        "flashing": { "$ref": "#/$defs/trigger_definition" },
-        "profanity": { "$ref": "#/$defs/trigger_definition" },
-        "gunshot": { "$ref": "#/$defs/trigger_definition" },
-        "explosion": { "$ref": "#/$defs/trigger_definition" },
-        "scream": { "$ref": "#/$defs/trigger_definition" },
-        "loud_spike": { "$ref": "#/$defs/trigger_definition" },
-        "sustained_loudness": { "$ref": "#/$defs/trigger_definition" },
-        "spider": { "$ref": "#/$defs/trigger_definition" },
-        "insect": { "$ref": "#/$defs/trigger_definition" },
-        "fast_motion": { "$ref": "#/$defs/trigger_definition" },
-        "jump_scare": { "$ref": "#/$defs/trigger_definition" },
-        "visible_blood": { "$ref": "#/$defs/trigger_definition" }
+        "flashing": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "profanity": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "gunshot": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "explosion": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "scream": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "loud_spike": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "sustained_loudness": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "insect": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "jump_scare": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "visible_blood": {
+          "$ref": "#/$defs/trigger_definition"
+        }
       },
-      "additionalProperties": { "$ref": "#/$defs/trigger_definition" }
+      "additionalProperties": {
+        "$ref": "#/$defs/trigger_definition"
+      }
     },
     "audio_processing": {
       "type": "object",
-      "required": ["target_sample_rate_hz", "target_channels", "extraction"],
+      "required": [
+        "target_sample_rate_hz",
+        "target_channels",
+        "extraction"
+      ],
       "properties": {
-        "target_sample_rate_hz": { "type": "integer", "minimum": 8000 },
-        "target_channels": { "type": "integer", "const": 1 },
-        "target_format": { "type": "string" },
-        "extraction": { "type": "object" },
-        "spectrogram": { "type": "object" }
+        "target_sample_rate_hz": {
+          "type": "integer",
+          "minimum": 8000
+        },
+        "target_channels": {
+          "type": "integer",
+          "const": 1
+        },
+        "target_format": {
+          "type": "string"
+        },
+        "extraction": {
+          "type": "object"
+        },
+        "spectrogram": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     },
     "visual_processing": {
       "type": "object",
-      "required": ["low_res_frames", "snapshot_sampling"],
+      "required": [
+        "low_res_frames",
+        "snapshot_sampling"
+      ],
       "properties": {
-        "low_res_frames": { "type": "object" },
-        "snapshot_sampling": { "type": "object" }
+        "low_res_frames": {
+          "type": "object"
+        },
+        "snapshot_sampling": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     },
@@ -133,13 +192,36 @@
         "default_padding_after_seconds"
       ],
       "properties": {
-        "primary_source": { "type": "string", "enum": ["subtitles", "speech_to_text"] },
-        "fallback_source": { "type": "string" },
-        "subtitle_search_paths": { "type": "array", "items": { "type": "string" } },
-        "word_list_path": { "type": "string" },
-        "default_padding_before_seconds": { "type": "number", "minimum": 0.0 },
-        "default_padding_after_seconds": { "type": "number", "minimum": 0.0 },
-        "stt_fallback_enabled": { "type": "boolean" }
+        "primary_source": {
+          "type": "string",
+          "enum": [
+            "subtitles",
+            "speech_to_text"
+          ]
+        },
+        "fallback_source": {
+          "type": "string"
+        },
+        "subtitle_search_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "word_list_path": {
+          "type": "string"
+        },
+        "default_padding_before_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "default_padding_after_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "stt_fallback_enabled": {
+          "type": "boolean"
+        }
       },
       "additionalProperties": true
     },
@@ -156,17 +238,32 @@
       "properties": {
         "group_by": {
           "type": "object",
-          "required": ["primary", "secondary"],
+          "required": [
+            "primary",
+            "secondary"
+          ],
           "properties": {
-            "primary": { "type": "string" },
-            "secondary": { "type": "string" }
+            "primary": {
+              "type": "string"
+            },
+            "secondary": {
+              "type": "string"
+            }
           }
         },
-        "default_merge_gap_seconds": { "type": "number", "minimum": 0.0 },
-        "max_segment_duration_seconds": { "type": "number", "minimum": 0.1 },
+        "default_merge_gap_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "max_segment_duration_seconds": {
+          "type": "number",
+          "minimum": 0.1
+        },
         "sort_order": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "validation": {
           "type": "object",
@@ -176,17 +273,39 @@
             "missing_source_policy"
           ],
           "properties": {
-            "require_positive_duration": { "type": "boolean" },
-            "allowed_trigger_ids": { "type": "array", "items": { "type": "string" } },
-            "missing_source_policy": { "type": "string", "enum": ["reject", "assign_unknown"] }
+            "require_positive_duration": {
+              "type": "boolean"
+            },
+            "allowed_trigger_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "missing_source_policy": {
+              "type": "string",
+              "enum": [
+                "reject",
+                "assign_unknown"
+              ]
+            }
           }
         },
         "cross_trigger_policy": {
           "type": "object",
-          "required": ["keep_separate", "allow_cross_trigger_merging"],
+          "required": [
+            "keep_separate",
+            "allow_cross_trigger_merging"
+          ],
           "properties": {
-            "keep_separate": { "type": "boolean", "const": true },
-            "allow_cross_trigger_merging": { "type": "boolean", "const": false }
+            "keep_separate": {
+              "type": "boolean",
+              "const": true
+            },
+            "allow_cross_trigger_merging": {
+              "type": "boolean",
+              "const": false
+            }
           }
         }
       },
@@ -201,22 +320,48 @@
         "evaluation_clips"
       ],
       "properties": {
-        "annotations_directory": { "type": "string" },
-        "ground_truth_filename_pattern": { "type": "string" },
-        "matching_criterion": { "type": "string" },
-        "tiou_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-        "metrics": { "type": "array", "items": { "type": "string" } },
-        "evaluation_clips": { "type": "object" },
-        "reporting": { "type": "object" }
+        "annotations_directory": {
+          "type": "string"
+        },
+        "ground_truth_filename_pattern": {
+          "type": "string"
+        },
+        "matching_criterion": {
+          "type": "string"
+        },
+        "tiou_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evaluation_clips": {
+          "type": "object"
+        },
+        "reporting": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     },
     "experimental_features": {
       "type": "object",
-      "required": ["stretch_features", "unresolved_model_selections"],
+      "required": [
+        "stretch_features",
+        "unresolved_model_selections"
+      ],
       "properties": {
-        "stretch_features": { "type": "object" },
-        "unresolved_model_selections": { "type": "object" }
+        "stretch_features": {
+          "type": "object"
+        },
+        "unresolved_model_selections": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     },
@@ -264,43 +409,109 @@
         "max_segment_duration_seconds"
       ],
       "properties": {
-        "display_name": { "type": "string" },
-        "description": { "type": "string" },
-        "enabled": { "type": "boolean" },
+        "display_name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
         "status": {
           "type": "string",
-          "enum": ["baseline", "experimental", "disabled"]
+          "enum": [
+            "baseline",
+            "experimental",
+            "disabled"
+          ]
         },
         "modality": {
           "type": "string",
-          "enum": ["visual", "audio", "text", "audio_visual"]
+          "enum": [
+            "visual",
+            "audio",
+            "text",
+            "audio_visual"
+          ]
         },
-        "method": { "type": "string" },
-        "ml_model_required": { "type": "boolean" },
-        "input": { "type": "string" },
-        "timing_resolution_seconds": { "type": "number", "exclusiveMinimum": 0.0 },
-        "source": { "type": "string" },
-        "threshold": { "type": ["number", "object"] },
+        "method": {
+          "type": "string"
+        },
+        "ml_model_required": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "string"
+        },
+        "timing_resolution_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0
+        },
+        "source": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "object"
+          ]
+        },
         "default_action": {
           "type": "string",
-          "enum": ["hide", "blur", "mute", "reduce", "skip", "warn"]
+          "enum": [
+            "hide",
+            "blur",
+            "mute",
+            "reduce",
+            "skip",
+            "warn"
+          ]
         },
         "allowed_actions": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["hide", "blur", "mute", "reduce", "skip", "warn"]
+            "enum": [
+              "hide",
+              "blur",
+              "mute",
+              "reduce",
+              "skip",
+              "warn"
+            ]
           },
           "minItems": 1
         },
-        "padding_before_seconds": { "type": "number", "minimum": 0.0 },
-        "padding_after_seconds": { "type": "number", "minimum": 0.0 },
-        "merge_gap_seconds": { "type": "number", "minimum": 0.0 },
-        "min_segment_duration_seconds": { "type": "number", "exclusiveMinimum": 0.0 },
-        "max_segment_duration_seconds": { "type": "number", "exclusiveMinimum": 0.0 },
-        "algorithm": { "type": "object" },
-        "classifier_settings": { "type": "object" },
-        "matching_settings": { "type": "object" }
+        "padding_before_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "padding_after_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "merge_gap_seconds": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "min_segment_duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0
+        },
+        "max_segment_duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0.0
+        },
+        "algorithm": {
+          "type": "object"
+        },
+        "classifier_settings": {
+          "type": "object"
+        },
+        "matching_settings": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     }

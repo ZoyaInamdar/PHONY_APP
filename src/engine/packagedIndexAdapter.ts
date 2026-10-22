@@ -177,7 +177,7 @@ function validatePackagedIndex(input: unknown): PackagedIndex {
  * Adapt a packaged detection index into playback `Cue[]` using the supplied
  * trigger policies.
  *
- * Policies are keyed by canonical trigger ID (e.g. `"flashing"`, `"spider"`).
+ * Policies are keyed by canonical trigger ID (e.g. `"flashing"`, `"insect"`).
  * When the shared `config.yaml` triggers section is used directly, pass the
  * trigger objects as-is; the adapter understands both the legacy
  * `action`/`source` shape and the shared-config `modality`/`default_action`
@@ -205,7 +205,7 @@ export function adaptPackagedIndex(
     }
 
     if (!policy.enabled) {
-      // Disabled triggers (e.g. fast_motion, jump_scare) are skipped.
+      // Disabled triggers (e.g. jump_scare) are skipped.
       continue;
     }
 

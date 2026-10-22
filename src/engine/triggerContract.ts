@@ -2,7 +2,7 @@
  * Centralized, typed source of truth for canonical triggers and action contracts.
  *
  * Enforces:
- * - 12 Canonical trigger identifiers.
+ * - 10 Canonical trigger identifiers.
  * - 6 Canonical playback actions: hide, blur, mute, reduce, skip, warn.
  * - Explicit default action and permitted alternatives per trigger.
  * - Validation and fallback logic for user overrides and unknown inputs.
@@ -16,9 +16,7 @@ export const CANONICAL_TRIGGERS = [
   'scream',
   'loud_spike',
   'sustained_loudness',
-  'spider',
   'insect',
-  'fast_motion',
   'jump_scare',
   'visible_blood',
 ] as const;
@@ -90,23 +88,11 @@ export const TRIGGER_ACTION_CONTRACTS: Readonly<Record<CanonicalTrigger, Trigger
     modality: 'audio',
     displayName: 'Sustained Loudness',
   },
-  spider: {
-    defaultAction: 'hide',
-    allowedAlternatives: ['blur', 'skip', 'warn'],
-    modality: 'visual',
-    displayName: 'Spiders / Arachnids',
-  },
   insect: {
     defaultAction: 'hide',
     allowedAlternatives: ['blur', 'skip', 'warn'],
     modality: 'visual',
     displayName: 'Insects / Swarms',
-  },
-  fast_motion: {
-    defaultAction: 'warn',
-    allowedAlternatives: ['hide', 'skip'],
-    modality: 'visual',
-    displayName: 'Rapid Motion / Camera Shake',
   },
   jump_scare: {
     defaultAction: 'warn',

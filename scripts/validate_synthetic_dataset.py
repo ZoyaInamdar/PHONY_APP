@@ -35,13 +35,14 @@ DEFAULT_CLIPS_DIR = REPO_ROOT / "data" / "test_clips"
 CANONICAL_TRIGGERS = {
     "flashing",
     "loud_spike",
+    "sustained_loudness",
     "gunshot",
     "explosion",
     "scream",
     "profanity",
-    "spider",
-    "fast_motion",
+    "insect",
     "jump_scare",
+    "visible_blood",
 }
 
 

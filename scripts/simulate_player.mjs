@@ -23,9 +23,9 @@ const DEFAULT_POLICIES = {
   explosion: { enabled: true, action: 'mute', source: 'audio' },
   scream: { enabled: true, action: 'mute', source: 'audio' },
   profanity: { enabled: true, action: 'mute', source: 'audio' },
-  spider: { enabled: true, action: 'hide', source: 'visual' },
-  fast_motion: { enabled: true, action: 'hide', source: 'visual' },
-  jump_scare: { enabled: true, action: 'warn', source: 'visual' },
+  insect: { enabled: false, action: 'hide', source: 'visual' },
+  jump_scare: { enabled: false, action: 'warn', source: 'audio_visual' },
+  visible_blood: { enabled: false, action: 'hide', source: 'visual' },
 };
 
 function parseArgs(args) {

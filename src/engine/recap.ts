@@ -54,9 +54,6 @@ function formatTriggerNoun(triggerType: string, count: number): string {
   if (norm === 'jump_scare' || norm === 'jump scare') {
     return isPlural ? 'jump scares' : 'jump scare';
   }
-  if (norm === 'fast_motion' || norm === 'fast motion') {
-    return isPlural ? 'fast motion scenes' : 'fast motion scene';
-  }
   if (norm === 'gunshot') {
     return isPlural ? 'gunshots' : 'gunshot';
   }
@@ -66,8 +63,8 @@ function formatTriggerNoun(triggerType: string, count: number): string {
   if (norm === 'scream') {
     return isPlural ? 'screams' : 'scream';
   }
-  if (norm === 'spider') {
-    return isPlural ? 'spider scenes' : 'spider scene';
+  if (norm === 'insect') {
+    return isPlural ? 'insect scenes' : 'insect scene';
   }
 
   // Fallback: replace underscores with spaces

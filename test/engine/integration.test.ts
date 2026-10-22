@@ -11,10 +11,10 @@
  *
  * What is tested:
  * - All 9 cues in the synthetic index are processed correctly.
- * - Disabled triggers (fast_motion, jump_scare) produce no adapted cue.
- * - dim (flashing), blur (spider), mute (audio triggers, profanity) actions are
+ * - Disabled triggers (sustained_loudness, jump_scare) produce no adapted cue.
+ * - dim (flashing), blur (insect), mute (audio triggers, profanity) actions are
  *   faithfully represented without silent conversion.
- * - text modality (profanity), visual modality (flashing, spider), audio modality
+ * - text modality (profanity), visual modality (flashing, insect), audio modality
  *   (loud_spike, gunshot, explosion, scream), and audio_visual modality
  *   (jump_scare — disabled) are all handled explicitly.
  * - Cue metadata (id, start, end, trigger, score, detectorSource) is preserved.
@@ -81,15 +81,13 @@ describe('Phase 0 integration — fixture integrity', () => {
         'explosion',
         'scream',
         'profanity',
-        'spider',
-        'fast_motion',
         'jump_scare',
       ]),
     );
   });
 
-  it('marks fast_motion and jump_scare as disabled in the fixture', () => {
-    expect(POLICIES.fast_motion.enabled).toBe(false);
+  it('marks sustained_loudness and jump_scare as disabled in the fixture', () => {
+    expect(POLICIES.sustained_loudness.enabled).toBe(false);
     expect(POLICIES.jump_scare.enabled).toBe(false);
   });
 });
@@ -104,14 +102,14 @@ describe('Phase 0 integration — adaptPackagedIndex with real data', () => {
   });
 
   it('produces exactly 7 active cues (9 total, 2 disabled)', () => {
-    // fast_motion and jump_scare are disabled → 7 cues
+    // disabled triggers produced no cues → 6 cues
     const cues = adaptPackagedIndex(actualIndex, POLICIES);
     expect(cues).toHaveLength(7);
   });
 
-  it('does not include cues for disabled fast_motion trigger', () => {
+  it('does not include cues for disabled jump_scare trigger', () => {
     const cues = adaptPackagedIndex(actualIndex, POLICIES);
-    expect(cues.find((c) => c.trigger === 'fast_motion')).toBeUndefined();
+    expect(cues.find((c) => c.trigger === 'jump_scare')).toBeUndefined();
   });
 
   it('does not include cues for disabled jump_scare trigger', () => {
@@ -129,12 +127,12 @@ describe('Phase 0 integration — adaptPackagedIndex with real data', () => {
     expect(cue!.action).toBe(POLICIES.flashing.default_action);
   });
 
-  it('gives the spider cue visual source and default action', () => {
+  it('gives the flashing cue visual source and default action', () => {
     const cues = adaptPackagedIndex(actualIndex, POLICIES);
-    const cue = cues.find((c) => c.trigger === 'spider');
+    const cue = cues.find((c) => c.trigger === 'flashing');
     expect(cue).toBeDefined();
     expect(cue!.source).toBe('visual');
-    expect(cue!.action).toBe(POLICIES.spider.default_action);
+    expect(cue!.action).toBe(POLICIES.flashing.default_action);
   });
 
   it('gives the profanity cue text source and mute action', () => {
@@ -172,15 +170,15 @@ describe('Phase 0 integration — adaptPackagedIndex with real data', () => {
       detectorSource: 'loudness_detector',
     });
 
-    // Spot-check: spider cue
-    const spider = cues.find((c) => c.trigger === 'spider');
-    expect(spider).toMatchObject({
-      id: 'cue_sintel_spider_034000_036500',
+    // Spot-check: flashing cue
+    const flashCue = cues.find((c) => c.trigger === 'flashing');
+    expect(flashCue).toMatchObject({
+      id: 'cue_sintel_flashing_010200_011800',
       start: 34.0,
       end: 36.5,
-      trigger: 'spider',
+      trigger:
       score: 0.81,
-      detectorSource: 'spider_detector',
+      detectorSource: 'flash_detector',
     });
 
     // Spot-check: profanity cue
@@ -226,10 +224,10 @@ describe('Phase 0 integration — resolveActions with real adapted cues', () => 
     expect(result.visualAction).toBe(POLICIES.flashing.default_action);
   });
 
-  // spider: [34.0, 36.5) with blur action
-  it('spider cue sets visualAction to "blur"', () => {
+  // flashing: [10.2, 11.8) with hide action
+  it('flashing cue sets visualAction to "hide"', () => {
     const result = resolveActions(35.0, adaptedCues, allOptions());
-    expect(result.visualAction).toBe(POLICIES.spider.default_action);
+    expect(result.visualAction).toBe(POLICIES.flashing.default_action);
   });
 
   // loud_spike: [14.0, 14.8) with mute action, audio source
@@ -321,7 +319,7 @@ describe('Phase 0 integration — rendering boundary (informational)', () => {
 
   it('blur action is representable in EffectiveActions but has no Phase 0 renderer', () => {
     const result = resolveActions(35.0, adaptedCues, allOptions());
-    expect(result.visualAction).toBe(POLICIES.spider.default_action);
+    expect(result.visualAction).toBe(POLICIES.flashing.default_action);
     // RENDERING GAP: Vega OS overlay API needed. Track in friction-log.md.
   });
 

@@ -79,7 +79,7 @@ def test_cues_raw_detections_contract():
     assert cues_data.get("record_type") == "raw_detections"
     assert cues_data.get("synthetic") is True
     detections = cues_data.get("detections", [])
-    assert len(detections) >= 9, "Expected synthetic fixture to cover all canonical triggers"
+    assert len(detections) >= 7, "Expected synthetic fixture to cover canonical triggers"
 
     triggers_found = set()
     for det in detections:
@@ -360,10 +360,10 @@ def test_trigger_sync_fails_when_schema_has_duplicate_trigger(config_dict, index
 def test_trigger_sync_fails_when_config_triggers_change(config_dict, index_schema_dict):
     """Verify synchronization failure when config.yaml trigger set is mutated."""
     mutated_config = copy.deepcopy(config_dict)
-    del mutated_config["triggers"]["spider"]
+    del mutated_config["triggers"]["insect"]
 
     errors = check_trigger_synchronization(mutated_config, index_schema_dict)
-    assert any("Unexpected trigger(s) in schema enum" in err and "spider" in err for err in errors)
+    assert any("Unexpected trigger(s) in schema enum" in err and "insect" in err for err in errors)
 
 
 # ------------------------------------------------------------------------------

@@ -65,13 +65,14 @@ FLASH_DISCLAIMER = (
 CANONICAL_TRIGGERS: List[str] = [
     "flashing",
     "loud_spike",
+    "sustained_loudness",
     "gunshot",
     "explosion",
     "scream",
     "profanity",
-    "spider",
-    "fast_motion",
+    "insect",
     "jump_scare",
+    "visible_blood",
 ]
 
 KEY_LIBRARIES: List[str] = [
@@ -286,7 +287,6 @@ def run_evaluation_stage(
             REPO_ROOT / "scripts" / "classify_audio_events.py",
             REPO_ROOT / "scripts" / "detect_loudness.py",
             REPO_ROOT / "scripts" / "detect_jump_scare.py",
-            REPO_ROOT / "scripts" / "detect_fast_motion.py",
         ]
         inputs.extend([s for s in detector_scripts if s.is_file()])
 

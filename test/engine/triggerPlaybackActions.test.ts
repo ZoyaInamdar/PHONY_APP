@@ -321,12 +321,12 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
   describe('Visual blur state representation and boundaries (Phase 2A)', () => {
     const blurCues: Cue[] = [
       {
-        id: 'cue-spider-blur',
+        id: 'cue-insect-blur',
         start: 40.0,
         end: 45.0,
         source: 'visual',
         action: 'blur',
-        trigger: 'spider',
+        trigger: 'insect',
         status: 'ready',
       },
     ];
@@ -337,7 +337,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
       expect(before.visualAction).toBeNull();
       expect(before.hide).toBe(false);
       expect(before.soundGain).toBe(1);
-      expect(before.activeCueIds).not.toContain('cue-spider-blur');
+      expect(before.activeCueIds).not.toContain('cue-insect-blur');
       expect(playbackState.getActiveVisualAction()).toBeNull();
 
       // 2. Exactly at cue start (t=40.0s, boundary inclusive)
@@ -345,7 +345,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
       expect(atStart.visualAction).toBe('blur');
       expect(atStart.hide).toBe(false);
       expect(atStart.soundGain).toBe(1);
-      expect(atStart.activeCueIds).toContain('cue-spider-blur');
+      expect(atStart.activeCueIds).toContain('cue-insect-blur');
       expect(playbackState.getActiveVisualAction()).toBe('blur');
 
       // 3. During cue (t=42.5s)
@@ -360,7 +360,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
       expect(atEnd.visualAction).toBeNull();
       expect(atEnd.hide).toBe(false);
       expect(atEnd.soundGain).toBe(1);
-      expect(atEnd.activeCueIds).not.toContain('cue-spider-blur');
+      expect(atEnd.activeCueIds).not.toContain('cue-insect-blur');
       expect(playbackState.getActiveVisualAction()).toBeNull();
 
       // 5. Well after cue end (t=46.0s)
@@ -381,12 +381,12 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
     it('does not activate blur if the trigger category is disabled by viewer preferences', () => {
       const disabledOptions = {
         ...options,
-        disabledCategories: ['spider'],
+        disabledCategories: ['insect'],
       };
       const result = playbackState.resolveAt(42.0, blurCues, disabledOptions);
       expect(result.visualAction).toBeNull();
       expect(result.hide).toBe(false);
-      expect(result.activeCueIds).not.toContain('cue-spider-blur');
+      expect(result.activeCueIds).not.toContain('cue-insect-blur');
       expect(playbackState.getActiveVisualAction()).toBeNull();
     });
 
@@ -432,7 +432,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
             end: 18.0,
             source: 'visual',
             action: 'blur',
-            trigger: 'spider',
+            trigger: 'insect',
           },
         ];
 
@@ -479,7 +479,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
             end: 16.0,
             source: 'visual',
             action: 'blur',
-            trigger: 'spider',
+            trigger: 'insect',
           },
         ];
 
@@ -509,7 +509,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
             end: 20.0,
             source: 'visual',
             action: 'blur',
-            trigger: 'spider',
+            trigger: 'insect',
           },
           {
             id: 'c-reduce',
@@ -565,7 +565,7 @@ describe('Trigger-Aware Playback Actions — Unit & Integration Engine Tests', (
             end: 20.0,
             source: 'visual',
             action: 'blur',
-            trigger: 'spider',
+            trigger: 'insect',
           },
           {
             id: 'c-skip',

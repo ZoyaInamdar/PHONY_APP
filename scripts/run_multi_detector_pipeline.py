@@ -52,7 +52,6 @@ class PipelinePaths:
     multi_report_md: Path
     dataset_report_json: Path
     dataset_report_md: Path
-    fast_motion_detections: Optional[Path] = None
     jump_scare_detections: Optional[Path] = None
 
     @classmethod
@@ -77,13 +76,8 @@ class PipelinePaths:
             multi_report_md=reports_dir / "multi_detector_evaluation_report.md",
             dataset_report_json=reports_dir / "detection_evaluation_report.json",
             dataset_report_md=reports_dir / "detection_evaluation_report.md",
-            fast_motion_detections=eval_dir / "fast_motion_detections.json",
             jump_scare_detections=eval_dir / "jump_scare_detections.json",
         )
-
-    @property
-    def fast_motion_path(self) -> Path:
-        return self.fast_motion_detections if self.fast_motion_detections is not None else (self.eval_dir / "fast_motion_detections.json")
 
     @property
     def jump_scare_path(self) -> Path:
@@ -142,10 +136,7 @@ def check_prerequisites(
         errors.append(f"Index schema JSON not found: {paths.index_schema}")
 
     if check_experimental:
-        fast_motion_script = paths.repo_root / "scripts" / "detect_fast_motion.py"
         jump_scare_script = paths.repo_root / "scripts" / "detect_jump_scare.py"
-        if not fast_motion_script.is_file():
-            errors.append(f"Fast motion detector script not found: {fast_motion_script}")
         if not jump_scare_script.is_file():
             errors.append(f"Jump scare detector script not found: {jump_scare_script}")
 
@@ -253,26 +244,6 @@ def build_pipeline_stages(
         stages.append(
             PipelineStage(
                 stage_id=current_id,
-                name="Detect Fast Motion (motion_detector)",
-                command=[
-                    py,
-                    str(paths.repo_root / "scripts" / "detect_fast_motion.py"),
-                    "--input",
-                    str(paths.input_media),
-                    "--output",
-                    str(paths.fast_motion_path),
-                    "--config",
-                    str(paths.config_yaml),
-                ],
-                description="Detects visual fast motion and camera shake from video luminance differences.",
-                expected_output=paths.fast_motion_path,
-            )
-        )
-        current_id += 1
-
-        stages.append(
-            PipelineStage(
-                stage_id=current_id,
                 name="Detect Jump Scares (jump_scare_detector)",
                 command=[
                     py,
@@ -297,7 +268,6 @@ def build_pipeline_stages(
     ]
     if options.include_experimental:
         package_inputs.extend([
-            str(paths.fast_motion_path),
             str(paths.jump_scare_path),
         ])
 
@@ -526,7 +496,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--include-experimental",
         action="store_true",
-        help="Include experimental detectors (fast_motion, jump_scare) in pipeline execution and packaging.",
+        help="Include experimental detectors (jump_scare) in pipeline execution and packaging.",
     )
     parser.add_argument(
         "--skip-dataset-eval",
@@ -559,7 +529,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             audio_wav=out_dir / "audio.wav",
             loudness_detections=out_dir / "loudness_detections.json",
             profanity_detections=out_dir / "profanity_detections.json",
-            fast_motion_detections=out_dir / "fast_motion_detections.json",
             jump_scare_detections=out_dir / "jump_scare_detections.json",
             index_json=out_dir / "index.json",
             multi_report_json=reports_dir / "multi_detector_evaluation_report.json",

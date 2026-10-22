@@ -27,9 +27,7 @@ EXPECTED_CONTRACT = {
     "scream": {"default": "reduce", "allowed": ["reduce", "mute", "skip", "warn"]},
     "loud_spike": {"default": "reduce", "allowed": ["reduce", "mute", "warn"]},
     "sustained_loudness": {"default": "reduce", "allowed": ["reduce", "mute", "warn", "skip"]},
-    "spider": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
     "insect": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
-    "fast_motion": {"default": "warn", "allowed": ["warn", "hide", "skip"]},
     "jump_scare": {"default": "warn", "allowed": ["warn", "hide", "mute", "skip"]},
     "visible_blood": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
 }
@@ -177,23 +175,25 @@ def test_profanity_configuration():
     assert matching.get("match_whole_words") is True
 
 
-def test_spider_configuration():
-    """Verify spider trigger configuration including tiling and prompt setup."""
+def test_spider_and_fast_motion_rejected():
+    """Verify that spider and fast_motion are rejected from config."""
     config = load_config(CONFIG_PATH)
-    spider = config["triggers"]["spider"]
-    algo = spider.get("algorithm", {})
-    assert algo.get("frame_sampling_fps") == pytest.approx(1.0)
-    assert algo.get("spatial_tiling", {}).get("enabled") is True
-    assert algo.get("selected_backend") in (None, "YOLO-World")
-    assert {"CLIP", "SigLIP"}.issubset(set(algo.get("candidate_backends", [])))
-    assert len(algo.get("positive_prompts", [])) >= 1
-    assert len(algo.get("negative_prompts", [])) >= 3
+    schema = load_schema(SCHEMA_PATH)
+    assert "spider" not in config["triggers"]
+    assert "fast_motion" not in config["triggers"]
+
+    # Ensure schema rejects spider
+    config_copy = dict(config)
+    config_copy["triggers"] = dict(config["triggers"])
+    config_copy["triggers"]["spider"] = {"enabled": False, "default_action": "hide", "allowed_actions": ["hide"]}
+    errors = validate_schema_compliance(config_copy, schema)
+    assert len(errors) > 0
 
 
 def test_experimental_stretch_features_disabled():
-    """Verify experimental stretch features (fast_motion, jump_scare, sustained_loudness, insect, visible_blood) are disabled by default."""
+    """Verify experimental stretch features (jump_scare, sustained_loudness, insect, visible_blood) are disabled by default."""
     config = load_config(CONFIG_PATH)
-    for tid in ["fast_motion", "jump_scare", "sustained_loudness", "insect", "visible_blood"]:
+    for tid in ["jump_scare", "sustained_loudness", "insect", "visible_blood"]:
         t = config["triggers"][tid]
         assert t.get("status") == "experimental"
         assert t.get("enabled") is False

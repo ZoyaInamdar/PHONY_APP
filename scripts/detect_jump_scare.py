@@ -287,8 +287,7 @@ def detect_visual_change_events(
 
     Limitation note:
     This helper serves as visual proxy evidence for abrupt visual onsets coincident
-    with audio spikes. It does not replace Person C's independent 'fast_motion'
-    detector, and must not be used to mark 'fast_motion' as implemented.
+    with audio spikes. It functions independently as a multimodal shock detector.
 
     Returns:
         List of visual change event dictionaries with fields:

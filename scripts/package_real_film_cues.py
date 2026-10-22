@@ -162,23 +162,8 @@ def package_sintel_trailer(py: str) -> bool:
     if not run_command(js_cmd, "Jump Scare Detector"):
         return False
 
-    # 6. Fast motion detector
-    fast_motion_json = out_dir / "fast_motion_detections.json"
-    fm_cmd = [
-        py,
-        str(REPO_ROOT / "scripts" / "detect_fast_motion.py"),
-        "--input", str(normalized_video),
-        "--output", str(fast_motion_json),
-        "--config", str(CONFIG_PATH),
-    ]
-    if not run_command(fm_cmd, "Fast Motion Detector"):
-        return False
-
     # Standardize wrapped format with synthetic=False
-    spider_json = out_dir / "spider_detections.json"
-    raw_files = [flashing_json, audio_events_json, jump_scare_json, fast_motion_json]
-    if spider_json.is_file():
-        raw_files.append(spider_json)
+    raw_files = [flashing_json, audio_events_json, jump_scare_json]
     for rf in raw_files:
         if rf.is_file():
             with rf.open("r", encoding="utf-8") as f:
@@ -200,10 +185,7 @@ def package_sintel_trailer(py: str) -> bool:
         str(flashing_json),
         str(audio_events_json),
         str(jump_scare_json),
-        str(fast_motion_json),
     ]
-    if spider_json.is_file():
-        pkg_inputs.append(str(spider_json))
 
     pkg_cmd = [
         py,
@@ -238,24 +220,7 @@ def package_sintel(py: str) -> bool:
     out_dir = REPO_ROOT / "data" / "processed" / "sintel"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    spider_json = out_dir / "spider_detections.json"
     subtitles_json = out_dir / "subtitles.json"
-    if not subtitles_json.is_file():
-        subtitles_json = out_dir / "cues.json"
-
-    # Standardize wrapped format if list
-    if spider_json.is_file():
-        with spider_json.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            wrapped = {
-                "film_id": "sintel",
-                "synthetic": False,
-                "timeline": {"duration_seconds": 888.042, "fps": 24.0},
-                "detections": data,
-            }
-            with spider_json.open("w", encoding="utf-8") as f:
-                json.dump(wrapped, f, indent=2)
 
     if subtitles_json.is_file():
         with subtitles_json.open("r", encoding="utf-8") as f:
@@ -277,8 +242,6 @@ def package_sintel(py: str) -> bool:
                 json.dump(s_data, f, indent=2)
 
     inputs: List[str] = []
-    if spider_json.is_file():
-        inputs.append(str(spider_json))
     if subtitles_json.is_file():
         inputs.append(str(subtitles_json))
 
@@ -444,20 +407,8 @@ def package_elephants_dream(py: str) -> bool:
     if not run_command(js_cmd, "Jump Scare Detector"):
         return False
 
-    # 5. Fast motion detector
-    fast_motion_json = out_dir / "fast_motion_detections.json"
-    fm_cmd = [
-        py,
-        str(REPO_ROOT / "scripts" / "detect_fast_motion.py"),
-        "--input", str(media_path),
-        "--output", str(fast_motion_json),
-        "--config", str(CONFIG_PATH),
-    ]
-    if not run_command(fm_cmd, "Fast Motion Detector"):
-        return False
-
     # Standardize wrapped format with synthetic=False
-    raw_files = [flashing_json, audio_events_json, jump_scare_json, fast_motion_json]
+    raw_files = [flashing_json, audio_events_json, jump_scare_json]
     for rf in raw_files:
         if rf.is_file():
             with rf.open("r", encoding="utf-8") as f:
@@ -479,7 +430,6 @@ def package_elephants_dream(py: str) -> bool:
         str(flashing_json),
         str(audio_events_json),
         str(jump_scare_json),
-        str(fast_motion_json),
     ]
 
     pkg_cmd = [

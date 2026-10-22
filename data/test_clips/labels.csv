@@ -7,8 +7,6 @@ audio_multi_event_mix.mp4,gunshot,1.000,1.500,synthetic_generator,
 audio_multi_event_mix.mp4,scream,3.000,4.500,synthetic_generator,
 audio_multi_event_mix.mp4,explosion,6.000,8.200,synthetic_generator,
 audio_scream_test.mp4,scream,1.200,2.700,synthetic_generator,
-fast_motion_negative.mp4,fast_motion,,,synthetic_generator,
-fast_motion_positive.mp4,fast_motion,0.000,3.000,synthetic_generator,
 flash_area_half_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.000
 flash_area_quarter_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.000
 flash_area_small_patch_24fps_4hz_c050.mp4,flashing,1.000,3.000,synthetic_generator,4.000

@@ -46,8 +46,6 @@ FALLBACK_CANONICAL_TRIGGERS: set[str] = {
     "explosion",
     "scream",
     "profanity",
-    "spider",
-    "fast_motion",
     "jump_scare",
     "alcohol",
     "narcotics",
@@ -334,7 +332,7 @@ def build_all_clip_specs(include_experimental: bool = False) -> List[ClipSpec]:
 
     Provides exact clip metadata (fps, duration, resolution, technical parameters)
     for evaluation harness indexing. When include_experimental is True, includes
-    fast_motion and jump_scare test clips and controls.
+    jump_scare test clips and controls.
     """
     specs: List[ClipSpec] = []
 
@@ -679,46 +677,6 @@ def build_all_clip_specs(include_experimental: bool = False) -> List[ClipSpec]:
     )
 
     if include_experimental:
-        specs.append(
-            ClipSpec(
-                clip_name="fast_motion_positive.mp4",
-                duration=3.0,
-                fps=30.0,
-                width=1280,
-                height=720,
-                trigger="fast_motion",
-                start=0.000,
-                end=3.000,
-                labeller="synthetic_generator",
-                metadata={
-                    "clip_id": "fast_motion_pos_01",
-                    "filename": "fast_motion_positive.mp4",
-                    "contains_trigger": True,
-                    "experimental": True,
-                    "description": "High-velocity spatial translation at 50px per frame.",
-                },
-            )
-        )
-        specs.append(
-            ClipSpec(
-                clip_name="fast_motion_negative.mp4",
-                duration=3.0,
-                fps=30.0,
-                width=1280,
-                height=720,
-                trigger="fast_motion",
-                start=None,
-                end=None,
-                labeller="synthetic_generator",
-                metadata={
-                    "clip_id": "fast_motion_neg_01",
-                    "filename": "fast_motion_negative.mp4",
-                    "contains_trigger": False,
-                    "experimental": True,
-                    "description": "Gentle/slow-panning spatial translation at 2px per frame.",
-                },
-            )
-        )
         specs.append(
             ClipSpec(
                 clip_name="jump_scare_positive.mp4",
@@ -2434,60 +2392,6 @@ def mix_audio_burst(
     return out_path
 
 
-def generate_fast_motion_positive(
-    output_path: Union[str, Path],
-    duration: float = 3.0,
-    fps: int = 30,
-) -> Path:
-    """Generate positive test clip for fast_motion trigger with high-velocity spatial translation.
-
-    Simulates high-velocity translation of high-contrast alternating patterns across the full frame.
-    Ground-truth trigger interval: [0.000, 3.000).
-    """
-    out_path = Path(output_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    width, height = 1280, 720
-    frames = []
-    num_frames = int(duration * fps)
-    x = np.arange(width)
-    for i in range(num_frames):
-        phase = (x + i * 20) % 80
-        row = np.where(phase < 40, 255, 0).astype(np.uint8)
-        frame_gray = np.tile(row, (height, 1))
-        frame_bgr = np.dstack([frame_gray, frame_gray, frame_gray])
-        frames.append(frame_bgr)
-
-    write_video(out_path, frames, fps)
-    return out_path
-
-
-def generate_fast_motion_negative(
-    output_path: Union[str, Path],
-    duration: float = 3.0,
-    fps: int = 30,
-) -> Path:
-    """Generate negative control clip for fast_motion trigger with gentle/slow-panning translation.
-
-    Simulates gentle spatial translation at 1 pixel per frame (far below motion threshold 0.20).
-    Negative control: contains no active trigger intervals.
-    """
-    out_path = Path(output_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    width, height = 1280, 720
-    frames = []
-    num_frames = int(duration * fps)
-    x = np.arange(width)
-    for i in range(num_frames):
-        phase = (x + i * 1) % 80
-        row = np.where(phase < 40, 255, 0).astype(np.uint8)
-        frame_gray = np.tile(row, (height, 1))
-        frame_bgr = np.dstack([frame_gray, frame_gray, frame_gray])
-        frames.append(frame_bgr)
-
-    write_video(out_path, frames, fps)
-    return out_path
-
-
 def generate_jump_scare_positive(
     output_video: Union[str, Path],
     output_audio: Optional[Union[str, Path]] = None,
@@ -2588,11 +2492,9 @@ def generate_jump_scare_negative(
 def generate_experimental_test_suite(
     output_dir: Union[str, Path] = DEFAULT_OUTPUT_DIR,
 ) -> Tuple[List[Path], List[ClipSpec]]:
-    """Generate the experimental test clip suite (fast_motion and jump_scare positive and negative controls).
+    """Generate the experimental test clip suite (jump_scare positive and negative controls).
 
     Outputs:
-    - fast_motion_positive.mp4
-    - fast_motion_negative.mp4
     - jump_scare_positive.mp4 and jump_scare_positive.wav
     - jump_scare_negative.mp4 and jump_scare_negative.wav
     - Appends ground-truth intervals to labels.csv
@@ -2604,57 +2506,7 @@ def generate_experimental_test_suite(
     generated_paths: List[Path] = []
     specs: List[ClipSpec] = []
 
-    # 1. fast_motion positive
-    fm_pos_path = out_dir / "fast_motion_positive.mp4"
-    generate_fast_motion_positive(fm_pos_path, duration=3.0, fps=30)
-    generated_paths.append(fm_pos_path)
-    specs.append(
-        ClipSpec(
-            clip_name="fast_motion_positive.mp4",
-            duration=3.0,
-            fps=30.0,
-            width=1280,
-            height=720,
-            trigger="fast_motion",
-            start=0.000,
-            end=3.000,
-            labeller="synthetic_generator",
-            metadata={
-                "clip_id": "fast_motion_pos_01",
-                "filename": "fast_motion_positive.mp4",
-                "contains_trigger": True,
-                "experimental": True,
-                "description": "High-velocity spatial translation at 50px per frame.",
-            },
-        )
-    )
-
-    # 2. fast_motion negative
-    fm_neg_path = out_dir / "fast_motion_negative.mp4"
-    generate_fast_motion_negative(fm_neg_path, duration=3.0, fps=30)
-    generated_paths.append(fm_neg_path)
-    specs.append(
-        ClipSpec(
-            clip_name="fast_motion_negative.mp4",
-            duration=3.0,
-            fps=30.0,
-            width=1280,
-            height=720,
-            trigger="fast_motion",
-            start=None,
-            end=None,
-            labeller="synthetic_generator",
-            metadata={
-                "clip_id": "fast_motion_neg_01",
-                "filename": "fast_motion_negative.mp4",
-                "contains_trigger": False,
-                "experimental": True,
-                "description": "Gentle/slow-panning spatial translation at 2px per frame.",
-            },
-        )
-    )
-
-    # 3. jump_scare positive
+    # 1. jump_scare positive
     js_pos_v = out_dir / "jump_scare_positive.mp4"
     js_pos_a = out_dir / "jump_scare_positive.wav"
     generate_jump_scare_positive(js_pos_v, js_pos_a, duration=3.0, fps=30)
@@ -2780,12 +2632,12 @@ def main() -> None:
     parser.add_argument(
         "--include-experimental",
         action="store_true",
-        help="Include experimental triggers (fast_motion and jump_scare) in test suite generation.",
+        help="Include experimental triggers (jump_scare) in test suite generation.",
     )
     parser.add_argument(
         "--experimental-only",
         action="store_true",
-        help="Generate only experimental trigger test clips (fast_motion and jump_scare).",
+        help="Generate only experimental trigger test clips (jump_scare).",
     )
     parser.add_argument(
         "--reexport-manifest",
@@ -2812,7 +2664,7 @@ def main() -> None:
         args.audio_only, args.speech_only, args.multi_trigger_only,
         args.negatives_only
     ])):
-        print("[1/1] Generating experimental benchmark suite (fast_motion, jump_scare, and controls)...")
+        print("[1/1] Generating experimental benchmark suite (jump_scare and controls)...")
         exp_paths, exp_specs = generate_experimental_test_suite(out_dir)
         print(f"Generated {len(exp_paths)} experimental test assets in {out_dir}")
         print(f"Updated primary labels in: {out_dir / 'labels.csv'}")

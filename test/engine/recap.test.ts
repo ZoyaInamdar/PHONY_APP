@@ -48,11 +48,11 @@ describe('Dynamic Recap Aggregation & Display Strings', () => {
       '3 scenes skipped',
     );
 
-    expect(formatActionDisplayString('spider_blurred', 1)).toBe(
-      '1 spider scene blurred',
+    expect(formatActionDisplayString('insect_blurred', 1)).toBe(
+      '1 insect scene blurred',
     );
-    expect(formatActionDisplayString('spider_blurred', 2)).toBe(
-      '2 spider scenes blurred',
+    expect(formatActionDisplayString('insect_blurred', 2)).toBe(
+      '2 insect scenes blurred',
     );
   });
 
@@ -98,7 +98,7 @@ describe('Dynamic Recap Aggregation & Display Strings', () => {
         end: 15,
         source: 'visual',
         action: 'skip',
-        trigger: 'spider',
+        trigger: 'insect',
       },
     ];
 
@@ -122,6 +122,6 @@ describe('Dynamic Recap Aggregation & Display Strings', () => {
     const strings = generateRecapDisplayStrings(payload.appliedActions);
     expect(strings).toContain('1 profanity muted');
     expect(strings).toContain('1 flash scene blacked out');
-    expect(strings).toContain('1 spider scene skipped');
+    expect(strings).toContain('1 insect scene skipped');
   });
 });

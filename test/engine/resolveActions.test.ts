@@ -126,7 +126,7 @@ describe('resolveActions', () => {
       end: 25,
       source: 'visual',
       action: 'warn',
-      trigger: 'fast_motion',
+      trigger: 'jump_scare',
     };
 
     const before = resolveActions(19.9, [warnCue], DEFAULT_VIEWER_OPTIONS);
@@ -186,7 +186,7 @@ describe('resolveActions', () => {
       end: 55,
       source: 'visual',
       action: 'blur',
-      trigger: 'spider',
+      trigger: 'insect',
     };
 
     const dimResult = resolveActions(42.0, [dimCue], DEFAULT_VIEWER_OPTIONS);
@@ -367,36 +367,36 @@ describe('resolveActions', () => {
     });
 
     it('6. retains correct behavior for an explicit action other than reduce or skip (e.g. blur or warn)', () => {
-      // spider default is 'hide', allowed: ['blur', 'skip', 'warn']
-      const spiderCue: Cue = {
-        id: 'cue-spider-blur',
+      // insect default is 'hide', allowed: ['blur', 'skip', 'warn']
+      const insectCue: Cue = {
+        id: 'cue-insect-blur',
         start: 40,
         end: 45,
         source: 'visual',
         action: 'hide',
-        trigger: 'spider',
+        trigger: 'insect',
       };
-      const resBlur = resolveActions(42, [spiderCue], {
+      const resBlur = resolveActions(42, [insectCue], {
         ...DEFAULT_VIEWER_OPTIONS,
         hideEnabled: true,
-        actionOverrides: { spider: 'blur' },
+        actionOverrides: { insect: 'blur' },
       });
       expect(resBlur.visualAction).toBe('blur');
       expect(resBlur.hide).toBe(false);
 
-      // fast_motion default is 'warn', override to 'hide'
+      // jump_scare default is 'warn', override to 'hide'
       const motionCue: Cue = {
         id: 'cue-motion-hide',
         start: 50,
         end: 55,
         source: 'visual',
         action: 'warn',
-        trigger: 'fast_motion',
+        trigger: 'jump_scare',
       };
       const resHide = resolveActions(52, [motionCue], {
         ...DEFAULT_VIEWER_OPTIONS,
         hideEnabled: true,
-        actionOverrides: { fast_motion: 'hide' },
+        actionOverrides: { jump_scare: 'hide' },
       });
       expect(resHide.visualAction).toBe('hide');
       expect(resHide.hide).toBe(true);

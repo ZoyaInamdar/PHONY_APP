@@ -105,7 +105,7 @@ export const verificationTestCues: Cue[] = [
     end: 35.0,
     source: 'visual',
     action: 'hide',
-    trigger: 'spider',
+    trigger: 'insect',
     status: 'ready',
   },
   {
@@ -170,7 +170,7 @@ export const skipVerificationTestCues: Cue[] = [
     end: 36.0,
     source: 'visual',
     action: 'skip',
-    trigger: 'spider',
+    trigger: 'insect',
     status: 'needs_review',
   },
 ];

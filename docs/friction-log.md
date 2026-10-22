@@ -93,7 +93,7 @@ No shared config, schema, or packaging-pipeline changes are authorized by this s
 
 **1. Action/modality vocabulary mismatch (Person A / shared config)**
 
-`config.yaml` uses `dim` (flashing) and `blur` (spider) as default actions,
+`config.yaml` uses `dim` (flashing) and `blur` (insect) as default actions,
 and `text` (profanity) and `audio_visual` (jump_scare) as modalities.
 The engine previously rejected all four, preventing the real index from adapting.
 
@@ -161,7 +161,7 @@ TypeScript typecheck: passed (no output).
 | Action/Modality | Engine carries it? | Rendered on-device? | Owner / Phase |
 |---|---|---|---|
 | `dim` (flashing) | Yes — `visualAction: 'dim'` | **No** — Vega OS overlay API needed | Person A / Phase 1 |
-| `blur` (spider) | Yes — `visualAction: 'blur'` | **No** — Vega OS overlay API needed | Person A / Phase 1 |
+| `blur` (insect) | Yes — `visualAction: 'blur'` | **No** — Vega OS overlay API needed | Person A / Phase 1 |
 | `text` muting (profanity) | Yes — audio muted via `soundGain=0` | Audio: yes. Caption censorship: **No** | Person C / Phase 1 |
 | `audio_visual` (jump_scare) | Yes — carried as source | **No** — disabled trigger, compound rendering needed | Person A+B / Phase 1 |
 

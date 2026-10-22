@@ -464,7 +464,7 @@ def test_contract_compliance_and_packaging_integration():
     det = events[0]
 
     # Validate against package_cues shared contract
-    canonical_triggers = {"flashing", "loud_spike", "gunshot", "explosion", "scream", "profanity", "spider"}
+    canonical_triggers = {"flashing", "loud_spike", "gunshot", "explosion", "scream", "profanity", "insect"}
     validate_raw_detection(det, canonical_triggers=canonical_triggers)
 
     # Test merge_detections can consume it cleanly

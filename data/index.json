@@ -58,22 +58,6 @@
       "source": "profanity_detector"
     },
     {
-      "id": "cue_sintel_spider_034000_036500",
-      "start": 34.0,
-      "end": 36.5,
-      "trigger": "spider",
-      "score": 0.81,
-      "source": "spider_detector"
-    },
-    {
-      "id": "cue_sintel_fast_motion_040000_042000",
-      "start": 40.0,
-      "end": 42.0,
-      "trigger": "fast_motion",
-      "score": 0.65,
-      "source": "motion_detector"
-    },
-    {
       "id": "cue_sintel_jump_scare_045000_046200",
       "start": 45.0,
       "end": 46.2,

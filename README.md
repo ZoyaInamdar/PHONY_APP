@@ -11,7 +11,7 @@ Amazon Developer Hackathon 2026 Project.
 The offline detection pipeline, cue merging logic, and cue-sheet packaging are governed by `config.yaml` located at the root of the repository. This configuration serves as the contract between:
 - **Person A**: Player-side cue-sheet engine and runtime viewer action application.
 - **Person B**: Pipeline configuration, schema validation, media ingest, loudness detection, cue merging, packaging, and evaluation harness.
-- **Person C**: Additional offline detectors (flashing, spider detection, audio event classification).
+- **Person C**: Additional offline detectors (flashing, audio event classification).
 
 ### How to Load the Configuration in Python
 
@@ -108,9 +108,10 @@ The 9 canonical identifiers defined in `config.yaml`:
 | `explosion` | Audio | `mute` | Experimental | Pretrained audio classification (AST / YAMNet / PANNs) |
 | `scream` | Audio | `mute` | Experimental | Pretrained audio classification (AST / YAMNet / PANNs) |
 | `profanity` | Text | `mute` | Baseline | Rule-based text matching on subtitles (STT fallback) |
-| `spider` | Visual | `blur` | Baseline | Zero-shot multimodal image-text matching (CLIP / SigLIP) |
-| `fast_motion` | Visual | `warn` | Experimental | Frame difference rule (stretch feature, disabled) |
+| `insect` | Visual | `hide` | Experimental | Visual detection (stretch feature, disabled) |
 | `jump_scare` | Audio-Visual | `warn` | Experimental | Compound heuristic (stretch feature, disabled) |
+| `sustained_loudness` | Audio | `reduce` | Experimental | Audio loudness heuristic (stretch feature, disabled) |
+| `visible_blood` | Visual | `hide` | Experimental | Visual detection (stretch feature, disabled) |
 
 Allowed actions vocabulary: `dim`, `mute`, `blur`, `skip`, `warn`.
 
@@ -291,8 +292,7 @@ pytest tests/test_config.py -v
 
 1. **Audio Event Classifier (`gunshot`, `explosion`, `scream`)**: `AST` vs. `YAMNet` vs. `PANNs` (Owner: Person C & Person B; status: `unresolved`).
 2. **Speech-to-Text Fallback (`profanity`)**: `faster-whisper` vs. `Amazon Transcribe` (Owner: Person B; status: `unresolved`).
-3. **Zero-Shot Visual Classifier (`spider`)**: `CLIP` vs. `SigLIP` (Owner: Person C; status: `unresolved`).
-4. **Stretch Features (`fast_motion`, `jump_scare`)**: Disabled by default (`status: "experimental"`, `enabled: false`).
+3. **Stretch Features (`jump_scare`, `insect`, `visible_blood`)**: Disabled by default (`status: "experimental"`, `enabled: false`).
 
 ---
 
@@ -429,12 +429,11 @@ pytest tests/test_content_delivery.py -v
 
 ## 11. Opt-in Experimental Detector Pipeline
 
-The multi-detector evaluation pipeline integrates optional experimental detectors (`fast_motion` and `jump_scare`) alongside the canonical triggers.
+The multi-detector evaluation pipeline integrates optional experimental detectors (`jump_scare`) alongside the canonical triggers.
 
 ### Experimental Detectors
-- **`fast_motion`**: Optical frame-difference heuristics detecting rapid scene movement.
 - **`jump_scare`**: Multimodal audio-visual compound detector combining acoustic transient loudness spikes with rapid visual transitions.
-- **Experimental Test Clips**: Ground-truth benchmark includes both positive and negative validation clips (`fast_motion_positive.mp4`, `fast_motion_negative.mp4`, `jump_scare_positive.mp4`, `jump_scare_negative.mp4`).
+- **Experimental Test Clips**: Ground-truth benchmark includes both positive and negative validation clips (`jump_scare_positive.mp4`, `jump_scare_negative.mp4`).
 
 ### Running Multi-Detector Pipeline
 
@@ -452,7 +451,7 @@ python scripts/run_multi_detector_pipeline.py --include-experimental
 
 ### 12.1 App Scope & Capabilities
 
-The **Trigger-Aware Player** is an on-device accessible media player for Amazon Fire TV (Vega OS) that automatically mitigates distressing or harmful audiovisual triggers (`flashing`, `loud_spike`, `gunshot`, `explosion`, `scream`, `profanity`, `spider`, `fast_motion`, `jump_scare`) according to viewer-selected sensitivity profiles.
+The **Trigger-Aware Player** is an on-device accessible media player for Amazon Fire TV (Vega OS) that automatically mitigates distressing or harmful audiovisual triggers (`flashing`, `gunshot`, `explosion`, `scream`, `loud_spike`, `sustained_loudness`, `profanity`, `insect`, `jump_scare`, `visible_blood`) according to viewer-selected sensitivity profiles.
 
 - **What the app does**:
   - Dynamically enforces viewer preferences on-device using mathematical half-open intervals $[start, end)$.

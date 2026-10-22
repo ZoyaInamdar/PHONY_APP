@@ -36,7 +36,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.classify_audio_events import classify_audio_events
-from scripts.detect_fast_motion import detect_fast_motion
 from scripts.detect_flashing import detect_flashing
 from scripts.detect_jump_scare import detect_jump_scare
 from scripts.detect_loudness import (
@@ -67,13 +66,14 @@ DEFAULT_IOU_THRESHOLD = 0.5
 CANONICAL_TRIGGERS: Set[str] = {
     "flashing",
     "loud_spike",
+    "sustained_loudness",
     "gunshot",
     "explosion",
     "scream",
     "profanity",
-    "spider",
-    "fast_motion",
+    "insect",
     "jump_scare",
+    "visible_blood",
 }
 
 # Detector availability registry
@@ -125,22 +125,6 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "available",
         "script": "scripts/classify_audio_events.py",
         "method": "pretrained_audio_classification",
-    },
-    "spider": {
-        "component": "spider_detector",
-        "modality": "visual",
-        "owner": "Person A",
-        "status": "missing_detector",
-        "script": None,
-        "method": "unimplemented",
-    },
-    "fast_motion": {
-        "component": "motion_detector",
-        "modality": "visual",
-        "owner": "Person C",
-        "status": "available",
-        "script": "scripts/detect_fast_motion.py",
-        "method": "frame_difference_rule",
     },
     "jump_scare": {
         "component": "compound_detector",
@@ -756,16 +740,6 @@ def run_detector_for_clip(
         )
         return merged_detections
 
-    elif trigger == "fast_motion":
-        raw_detections = detect_fast_motion(
-            clip_file,
-            config=config,
-        )
-        merged_detections = merge_detections(
-            detections=raw_detections,
-            config=config,
-        )
-        return merged_detections
 
     else:
         info = DETECTOR_REGISTRY.get(trigger, {})

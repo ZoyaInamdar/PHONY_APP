@@ -179,13 +179,14 @@ def merge_detections(
             canonical_triggers = {
                 "flashing",
                 "loud_spike",
+                "sustained_loudness",
                 "gunshot",
                 "explosion",
                 "scream",
                 "profanity",
-                "spider",
-                "fast_motion",
+                "insect",
                 "jump_scare",
+                "visible_blood",
             }
 
     # Extract global merge settings from config if available

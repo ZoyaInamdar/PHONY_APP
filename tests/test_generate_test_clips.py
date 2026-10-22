@@ -486,9 +486,7 @@ def test_canonical_triggers_loaded_from_config(tmp_path: Path):
         "explosion",
         "scream",
         "profanity",
-        "spider",
         "insect",
-        "fast_motion",
         "jump_scare",
         "visible_blood",
     }
@@ -535,8 +533,6 @@ def test_canonical_triggers_loaded_from_config(tmp_path: Path):
         "explosion",
         "scream",
         "profanity",
-        "spider",
-        "fast_motion",
         "jump_scare",
         "alcohol",
         "narcotics",
@@ -645,9 +641,9 @@ def test_synthetic_dataset_overall_integrity():
     report = validate_dataset()
     assert report["is_valid"] is True
     assert len(report["errors"]) == 0
-    assert report["total_mp4_files"] in (30, 31, 34, 35)
-    assert report["unique_manifest_clips"] in (30, 34)
-    assert report["total_label_rows"] in (31, 35)
+    assert report["total_mp4_files"] in (30, 31, 32, 33, 34, 35)
+    assert report["unique_manifest_clips"] in (30, 32, 34)
+    assert report["total_label_rows"] in (31, 33, 35)
     assert report["flashing_actual_rates_valid"] is True
     assert report["loudness_clips_valid"] is True
 
@@ -669,24 +665,20 @@ def test_multi_trigger_fixture_labels():
 
 
 def test_experimental_test_suite_specs_and_labels(tmp_path: Path):
-    """Verify experimental suite generates fast_motion and jump_scare specs with exact intervals."""
+    """Verify experimental suite generates jump_scare specs with exact intervals."""
     from scripts.generate_test_clips import (
         build_all_clip_specs,
         generate_experimental_test_suite,
     )
 
     specs = build_all_clip_specs(include_experimental=True)
-    assert len(specs) == 34
+    assert len(specs) == 32
     exp_clip_names = {s.clip_name for s in specs}
-    assert "fast_motion_positive.mp4" in exp_clip_names
-    assert "fast_motion_negative.mp4" in exp_clip_names
     assert "jump_scare_positive.mp4" in exp_clip_names
     assert "jump_scare_negative.mp4" in exp_clip_names
 
     paths, exp_specs = generate_experimental_test_suite(output_dir=tmp_path)
-    assert len(paths) == 6
-    assert (tmp_path / "fast_motion_positive.mp4").is_file()
-    assert (tmp_path / "fast_motion_negative.mp4").is_file()
+    assert len(paths) == 4
     assert (tmp_path / "jump_scare_positive.mp4").is_file()
     assert (tmp_path / "jump_scare_positive.wav").is_file()
     assert (tmp_path / "jump_scare_negative.mp4").is_file()
@@ -697,22 +689,13 @@ def test_experimental_test_suite_specs_and_labels(tmp_path: Path):
     assert manifest_file.is_file()
     with manifest_file.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    assert data["clip_count"] == 34
+    assert data["clip_count"] == 32
 
     # Verify labels.csv
     labels_file = tmp_path / "labels.csv"
     assert labels_file.is_file()
     with labels_file.open("r", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
-    fm_pos = next(r for r in rows if r["clip"] == "fast_motion_positive.mp4")
-    assert fm_pos["trigger"] == "fast_motion"
-    assert float(fm_pos["start"]) == 0.0
-    assert float(fm_pos["end"]) == 3.0
-
-    fm_neg = next(r for r in rows if r["clip"] == "fast_motion_negative.mp4")
-    assert fm_neg["trigger"] == "fast_motion"
-    assert fm_neg["start"] == ""
-    assert fm_neg["end"] == ""
 
     js_pos = next(r for r in rows if r["clip"] == "jump_scare_positive.mp4")
     assert js_pos["trigger"] == "jump_scare"

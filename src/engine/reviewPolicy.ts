@@ -13,7 +13,7 @@ import { Cue, ViewerOptions } from './types';
  *   any other           → warn  (if preferred action is disabled)
  *
  * `dim` and `blur` cues will never have `action === 'skip'` in practice
- * (the shared config does not allow skip for flashing/spider in Phase 0),
+ * (the shared config does not allow skip for flashing/insect in Phase 0),
  * but they are treated as visual sources here for completeness.
  *
  * This function does not mutate the input cues.

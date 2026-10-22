@@ -44,12 +44,16 @@
         },
         "timestamp_unit": {
           "type": "string",
-          "enum": ["seconds"],
+          "enum": [
+            "seconds"
+          ],
           "description": "Timestamp unit. Must be 'seconds'."
         },
         "interval_convention": {
           "type": "string",
-          "enum": ["half_open"],
+          "enum": [
+            "half_open"
+          ],
           "description": "Interval convention. Must be 'half_open' [start, end)."
         },
         "fps": {
@@ -111,9 +115,7 @@
             "scream",
             "loud_spike",
             "sustained_loudness",
-            "spider",
             "insect",
-            "fast_motion",
             "jump_scare",
             "visible_blood"
           ],
@@ -132,7 +134,10 @@
         },
         "status": {
           "type": "string",
-          "enum": ["ready", "needs_review"],
+          "enum": [
+            "ready",
+            "needs_review"
+          ],
           "description": "Optional review status for the cue (defaults to 'ready')."
         }
       },

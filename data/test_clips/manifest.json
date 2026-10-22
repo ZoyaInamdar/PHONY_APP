@@ -1,6 +1,6 @@
 {
   "generator_version": 1,
-  "clip_count": 34,
+  "clip_count": 32,
   "clips": [
     {
       "clip_name": "audio_explosion_test.mp4",
@@ -167,55 +167,6 @@
         "has_contrast_swatches": true
       },
       "description": "Fine-detail text and contrast pattern for blur/blackout verification"
-    },
-    {
-      "clip_name": "fast_motion_negative.mp4",
-      "duration": 3.0,
-      "fps": 30.0,
-      "width": 1280,
-      "height": 720,
-      "trigger": null,
-      "start": null,
-      "end": null,
-      "labeller": "synthetic_generator",
-      "metadata": {
-        "clip_id": "fast_motion_neg_01",
-        "filename": "fast_motion_negative.mp4",
-        "contains_trigger": false,
-        "experimental": true,
-        "description": "Gentle/slow-panning spatial translation at 2px per frame."
-      },
-      "clip_id": "fast_motion_neg_01",
-      "filename": "fast_motion_negative.mp4",
-      "contains_trigger": false,
-      "experimental": true,
-      "description": "Gentle/slow-panning spatial translation at 2px per frame."
-    },
-    {
-      "clip_name": "fast_motion_positive.mp4",
-      "duration": 3.0,
-      "fps": 30.0,
-      "width": 1280,
-      "height": 720,
-      "trigger": "fast_motion",
-      "start": 0.0,
-      "end": 3.0,
-      "labeller": "synthetic_generator",
-      "metadata": {
-        "clip_id": "fast_motion_pos_01",
-        "filename": "fast_motion_positive.mp4",
-        "contains_trigger": true,
-        "experimental": true,
-        "description": "High-velocity spatial translation at 50px per frame.",
-        "triggers": [
-          "fast_motion"
-        ]
-      },
-      "clip_id": "fast_motion_pos_01",
-      "filename": "fast_motion_positive.mp4",
-      "contains_trigger": true,
-      "experimental": true,
-      "description": "High-velocity spatial translation at 50px per frame."
     },
     {
       "clip_name": "flash_area_half_24fps_4hz_c050.mp4",

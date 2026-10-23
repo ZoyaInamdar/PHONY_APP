@@ -206,7 +206,7 @@ triggers:
     input: "audio.wav (downmixed mono PCM, 44.1 kHz or 48 kHz)"
     timing_resolution_seconds: 0.1
     source: "loudness_detector"
-    threshold: 12.0  # Decibels above rolling median reference
+    threshold: 15.0  # Decibels above rolling median reference
     default_action: "reduce"
     allowed_actions:
       - "reduce"
@@ -214,7 +214,7 @@ triggers:
       - "warn"
     padding_before_seconds: 0.3
     padding_after_seconds: 0.7
-    merge_gap_seconds: 2.0
+    merge_gap_seconds: 0.5
     min_segment_duration_seconds: 0.1
     max_segment_duration_seconds: 15.0
 
@@ -230,7 +230,9 @@ triggers:
       # Rolling median reference duration against which spikes are measured
       rolling_median_duration_seconds: 10.0
       # Spike threshold in dB relative to rolling median
-      relative_spike_threshold_db: 12.0
+      relative_spike_threshold_db: 15.0
+      # Minimum absolute loudness in dBFS required to qualify as a loud spike
+      min_absolute_spike_dbfs: -18.0
       # Handling of leading audio windows (first 10 seconds before full history exists)
       leading_window_policy: "use_available_history"  # options: use_available_history, pad_with_initial_median
       # Segment construction policy

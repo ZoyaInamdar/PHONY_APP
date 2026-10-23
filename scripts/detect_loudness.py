@@ -57,10 +57,10 @@ DEFAULT_SOURCE = "loudness_detector"
 # Baseline defaults aligned with config.yaml (triggers.loud_spike.algorithm)
 DEFAULT_RMS_WINDOW_SEC = 0.1             # 100 ms RMS analysis window
 DEFAULT_ROLLING_MEDIAN_SEC = 10.0        # 10.0 s background history buffer
-DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB = 12.0 # 12.0 dB increase above rolling median
+DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB = 15.0 # 15.0 dB increase above rolling median (approved Run 10)
 DEFAULT_NUMERICAL_FLOOR_DB = -90.0       # Floor to prevent log10(0)
 DEFAULT_EPSILON = 1e-9
-DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS = -40.0  # Floor below which sounds are too quiet to be loud spikes
+DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS = -18.0  # Floor below which sounds are too quiet to be loud spikes (-18.0 dBFS approved Run 10)
 DEFAULT_LEADING_WINDOW_POLICY = "use_available_history"
 
 # Baseline defaults for sustained loudness detection
@@ -219,6 +219,11 @@ def detect_loud_spikes(
     """
     if not window_data:
         return []
+
+    if relative_spike_threshold_db is None:
+        relative_spike_threshold_db = DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB
+    if min_absolute_spike_dbfs is None:
+        min_absolute_spike_dbfs = DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS
 
     history_len = max(1, int(round(rolling_median_duration_sec / window_duration_sec)))
     history: collections.deque[float] = collections.deque(maxlen=history_len)
@@ -392,6 +397,7 @@ def detect_loudness_from_samples(
     modes: Tuple[str, ...] = ("spike", "sustained"),
     initial_median_db: Optional[float] = None,
     relative_spike_threshold_db: Optional[float] = None,
+    min_absolute_spike_dbfs: Optional[float] = None,
     sustained_threshold_dbfs: Optional[float] = None,
     sustained_min_duration_sec: Optional[float] = None,
     source: str = DEFAULT_SOURCE,
@@ -410,6 +416,11 @@ def detect_loudness_from_samples(
     if relative_spike_threshold_db is None:
         relative_spike_threshold_db = float(
             spike_algo.get("relative_spike_threshold_db", DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB)
+        )
+
+    if min_absolute_spike_dbfs is None:
+        min_absolute_spike_dbfs = float(
+            spike_algo.get("min_absolute_spike_dbfs", DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS)
         )
 
     if sustained_threshold_dbfs is None:
@@ -446,6 +457,7 @@ def detect_loudness_from_samples(
                 relative_spike_threshold_db=relative_spike_threshold_db,
                 rolling_median_duration_sec=rolling_med_sec,
                 window_duration_sec=window_sec,
+                min_absolute_spike_dbfs=min_absolute_spike_dbfs,
                 initial_median_db=initial_median_db,
                 source=source,
             )
@@ -474,6 +486,7 @@ def detect_loudness_from_wav(
     modes: Tuple[str, ...] = ("spike", "sustained"),
     initial_median_db: Optional[float] = None,
     relative_spike_threshold_db: Optional[float] = None,
+    min_absolute_spike_dbfs: Optional[float] = None,
     sustained_threshold_dbfs: Optional[float] = None,
     sustained_min_duration_sec: Optional[float] = None,
     source: str = DEFAULT_SOURCE,
@@ -519,6 +532,7 @@ def detect_loudness_from_wav(
                 relative_spike_threshold_db=relative_spike_threshold_db,
                 rolling_median_duration_sec=rolling_med_sec,
                 window_duration_sec=window_sec,
+                min_absolute_spike_dbfs=min_absolute_spike_dbfs,
                 initial_median_db=initial_median_db,
                 source=source,
             )
@@ -547,6 +561,8 @@ def detect_loudness(
     output_path: Optional[Union[str, Path]] = None,
     modes: Tuple[str, ...] = ("spike", "sustained"),
     film_id: str = "smoke_test",
+    relative_spike_threshold_db: Optional[float] = None,
+    min_absolute_spike_dbfs: Optional[float] = None,
     **kwargs: Any,
 ) -> List[Dict[str, Any]]:
     """Unified entry point for loudness detection from WAV file path or numpy array."""
@@ -555,6 +571,8 @@ def detect_loudness(
             wav_path=input_source,
             config=config,
             modes=modes,
+            relative_spike_threshold_db=relative_spike_threshold_db,
+            min_absolute_spike_dbfs=min_absolute_spike_dbfs,
             **kwargs,
         )
     elif isinstance(input_source, np.ndarray):
@@ -564,6 +582,8 @@ def detect_loudness(
             sample_rate=sr,
             config=config,
             modes=modes,
+            relative_spike_threshold_db=relative_spike_threshold_db,
+            min_absolute_spike_dbfs=min_absolute_spike_dbfs,
             **kwargs,
         )
     else:
@@ -621,6 +641,18 @@ def main() -> int:
         default="smoke_test",
         help="Film identifier for raw detection payload.",
     )
+    parser.add_argument(
+        "--relative-spike-threshold-db",
+        type=float,
+        default=None,
+        help="Relative dB increase above rolling median to trigger spike (default: from config or 15.0).",
+    )
+    parser.add_argument(
+        "--min-absolute-spike-dbfs",
+        type=float,
+        default=None,
+        help="Minimum absolute dBFS to qualify as a loud spike (default: from config or -18.0).",
+    )
 
     args = parser.parse_args()
 
@@ -638,6 +670,8 @@ def main() -> int:
             output_path=args.output,
             modes=selected_modes,
             film_id=args.film_id,
+            relative_spike_threshold_db=args.relative_spike_threshold_db,
+            min_absolute_spike_dbfs=args.min_absolute_spike_dbfs,
         )
         print(f"Loudness detection complete: found {len(detections)} events.")
         for d in detections[:10]:

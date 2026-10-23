@@ -206,6 +206,7 @@ def test_spike_boundary_threshold_sensitivity():
         sample_rate=sample_rate,
         modes=("spike",),
         relative_spike_threshold_db=12.0,
+        min_absolute_spike_dbfs=-40.0,
     )
     assert events_sub == []
 
@@ -220,6 +221,7 @@ def test_spike_boundary_threshold_sensitivity():
         sample_rate=sample_rate,
         modes=("spike",),
         relative_spike_threshold_db=12.0,
+        min_absolute_spike_dbfs=-40.0,
     )
     assert len(events_super) == 1
     assert events_super[0]["trigger"] == "loud_spike"
@@ -588,7 +590,8 @@ def test_exponential_decay_spike_exact_onset_and_duration_regression():
     # Onset must match 1.50s within one analysis window (0.1s)
     assert pytest.approx(det["start"], abs=0.05) == spike_start
     assert det["trigger"] == "loud_spike"
-    assert det["score"] > 0.5
+    # Under calibrated 15.0 dB relative threshold (div 37.5), ~17.5 dB delta yields score ~0.466
+    assert det["score"] >= 0.45
     # The detected interval must stay within the spike window
     assert det["end"] <= (spike_start + spike_dur + 0.1)
 
@@ -634,3 +637,154 @@ def test_ground_truth_test_clips_evaluation():
         wav_dia = tmp_p / "dia.wav"
         extract_audio(neg_dialogue, wav_dia)
         assert detect_loudness_from_wav(wav_dia, modes=("spike",)) == []
+
+
+# ==============================================================================
+# 16. Run 10 Loud-Spike Calibration Regressions (House on Haunted Hill)
+# ==============================================================================
+
+def _dbfs_to_sine_amplitude(dbfs: float) -> float:
+    """Convert target RMS dBFS to sine wave peak amplitude."""
+    return math.sqrt(2.0) * (10.0 ** (dbfs / 20.0))
+
+
+def test_run10_four_dialogue_false_positive_rejection():
+    """Verify that the 4 dialogue false-positive profiles are rejected under Run 10 calibration.
+
+    Dialogue profiles from House on Haunted Hill:
+    - 56.5-58.1s: peak ~ -22.3 dBFS (< -18.0 dBFS floor), delta +13.2 dB (< 15.0 dB).
+    - 85.8-87.2s: peak ~ -20.1 dBFS (< -18.0 dBFS floor), delta +12.8 dB (< 15.0 dB).
+    - 1949.1-1949.7s: peak ~ -21.5 dBFS (< -18.0 dBFS floor), delta +14.1 dB (< 15.0 dB).
+    - 4429.8-4430.3s: peak ~ -23.8 dBFS (< -18.0 dBFS floor), delta +11.9 dB (< 15.0 dB).
+    """
+    sr = 44100
+    dialogue_cases = [
+        ("dialogue_56s", -35.5, -22.3),    # background -35.5 dBFS, peak -22.3 dBFS (delta +13.2 dB)
+        ("dialogue_85s", -32.9, -20.1),    # background -32.9 dBFS, peak -20.1 dBFS (delta +12.8 dB)
+        ("dialogue_1949s", -35.6, -21.5),  # background -35.6 dBFS, peak -21.5 dBFS (delta +14.1 dB)
+        ("dialogue_4429s", -35.7, -23.8),  # background -35.7 dBFS, peak -23.8 dBFS (delta +11.9 dB)
+    ]
+
+    for name, bg_dbfs, peak_dbfs in dialogue_cases:
+        bg_amp = _dbfs_to_sine_amplitude(bg_dbfs)
+        peak_amp = _dbfs_to_sine_amplitude(peak_dbfs)
+
+        # 3.0s background + 0.3s speech burst + 1.0s background
+        audio = np.concatenate([
+            generate_tone(300.0, 3.0, amplitude=bg_amp, sample_rate=sr),
+            generate_tone(500.0, 0.3, amplitude=peak_amp, sample_rate=sr),
+            generate_tone(300.0, 1.0, amplitude=bg_amp, sample_rate=sr),
+        ])
+
+        detections = detect_loudness_from_samples(
+            audio,
+            sample_rate=sr,
+            modes=("spike",),
+            relative_spike_threshold_db=15.0,
+            min_absolute_spike_dbfs=-18.0,
+        )
+        assert len(detections) == 0, f"Expected 0 detections for {name}, got {detections}"
+
+
+def test_run10_opening_scream_and_brass_stinger_detection():
+    """Verify detection of true positive transients under Run 10 calibration:
+    - Opening scream onset (14.2-14.5s): peak -15.05 dBFS, delta +23.4 dB.
+    - Brass stinger (84.1-84.3s): peak -12.91 dBFS, delta +21.8 dB.
+    - Late scream 1 (4049.3-4050.8s): peak -17.42 dBFS, delta +17.68 dB.
+    """
+    sr = 44100
+    tp_cases = [
+        ("opening_scream_onset", -38.5, -15.05, 1.5, 0.3),  # bg -38.5 dBFS, peak -15.05 dBFS (delta +23.45 dB)
+        ("brass_stinger", -34.7, -12.91, 1.5, 0.2),        # bg -34.7 dBFS, peak -12.91 dBFS (delta +21.79 dB)
+        ("late_scream_4049s", -35.1, -17.42, 1.5, 0.6),    # bg -35.1 dBFS, peak -17.42 dBFS (delta +17.68 dB)
+    ]
+
+    for name, bg_dbfs, peak_dbfs, onset_sec, dur_sec in tp_cases:
+        bg_amp = _dbfs_to_sine_amplitude(bg_dbfs)
+        peak_amp = _dbfs_to_sine_amplitude(peak_dbfs)
+
+        audio = np.concatenate([
+            generate_tone(400.0, onset_sec, amplitude=bg_amp, sample_rate=sr),
+            generate_tone(800.0, dur_sec, amplitude=peak_amp, sample_rate=sr),
+            generate_tone(400.0, 1.0, amplitude=bg_amp, sample_rate=sr),
+        ])
+
+        detections = detect_loudness_from_samples(
+            audio,
+            sample_rate=sr,
+            modes=("spike",),
+            relative_spike_threshold_db=15.0,
+            min_absolute_spike_dbfs=-18.0,
+        )
+        assert len(detections) == 1, f"Expected 1 detection for {name}, got {detections}"
+        det = detections[0]
+        assert det["trigger"] == "loud_spike"
+        assert pytest.approx(det["start"], abs=0.05) == onset_sec
+        assert det["score"] >= 0.40
+
+
+def test_run10_late_scream_climax_relative_threshold_rejection():
+    """Verify that Late Scream 2 (4261.4-4262.4s) embedded in loud orchestral music is rejected by loud_spike.
+
+    Acoustic profile:
+    - Ambient background median: -19.34 dBFS (continuous loud orchestral climax).
+    - Scream peak: -17.82 dBFS.
+    - Relative delta: +1.52 dB (< 15.0 dB threshold).
+
+    Confirms architectural design: this event is deferred to YAMNet (classify_audio_events.py),
+    preventing relative loud_spike false triggers throughout continuous loud music.
+    """
+    sr = 44100
+    bg_amp = _dbfs_to_sine_amplitude(-19.34)
+    scream_amp = _dbfs_to_sine_amplitude(-17.82)
+
+    audio = np.concatenate([
+        generate_tone(400.0, 3.0, amplitude=bg_amp, sample_rate=sr),
+        generate_tone(1200.0, 0.8, amplitude=scream_amp, sample_rate=sr),
+        generate_tone(400.0, 1.0, amplitude=bg_amp, sample_rate=sr),
+    ])
+
+    detections = detect_loudness_from_samples(
+        audio,
+        sample_rate=sr,
+        modes=("spike",),
+        relative_spike_threshold_db=15.0,
+        min_absolute_spike_dbfs=-18.0,
+    )
+    assert len(detections) == 0, f"Expected 0 loud_spike detections for embedded climax scream, got {detections}"
+
+
+def test_run10_merge_gap_isolation():
+    """Verify that loud_spike merge_gap_seconds is 0.5s while other triggers retain their own gaps.
+
+    In package_cues.merge_detections:
+    - Two loud_spike detections 0.7s apart must NOT be merged with gap 0.5s.
+    - Two scream detections 0.7s apart MUST be merged with default gap 1.5s.
+    """
+    from scripts.package_cues import merge_detections
+    from scripts.validate_index import load_config_data
+
+    cfg = load_config_data()
+    spike_gap = cfg.get("triggers", {}).get("loud_spike", {}).get("merge_gap_seconds")
+    scream_gap = cfg.get("triggers", {}).get("scream", {}).get("merge_gap_seconds")
+    gunshot_gap = cfg.get("triggers", {}).get("gunshot", {}).get("merge_gap_seconds")
+
+    assert spike_gap == 0.5, f"Expected loud_spike merge_gap 0.5, got {spike_gap}"
+    assert scream_gap == 2.0, f"Expected scream merge_gap 2.0, got {scream_gap}"
+    assert gunshot_gap == 2.5, f"Expected gunshot merge_gap 2.5, got {gunshot_gap}"
+
+    # Test merge_detections behavior with loud_spike (gap=0.5s)
+    raw_spikes = [
+        {"start": 10.0, "end": 10.2, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"},
+        {"start": 10.9, "end": 11.1, "trigger": "loud_spike", "score": 0.8, "source": "loudness_detector"},  # 0.7s gap > 0.5s
+    ]
+    merged_spikes = merge_detections(raw_spikes, config=cfg)
+    assert len(merged_spikes) == 2, f"Spikes separated by 0.7s should not merge under 0.5s gap, got {merged_spikes}"
+
+    # Test merge_detections behavior with scream (gap=1.5s)
+    raw_screams = [
+        {"start": 10.0, "end": 10.2, "trigger": "scream", "score": 0.8, "source": "audio_event_classifier"},
+        {"start": 10.9, "end": 11.1, "trigger": "scream", "score": 0.8, "source": "audio_event_classifier"},  # 0.7s gap <= 1.5s
+    ]
+    merged_screams = merge_detections(raw_screams, config=cfg)
+    assert len(merged_screams) == 1, f"Screams separated by 0.7s should merge under 1.5s gap, got {merged_screams}"

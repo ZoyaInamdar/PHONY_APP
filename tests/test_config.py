@@ -146,7 +146,10 @@ def test_loud_spike_algorithm_configuration():
 
     assert algo.get("rms_window_duration_seconds") == pytest.approx(0.1)
     assert algo.get("rolling_median_duration_seconds") == pytest.approx(10.0)
-    assert algo.get("relative_spike_threshold_db") == pytest.approx(12.0)
+    assert algo.get("relative_spike_threshold_db") == pytest.approx(15.0)
+    assert algo.get("min_absolute_spike_dbfs") == pytest.approx(-18.0)
+    assert spike.get("threshold") == pytest.approx(15.0)
+    assert spike.get("merge_gap_seconds") == pytest.approx(0.5)
     assert algo.get("numerical_floor_db") <= -80.0
     assert "leading_window_policy" in algo
     assert algo.get("user_facing_semantics") == "sudden loudness increase"

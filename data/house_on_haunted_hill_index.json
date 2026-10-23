@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "film_id": "house_on_haunted_hill",
+  "synthetic": false,
+  "description": "Packaged player cue index for house_on_haunted_hill.",
+  "timeline": {
+    "duration_seconds": 4483.216,
+    "timestamp_unit": "seconds",
+    "interval_convention": "half_open",
+    "fps": 29.97
+  },
+  "cues": [
+    {
+      "id": "cue_house_on_haunted_hill_scream_015360_016320",
+      "start": 15.36,
+      "end": 16.32,
+      "trigger": "scream",
+      "score": 0.651,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_house_on_haunted_hill_scream_020160_023040",
+      "start": 20.16,
+      "end": 23.04,
+      "trigger": "scream",
+      "score": 0.8281,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_house_on_haunted_hill_scream_4050720_4051680",
+      "start": 4050.72,
+      "end": 4051.68,
+      "trigger": "scream",
+      "score": 0.6662,
+      "source": "audio_event_classifier"
+    },
+    {
+      "id": "cue_house_on_haunted_hill_scream_4261440_4262400",
+      "start": 4261.44,
+      "end": 4262.4,
+      "trigger": "scream",
+      "score": 0.5995,
+      "source": "audio_event_classifier"
+    }
+  ]
+}

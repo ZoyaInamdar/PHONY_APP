@@ -155,6 +155,9 @@ def merge_detections(
     max_segment_duration: float = DEFAULT_MAX_SEGMENT_DURATION,
     default_merge_gap: float = DEFAULT_MERGE_GAP,
     canonical_triggers: Optional[Set[str]] = None,
+    profanity_granularity: Optional[str] = None,
+    granularity: Optional[str] = None,
+    timing_type: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Merge raw detection records according to the maximum segment duration and merge gap policy.
 
@@ -217,10 +220,25 @@ def merge_detections(
         # Look up per-trigger gap and max duration settings
         t_merge_gap = default_merge_gap
         t_max_duration = max_segment_duration
+        word_merge_gap = 0.0
+        preserve_word_prec = False
+
         if config and "triggers" in config and trigger in config["triggers"]:
             t_conf = config["triggers"][trigger]
             t_merge_gap = float(t_conf.get("merge_gap_seconds", default_merge_gap))
             t_max_duration = float(t_conf.get("max_segment_duration_seconds", max_segment_duration))
+            if trigger == "profanity":
+                preserve_word_prec = bool(t_conf.get("preserve_word_precision", False))
+                word_merge_gap = float(t_conf.get("word_level_merge_gap_seconds", 0.0))
+
+        # Check if profanity group has word-level granularity
+        group_is_word_level = False
+        if trigger == "profanity":
+            eff_gran = profanity_granularity or granularity or (
+                "word" if timing_type == "exact" else None
+            )
+            if eff_gran in ("word", "exact"):
+                group_is_word_level = True
 
         # Sort group deterministically by (start, end, score)
         sorted_group = sorted(
@@ -229,11 +247,27 @@ def merge_detections(
         )
 
         current_segment: Optional[Dict[str, Any]] = None
+        current_is_word_level = False
 
         for det in sorted_group:
             d_start = float(det["start"])
             d_end = float(det["end"])
             d_score = float(det["score"])
+
+            det_is_word = group_is_word_level or (
+                trigger == "profanity" and (
+                    det.get("granularity") in ("word", "exact") or det.get("timing_type") == "exact"
+                )
+            )
+
+            # Determine applicable merge gap between current_segment and det
+            effective_merge_gap = t_merge_gap
+            if trigger == "profanity" and preserve_word_prec:
+                # If either current segment or incoming detection is word-level,
+                # use the word-level merge gap so precise word boundaries are not coalesced
+                # into neighboring segments across conversational pauses.
+                if current_is_word_level or det_is_word:
+                    effective_merge_gap = word_merge_gap
 
             if current_segment is None:
                 current_segment = {
@@ -243,6 +277,7 @@ def merge_detections(
                     "score": d_score,
                     "source": source,
                 }
+                current_is_word_level = det_is_word
                 continue
 
             # Calculate gap between current merged segment and next detection
@@ -257,12 +292,14 @@ def merge_detections(
             potential_duration = potential_end - potential_start
 
             # Check merge conditions:
-            # 1. gap <= t_merge_gap
+            # 1. gap <= effective_merge_gap
             # 2. potential_duration <= t_max_duration
-            if gap <= t_merge_gap and potential_duration <= t_max_duration:
+            if gap <= effective_merge_gap and potential_duration <= t_max_duration:
                 # Merge into current segment
                 current_segment["end"] = potential_end
                 current_segment["score"] = max(current_segment["score"], d_score)
+                if det_is_word:
+                    current_is_word_level = True
             else:
                 # Cannot merge: finalize current segment and begin new segment
                 all_merged.append(current_segment)
@@ -273,6 +310,7 @@ def merge_detections(
                     "score": d_score,
                     "source": source,
                 }
+                current_is_word_level = det_is_word
 
         if current_segment is not None:
             all_merged.append(current_segment)
@@ -425,6 +463,10 @@ def package_cues(
     description: Optional[str] = None,
     schema: Optional[Dict[str, Any]] = None,
     subtitles: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+    trigger_coverage: Optional[Dict[str, str]] = None,
+    profanity_granularity: Optional[str] = None,
+    granularity: Optional[str] = None,
+    timing_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Package raw detections into a fully-validated player index dictionary.
 
@@ -434,9 +476,22 @@ def package_cues(
     - Generates deterministic, collision-safe cue IDs
     - Validates packaged output against index schema and business rules
     """
+    resolved_profanity_granularity = profanity_granularity or granularity or (
+        "word" if timing_type == "exact" else None
+    )
+
     # 1. Extract raw detections list and metadata
     if isinstance(raw_data, dict):
-        detections = [normalize_detection_source(dict(d)) for d in raw_data.get("detections", [])]
+        raw_items = raw_data.get("detections")
+        if raw_items is None and "cues" in raw_data:
+            cues_list = raw_data["cues"]
+            if any("kind" in c or "flagged_words" in c or "flagged" in c for c in cues_list if isinstance(c, dict)):
+                raw_items = adapt_subtitle_cues_to_raw_detections(cues_list)
+            else:
+                raw_items = cues_list
+        if raw_items is None:
+            raw_items = []
+        detections = [normalize_detection_source(dict(d)) for d in raw_items if isinstance(d, dict)]
         if film_id is None:
             film_id = raw_data.get("film_id")
         raw_synthetic = raw_data.get("synthetic")
@@ -453,6 +508,21 @@ def package_cues(
             duration_seconds = raw_data["timeline"].get("duration_seconds")
         if subtitles is None and "subtitles" in raw_data:
             subtitles = raw_data.get("subtitles")
+        if "provenance" in raw_data and isinstance(raw_data["provenance"], dict):
+            prov = raw_data["provenance"]
+            if prov.get("stage") in ("subtitles", "profanity_detector"):
+                st = prov.get("status")
+                if st:
+                    if trigger_coverage is None:
+                        trigger_coverage = {}
+                    trigger_coverage["profanity"] = st
+                if resolved_profanity_granularity is None:
+                    ev_type = prov.get("evidence_type")
+                    tim_type = prov.get("timing_type")
+                    if ev_type == "stt_word" or tim_type == "exact":
+                        resolved_profanity_granularity = "word"
+                    elif ev_type == "subtitle_text" or tim_type == "estimated":
+                        resolved_profanity_granularity = "cue"
     elif isinstance(raw_data, list):
         if raw_data and isinstance(raw_data[0], dict) and ("detections" in raw_data[0] or ("film_id" in raw_data[0] and "cues" in raw_data[0])):
             detections = []
@@ -489,6 +559,15 @@ def package_cues(
                 else:
                     any_synth = True
                     all_real = False
+
+                if "provenance" in file_data and isinstance(file_data["provenance"], dict):
+                    prov = file_data["provenance"]
+                    if prov.get("stage") in ("subtitles", "profanity_detector"):
+                        st = prov.get("status")
+                        if st:
+                            if trigger_coverage is None:
+                                trigger_coverage = {}
+                            trigger_coverage["profanity"] = st
 
                 cues_in_data = file_data.get("detections", file_data.get("cues", []))
                 for c in cues_in_data:
@@ -562,6 +641,7 @@ def package_cues(
         detections=detections,
         config=config,
         canonical_triggers=canonical_triggers,
+        profanity_granularity=resolved_profanity_granularity,
     )
 
     # 3. Generate deterministic cue IDs and detect collisions
@@ -619,6 +699,8 @@ def package_cues(
     }
     if fps is not None:
         index_data["timeline"]["fps"] = fps
+    if trigger_coverage:
+        index_data["trigger_coverage"] = trigger_coverage
 
     # 5. Validate the generated index before returning
     if schema is None:
@@ -733,6 +815,7 @@ def load_and_aggregate_detector_inputs(
 
     all_detections: List[Dict[str, Any]] = []
     seen_detection_signatures: Set[Tuple[float, float, str, str]] = set()
+    resolved_metadata: Dict[str, Any] = {}
 
     for p in unique_paths:
         with p.open("r", encoding="utf-8") as f:
@@ -746,6 +829,21 @@ def load_and_aggregate_detector_inputs(
 
         if isinstance(file_data, dict):
             file_film_id = file_data.get("film_id")
+            if "provenance" in file_data and isinstance(file_data["provenance"], dict):
+                prov = file_data["provenance"]
+                if prov.get("stage") in ("subtitles", "profanity_detector"):
+                    st = prov.get("status")
+                    if st:
+                        if "trigger_coverage" not in resolved_metadata:
+                            resolved_metadata["trigger_coverage"] = {}
+                        resolved_metadata["trigger_coverage"]["profanity"] = st
+                    ev_type = prov.get("evidence_type")
+                    tim_type = prov.get("timing_type")
+                    if ev_type == "stt_word" or tim_type == "exact":
+                        resolved_metadata["profanity_granularity"] = "word"
+                    elif ev_type == "subtitle_text" or tim_type == "estimated":
+                        if "profanity_granularity" not in resolved_metadata:
+                            resolved_metadata["profanity_granularity"] = "cue"
             file_synthetic = file_data.get("synthetic")
             if "timeline" in file_data and isinstance(file_data["timeline"], dict):
                 file_duration = file_data["timeline"].get("duration_seconds")
@@ -867,12 +965,12 @@ def load_and_aggregate_detector_inputs(
         else:
             resolved_synthetic = True
 
-    resolved_metadata = {
+    resolved_metadata.update({
         "film_id": established_film_id,
         "duration_seconds": established_duration,
         "fps": established_fps,
         "synthetic": resolved_synthetic,
-    }
+    })
     return all_detections, resolved_metadata
 
 
@@ -886,6 +984,7 @@ def package_and_save_index(
     fps: Optional[float] = None,
     subtitles_path: Optional[Path | str] = None,
     synthetic: Optional[bool] = None,
+    profanity_granularity: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Load raw cues, apply merge and packaging, validate, and write atomically to output_path."""
     config_data = load_config_data(config_path)
@@ -909,6 +1008,8 @@ def package_and_save_index(
         synthetic=meta["synthetic"],
         schema=schema_data,
         subtitles=None,
+        trigger_coverage=meta.get("trigger_coverage"),
+        profanity_granularity=profanity_granularity or meta.get("profanity_granularity"),
     )
 
     atomic_write_json(index_data, output_path)
@@ -982,6 +1083,12 @@ def main() -> int:
         default=None,
         help="Explicitly mark index as synthetic or real (defaults to metadata in input raw detections).",
     )
+    parser.add_argument(
+        "--profanity-granularity",
+        choices=["word", "cue"],
+        default=None,
+        help="Optional override for profanity detection timing granularity ('word' or 'cue'). If omitted, inferred from input provenance.",
+    )
     args = parser.parse_args()
 
     if isinstance(args.input, list):
@@ -1004,6 +1111,7 @@ def main() -> int:
             fps=args.fps,
             subtitles_path=args.subtitles,
             synthetic=args.synthetic,
+            profanity_granularity=args.profanity_granularity,
         )
         cues_count = len(index_data.get("cues", []))
         print(f"\nSUCCESS: Packaged {cues_count} cue(s) into {args.output.resolve()} cleanly.")

@@ -50,7 +50,7 @@ from scripts.package_cues import (
 )
 
 try:
-    from scripts.parse_subtitles import cues_to_dicts, load_wordlist, parse_srt_file
+    from scripts.parse_subtitles import cues_to_dicts, load_wordlist, parse_srt_file, parse_subtitle_file
     PYSRT_AVAILABLE = True
 except ImportError:
     PYSRT_AVAILABLE = False
@@ -133,6 +133,14 @@ DETECTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
         "status": "available",
         "script": "scripts/detect_jump_scare.py",
         "method": "multimodal_compound_heuristic",
+    },
+    "insect": {
+        "component": "insect_detector",
+        "modality": "visual",
+        "owner": "Person A",
+        "status": "ready_for_evaluation",
+        "script": "scripts/evaluate_insect.py",
+        "method": "zero_shot_multimodal",
     },
 }
 
@@ -679,16 +687,19 @@ def run_detector_for_clip(
                 temp_dir_obj.cleanup()
 
     elif trigger == "profanity":
-        # Find corresponding .srt subtitle file for this clip
-        srt_candidate = clips_dir / f"{clip_file.stem}.srt"
-        if not srt_candidate.is_file():
-            # speech_triggers_test.mp4 corresponds to speech_triggers_truth.srt
-            if clip_file.stem == "speech_triggers_test":
-                srt_candidate = clips_dir / "speech_triggers_truth.srt"
-            else:
-                return []
+        # Find corresponding .vtt or .srt subtitle file for this clip
+        sub_candidate = None
+        for cand_name in (
+            f"{clip_file.stem}.vtt",
+            f"{clip_file.stem}.srt",
+            "speech_triggers_truth.vtt" if clip_file.stem == "speech_triggers_test" else None,
+            "speech_triggers_truth.srt" if clip_file.stem == "speech_triggers_test" else None,
+        ):
+            if cand_name and (clips_dir / cand_name).is_file():
+                sub_candidate = clips_dir / cand_name
+                break
 
-        if not srt_candidate.is_file():
+        if not sub_candidate or not sub_candidate.is_file():
             # If no subtitle file exists for this clip, return empty
             return []
 
@@ -696,7 +707,7 @@ def run_detector_for_clip(
         if not wordlist_path.is_file():
             raise FileNotFoundError(f"Profanity wordlist not found: {wordlist_path}")
 
-        sub_file = parse_srt_file(srt_candidate, wordlist_path=wordlist_path)
+        sub_file = parse_subtitle_file(sub_candidate, wordlist_path=wordlist_path)
         cue_dicts = cues_to_dicts(sub_file)
         raw_detections = adapt_subtitle_cues_to_raw_detections(cue_dicts)
         merged_detections = merge_detections(

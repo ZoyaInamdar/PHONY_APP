@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "synthetic_insect_test_fixture_v1",
+  "created_at": "2026-10-23T00:00:00Z",
+  "description": "SYNTHETIC TEST FIXTURE ONLY - Purely synthetic mock intervals for unit testing the insect benchmark evaluation pipeline. Not derived from real films.",
+  "clips": [
+    {
+      "clip_id": "synthetic_clip_01_crawling_pos",
+      "source_video_title": "synthetic_crawling_test_fixture",
+      "media_path": "fixtures/synthetic_clip_01.mp4",
+      "scenario_category": "crawling_insect",
+      "split": "validation",
+      "annotator": "SyntheticGenerator",
+      "annotation_status": "verified",
+      "media_duration_seconds": 10.0,
+      "reviewed_intervals": [
+        { "start": 0.0, "end": 10.0 }
+      ],
+      "positive_intervals": [
+        { "start": 2.0, "end": 6.0, "label": "synthetic_beetle", "confidence": 1.0 }
+      ],
+      "explicit_negative_intervals": [
+        { "start": 0.0, "end": 2.0 },
+        { "start": 6.0, "end": 10.0 }
+      ],
+      "uncertain_intervals": [],
+      "notes": "Synthetic positive crawling test clip."
+    },
+    {
+      "clip_id": "synthetic_clip_02_foliage_neg",
+      "source_video_title": "synthetic_foliage_test_fixture",
+      "media_path": "fixtures/synthetic_clip_02.mp4",
+      "scenario_category": "foliage",
+      "split": "validation",
+      "annotator": "SyntheticGenerator",
+      "annotation_status": "verified",
+      "media_duration_seconds": 8.0,
+      "reviewed_intervals": [
+        { "start": 0.0, "end": 8.0 }
+      ],
+      "positive_intervals": [],
+      "explicit_negative_intervals": [
+        { "start": 0.0, "end": 8.0 }
+      ],
+      "uncertain_intervals": [],
+      "notes": "Synthetic pure negative control clip."
+    },
+    {
+      "clip_id": "synthetic_clip_03_partial_reviewed",
+      "source_video_title": "synthetic_flying_partial_fixture",
+      "media_path": "fixtures/synthetic_clip_03.mp4",
+      "scenario_category": "flying_insect",
+      "split": "test",
+      "annotator": "SyntheticGenerator",
+      "annotation_status": "reviewed",
+      "media_duration_seconds": 15.0,
+      "reviewed_intervals": [
+        { "start": 2.0, "end": 8.0 }
+      ],
+      "positive_intervals": [
+        { "start": 3.0, "end": 5.0, "label": "synthetic_wasp", "confidence": 0.95 }
+      ],
+      "explicit_negative_intervals": [
+        { "start": 2.0, "end": 3.0 },
+        { "start": 7.0, "end": 8.0 }
+      ],
+      "uncertain_intervals": [
+        { "start": 5.0, "end": 7.0, "notes": "Motion blurred speckle" }
+      ],
+      "notes": "Synthetic partial annotation with excluded gaps [0, 2) and [8, 15)."
+    },
+    {
+      "clip_id": "synthetic_clip_04_unreviewed",
+      "source_video_title": "synthetic_unreviewed_fixture",
+      "media_path": "fixtures/synthetic_clip_04.mp4",
+      "scenario_category": "dust",
+      "split": "test",
+      "annotator": "None",
+      "annotation_status": "unreviewed",
+      "media_duration_seconds": 5.0,
+      "reviewed_intervals": [],
+      "positive_intervals": [],
+      "explicit_negative_intervals": [],
+      "uncertain_intervals": [],
+      "notes": "Unreviewed clip that must be skipped by the evaluator."
+    }
+  ]
+}

@@ -32,14 +32,18 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import logging
 import math
 import os
 import shutil
 import subprocess
 import sys
+import warnings
 import wave
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 # Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -57,8 +61,6 @@ DEFAULT_MODEL_DIR = REPO_ROOT / "models" / "yamnet" / "yamnet-onnx-float"
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR / "yamnet.onnx"
 DEFAULT_LABELS_PATH = DEFAULT_MODEL_DIR / "labels.txt"
 
-# Dedicated Python 3.12 virtual environment path
-VENV_312_PYTHON = REPO_ROOT / ".venv312" / "bin" / "python"
 
 # Candidate backends
 BACKEND_YAMNET = "YAMNet"
@@ -112,7 +114,7 @@ DEFAULT_LABEL_MAPPINGS: Dict[str, Dict[str, List[str]]] = {
 DEFAULT_THRESHOLDS: Dict[str, float] = {
     "gunshot": 0.65,
     "explosion": 0.70,
-    "scream": 0.60,
+    "scream": 0.58,
 }
 
 
@@ -256,7 +258,8 @@ def extract_audio_samples_16k(
 
     res = subprocess.run(cmd, capture_output=True, check=False)
     if res.returncode != 0:
-        return np.array([], dtype=np.float32)
+        err_msg = res.stderr.decode("utf-8", errors="replace").strip() if res.stderr else "Unknown error"
+        raise RuntimeError(f"FFmpeg failed to extract audio from {path.resolve()} (exit code {res.returncode}): {err_msg}")
 
     return np.frombuffer(res.stdout, dtype=np.float32)
 
@@ -316,6 +319,12 @@ def run_yamnet_inference(
     if not l_path.is_file():
         raise FileNotFoundError(f"YAMNet labels file not found at: {l_path.resolve()}")
 
+    # Check for external weights if model requires external data
+    data_path = m_path.parent / (m_path.stem + ".data")
+    alt_data = m_path.with_name("yamnet.data")
+    if not data_path.is_file() and not alt_data.is_file() and m_path.name == "yamnet.onnx":
+        raise FileNotFoundError(f"YAMNet external weights file not found at: {data_path.resolve()}")
+
     try:
         import onnxruntime as ort
     except ImportError as exc:
@@ -372,11 +381,22 @@ def classify_audio_events(
     config_path: Union[str, Path] = DEFAULT_CONFIG_PATH,
     model_path: Union[str, Path] = DEFAULT_MODEL_PATH,
     labels_path: Union[str, Path] = DEFAULT_LABELS_PATH,
-    strict: bool = False,
+    strict: bool = True,
 ) -> List[Dict[str, Any]]:
     """Classify audio events for gunshot, explosion, and scream.
 
-    If run in an environment without onnxruntime, delegates to .venv312 if present.
+    Args:
+        audio_path: Path to input audio or video file.
+        backend: Classifier backend (defaults to YAMNet).
+        config: Optional parsed configuration dict.
+        config_path: Path to config.yaml if config is None.
+        model_path: Path to YAMNet ONNX model.
+        labels_path: Path to labels.txt.
+        strict: If True (default), raises errors on missing runtime, missing model,
+            or inference failure. If False, emits a warning and returns an empty list.
+
+    Returns:
+        List of raw detection records matching the project detection schema.
     """
     path = Path(audio_path)
     if not path.is_file():
@@ -388,62 +408,50 @@ def classify_audio_events(
     if backend != BACKEND_YAMNET:
         if strict:
             raise NotImplementedError(f"Backend '{backend}' is not supported for active execution.")
+        warnings.warn(
+            f"Backend '{backend}' is not supported for active execution. Returning empty detections.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return []
 
-    # Check if onnxruntime is available in current process
     try:
         import onnxruntime
-        HAS_ORT = True
-    except ImportError:
-        HAS_ORT = False
-
-    if HAS_ORT:
-        # Run in-process ONNX inference
-        try:
-            window_preds = run_yamnet_inference(
-                audio_path=path,
-                model_path=model_path,
-                labels_path=labels_path,
-            )
-            raw_cues = map_model_predictions_to_cues(
-                window_predictions=window_preds,
-                backend=backend,
-                config=config,
-            )
-            return raw_cues
-        except Exception as exc:
-            if strict:
-                raise
-            return []
-
-    # If current environment lacks onnxruntime, check if .venv312 is available
-    if VENV_312_PYTHON.is_file():
-        # Delegate to Python 3.12 venv CLI
-        cmd = [
-            str(VENV_312_PYTHON),
-            str(REPO_ROOT / "scripts" / "classify_audio_events.py"),
-            "--input", str(path),
-            "--backend", backend,
-            "--config", str(config_path),
-        ]
+    except ImportError as exc:
         if strict:
-            cmd.append("--strict")
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        if res.returncode == 0 and res.stdout.strip():
-            try:
-                return json.loads(res.stdout)
-            except Exception as exc:
-                if strict:
-                    raise RuntimeError(f"Failed to parse JSON from inference subprocess: {res.stdout}") from exc
-                return []
-        elif res.returncode != 0 and strict:
             raise RuntimeError(
-                f"Subprocess audio classification failed with code {res.returncode}: {res.stderr.strip()}"
-            )
+                "onnxruntime is not installed in the current Python environment. "
+                "Please install onnxruntime>=1.18.0."
+            ) from exc
+        warnings.warn(
+            f"onnxruntime is not installed: {exc}. Non-strict mode returning empty detection list.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return []
 
-    if strict:
-        raise RuntimeError("No suitable ONNX runtime found in current environment or .venv312.")
-    return []
+    try:
+        window_preds = run_yamnet_inference(
+            audio_path=path,
+            model_path=model_path,
+            labels_path=labels_path,
+        )
+        raw_cues = map_model_predictions_to_cues(
+            window_predictions=window_preds,
+            backend=backend,
+            config=config,
+        )
+        return raw_cues
+    except Exception as exc:
+        if strict:
+            raise
+        warnings.warn(
+            f"Audio event classification failed for '{path.name}': {exc}. "
+            "Non-strict mode returning empty detection list.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return []
 
 
 def main() -> int:

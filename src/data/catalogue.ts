@@ -64,6 +64,22 @@ export const FILM_CATALOGUE: Record<string, FilmCatalogueEntry> = {
     subtitles_path: null,
     loadSubtitles: () => [],
   },
+  house_on_haunted_hill: {
+    film_id: 'house_on_haunted_hill',
+    title: 'House on Haunted Hill',
+    description:
+      '1959 American supernatural horror film directed by William Castle, starring Vincent Price.',
+    duration_seconds: 4483.216,
+    fps: 29.97,
+    video_url: 'data/media/house_on_haunted_hill_512kb.mp4',
+    vega_video_url: 'http://10.0.2.2:8080/data/media/house_on_haunted_hill_512kb.mp4',
+    fallback_video_url:
+      'https://archive.org/download/house_on_haunted_hill_512kb/house_on_haunted_hill_512kb.mp4',
+    index_path: 'data/house_on_haunted_hill_index.json',
+    loadIndex: () => require('../../data/house_on_haunted_hill_index.json'),
+    subtitles_path: null,
+    loadSubtitles: () => [],
+  },
 };
 
 /**

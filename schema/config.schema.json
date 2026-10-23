@@ -504,7 +504,35 @@
           "exclusiveMinimum": 0.0
         },
         "algorithm": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "rms_window_duration_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "rolling_median_duration_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "relative_spike_threshold_db": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "min_absolute_spike_dbfs": {
+              "type": "number",
+              "maximum": 0.0,
+              "minimum": -90.0,
+              "description": "Absolute decibel floor in dBFS below which audio cannot trigger a loud spike."
+            },
+            "numerical_floor_db": {
+              "type": "number",
+              "maximum": 0.0
+            },
+            "epsilon": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            }
+          }
         },
         "classifier_settings": {
           "type": "object"

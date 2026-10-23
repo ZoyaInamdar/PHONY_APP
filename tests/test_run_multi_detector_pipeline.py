@@ -436,3 +436,235 @@ class TestCLIInvocation:
                 assert str(captured_paths.repo_root / "reports") not in cmd_str
                 # No stage command should reference default processed directory
                 assert "data/processed/multi_trigger_eval" not in cmd_str.replace("\\", "/")
+
+
+
+class TestAudioEventsIntegration:
+    """Focused integration tests for the --include-audio-events pipeline flag."""
+
+    def test_parse_args_include_audio_events_flag(self):
+        """CLI recognizes --include-audio-events and defaults to False when omitted."""
+        args_default = parse_args([])
+        assert args_default.include_audio_events is False
+
+        args_enabled = parse_args(["--include-audio-events"])
+        assert args_enabled.include_audio_events is True
+
+    def test_classifier_stage_absent_when_flag_not_supplied(self):
+        """When --include-audio-events is omitted, classifier stage is absent and baseline remains intact."""
+        paths = PipelinePaths.default()
+        options = PipelineOptions(include_audio_events=False)
+        stages = build_pipeline_stages(paths, options, python_exe="test_python")
+
+        assert len(stages) == 7
+        stage_names = [s.name for s in stages]
+        assert not any("Classify Audio Events" in name for name in stage_names)
+
+        # Packaging stage does not include audio_events output
+        pkg_stage = stages[3]
+        input_idx = pkg_stage.command.index("--input")
+        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 3]
+        assert str(paths.audio_events_path) not in pkg_inputs
+        assert str(paths.loudness_detections) in pkg_inputs
+        assert str(paths.profanity_detections) in pkg_inputs
+
+    def test_classifier_stage_included_when_flag_supplied(self):
+        """When --include-audio-events is supplied, classifier stage is included with correct paths and args."""
+        paths = PipelinePaths.default()
+        options = PipelineOptions(include_audio_events=True)
+        stages = build_pipeline_stages(paths, options, python_exe="test_python")
+
+        assert len(stages) == 8
+        stage_names = [s.name for s in stages]
+        assert "Classify Audio Events (audio_event_classifier)" in stage_names[3]
+
+        # Verify exact classifier stage configuration
+        audio_stage = stages[3]
+        assert audio_stage.stage_id == 4
+        assert "classify_audio_events.py" in audio_stage.command[1]
+        assert "--input" in audio_stage.command
+        assert str(paths.audio_wav) in audio_stage.command
+        assert "--output" in audio_stage.command
+        assert str(paths.audio_events_path) in audio_stage.command
+        assert "--config" in audio_stage.command
+        assert str(paths.config_yaml) in audio_stage.command
+        assert "--strict" in audio_stage.command
+        assert audio_stage.expected_output == paths.audio_events_path
+
+        # Verify packaging stage includes audio_events output
+        pkg_stage = stages[4]
+        input_idx = pkg_stage.command.index("--input")
+        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 4]
+        assert str(paths.loudness_detections) in pkg_inputs
+        assert str(paths.profanity_detections) in pkg_inputs
+        assert str(paths.audio_events_path) in pkg_inputs
+
+    def test_stage_sequence_with_both_audio_events_and_experimental(self):
+        """With both --include-audio-events and --include-experimental, all 4 detector outputs are packaged."""
+        paths = PipelinePaths.default()
+        options = PipelineOptions(include_audio_events=True, include_experimental=True)
+        stages = build_pipeline_stages(paths, options, python_exe="test_python")
+
+        assert len(stages) == 9
+        stage_names = [s.name for s in stages]
+        assert "Classify Audio Events" in stage_names[3]
+        assert "Detect Jump Scares" in stage_names[4]
+        assert "Package Multi-Detector Cues" in stage_names[5]
+
+        pkg_stage = stages[5]
+        input_idx = pkg_stage.command.index("--input")
+        pkg_inputs = pkg_stage.command[input_idx + 1: input_idx + 5]
+        assert str(paths.loudness_detections) in pkg_inputs
+        assert str(paths.profanity_detections) in pkg_inputs
+        assert str(paths.audio_events_path) in pkg_inputs
+        assert str(paths.jump_scare_path) in pkg_inputs
+
+    def test_prerequisites_check_audio_events(self, tmp_path: Path):
+        """When check_audio_events=True, missing classify_audio_events.py is reported."""
+        paths = PipelinePaths(
+            repo_root=tmp_path,
+            input_media=tmp_path / "clip.mp4",
+            input_srt=tmp_path / "clip.srt",
+            wordlist=tmp_path / "wordlist.txt",
+            labels_csv=tmp_path / "labels.csv",
+            config_yaml=tmp_path / "config.yaml",
+            index_schema=tmp_path / "schema.json",
+            eval_dir=tmp_path / "eval",
+            audio_wav=tmp_path / "eval" / "audio.wav",
+            loudness_detections=tmp_path / "eval" / "loudness.json",
+            profanity_detections=tmp_path / "eval" / "profanity.json",
+            index_json=tmp_path / "eval" / "index.json",
+            multi_report_json=tmp_path / "reports" / "multi.json",
+            multi_report_md=tmp_path / "reports" / "multi.md",
+            dataset_report_json=tmp_path / "reports" / "dataset.json",
+            dataset_report_md=tmp_path / "reports" / "dataset.md",
+        )
+        paths.input_media.touch()
+        paths.input_srt.touch()
+        paths.wordlist.touch()
+        paths.labels_csv.touch()
+        paths.config_yaml.touch()
+        paths.index_schema.touch()
+
+        errors = check_prerequisites(paths, check_ffmpeg=False, check_audio_events=True)
+        assert len(errors) == 1
+        assert any("classify_audio_events.py" in e for e in errors)
+
+    @patch("subprocess.run")
+    def test_failed_classifier_stage_halts_pipeline(self, mock_run: MagicMock, tmp_path: Path):
+        """If classifier fails (non-zero exit), pipeline halts immediately and returns error code."""
+        eval_dir = tmp_path / "eval"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
+
+        paths = PipelinePaths.default()
+        paths = PipelinePaths(
+            repo_root=paths.repo_root,
+            input_media=paths.input_media,
+            input_srt=paths.input_srt,
+            wordlist=paths.wordlist,
+            labels_csv=paths.labels_csv,
+            config_yaml=paths.config_yaml,
+            index_schema=paths.index_schema,
+            eval_dir=eval_dir,
+            audio_wav=eval_dir / "audio.wav",
+            loudness_detections=eval_dir / "loudness.json",
+            profanity_detections=eval_dir / "profanity.json",
+            audio_events_detections=eval_dir / "audio_events.json",
+            index_json=eval_dir / "index.json",
+            multi_report_json=tmp_path / "reports" / "multi.json",
+            multi_report_md=tmp_path / "reports" / "multi.md",
+            dataset_report_json=tmp_path / "reports" / "dataset.json",
+            dataset_report_md=tmp_path / "reports" / "dataset.md",
+        )
+
+        # Mock side effects: stages 1-3 succeed, stage 4 (classifier) fails with code 2
+        def run_side_effect(cmd, **kwargs):
+            cmd_str = " ".join(str(c) for c in cmd)
+            if "classify_audio_events.py" in cmd_str:
+                return MagicMock(returncode=2)
+            # Create expected output for earlier stages
+            if "ffmpeg" in cmd_str:
+                paths.audio_wav.touch()
+            elif "detect_loudness.py" in cmd_str:
+                paths.loudness_detections.touch()
+            elif "parse_subtitles.py" in cmd_str:
+                paths.profanity_detections.touch()
+            return MagicMock(returncode=0)
+
+        mock_run.side_effect = run_side_effect
+
+        options = PipelineOptions(include_audio_events=True, skip_dataset_eval=True)
+        ret = execute_pipeline(paths, options, check_env=False)
+        assert ret == 2, f"Expected pipeline to halt with exit code 2, got {ret}"
+
+        # Verify that subsequent packaging stage was never executed
+        for call_args in mock_run.call_args_list:
+            called_cmd = " ".join(str(c) for c in call_args[0][0])
+            assert "package_cues.py" not in called_cmd
+
+    def test_audio_events_packaging_contract_and_runtime_adaptation(self, tmp_path: Path):
+        """Audio event classifier scream detection packages cleanly and adapts to runtime Cue with reduce action."""
+        import json
+        from scripts.package_cues import package_and_save_index
+
+        audio_events_file = tmp_path / "audio_events_detections.json"
+        scream_raw = [
+            {
+                "start": 10.0,
+                "end": 12.0,
+                "trigger": "scream",
+                "score": 0.58,
+                "source": "audio_event_classifier",
+            }
+        ]
+        with open(audio_events_file, "w", encoding="utf-8") as f:
+            json.dump(scream_raw, f, indent=2)
+
+        out_index = tmp_path / "index.json"
+        paths = PipelinePaths.default()
+
+        index_data = package_and_save_index(
+            input_path=[audio_events_file],
+            output_path=out_index,
+            config_path=paths.config_yaml,
+            schema_path=paths.index_schema,
+            film_id="scream_pipeline_test",
+            duration_seconds=30.0,
+            fps=24.0,
+        )
+
+        assert len(index_data["cues"]) == 1
+        c = index_data["cues"][0]
+        assert c["trigger"] == "scream"
+        assert c["start"] == 10.0
+        assert c["end"] == 12.0
+        assert c["score"] == 0.58
+        assert c["source"] == "audio_event_classifier"
+
+        # Verify runtime adapter converts to runtime Cue with reduce action
+        index_posix = out_index.as_posix()
+        node_script = f"""
+import {{ adaptPackagedIndex }} from './src/engine/packagedIndexAdapter.ts';
+import {{ DEFAULT_TRIGGER_POLICIES }} from './src/data/defaultTriggerPolicies.ts';
+import fs from 'fs';
+const raw = JSON.parse(fs.readFileSync('{index_posix}', 'utf-8'));
+const cues = adaptPackagedIndex(raw, DEFAULT_TRIGGER_POLICIES);
+console.log(JSON.stringify(cues[0]));
+"""
+        res = subprocess.run(
+            ["node", "--loader", "./scripts/ts_loader.mjs", "-e", node_script],
+            capture_output=True,
+            text=True,
+            cwd=str(paths.repo_root),
+        )
+        assert res.returncode == 0, f"Node adapter failed: {res.stderr}"
+        for line in res.stdout.strip().split("\n"):
+            if line.startswith("{") and "cue_" in line:
+                cue_obj = json.loads(line)
+                assert cue_obj["trigger"] == "scream"
+                assert cue_obj["action"] == "reduce"
+                assert cue_obj["source"] == "audio"
+                assert cue_obj["score"] == 0.58
+                assert cue_obj["start"] == 10.0
+                assert cue_obj["end"] == 12.0

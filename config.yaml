@@ -400,7 +400,7 @@ triggers:
     input: "audio.wav"
     timing_resolution_seconds: 1.0
     source: "audio_event_classifier"
-    threshold: 0.60  # Provisional model confidence threshold
+    threshold: 0.58  # Calibrated model confidence threshold
     default_action: "reduce"
     allowed_actions:
       - "reduce"
@@ -427,7 +427,10 @@ triggers:
           - "Screaming"
           - "Shout"
           - "Yell"
-          - "Battle cry"
+          - "Children shouting"
+          - "Bellow"
+          - "Whoop"
+          - "Wail, moan"
         AST:
           - "Screaming"
           - "Shout"

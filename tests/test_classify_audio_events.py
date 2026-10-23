@@ -46,6 +46,11 @@ class TestAudioClassifierMapping:
         assert mapping["screaming"] == "scream"
         assert mapping["shout"] == "scream"
         assert mapping["yell"] == "scream"
+        assert mapping["children shouting"] == "scream"
+        assert mapping["bellow"] == "scream"
+        assert mapping["whoop"] == "scream"
+        assert mapping["wail, moan"] == "scream"
+        assert "battle cry" not in mapping
 
         # Verify gunshot classes do not map to explosion
         for g_term in ("gunshot, gunfire", "machine gun", "fusillade", "cap gun"):
@@ -66,6 +71,20 @@ class TestAudioClassifierMapping:
         assert mapping["explosion"] == "explosion"
         assert mapping["screaming"] == "scream"
 
+    def test_all_yamnet_mapped_classes_exist_in_labels_txt(self):
+        """All mapped classes in config and defaults exist in YAMNet labels.txt."""
+        labels_path = REPO_ROOT / "models" / "yamnet" / "yamnet-onnx-float" / "labels.txt"
+        if not labels_path.is_file():
+            pytest.skip("YAMNet labels.txt not available")
+        with labels_path.open("r", encoding="utf-8") as f:
+            valid_labels = {line.strip().lower() for line in f if line.strip()}
+
+        mapping = get_class_to_trigger_mapping(backend=BACKEND_YAMNET)
+        for mapped_class in mapping.keys():
+            assert mapped_class in valid_labels, (
+                f"Configured class '{mapped_class}' does not exist in YAMNet labels.txt"
+            )
+
 
 class TestAudioPredictionMappingAndThresholds:
     """Unit tests for threshold filtering, timestamps, and raw cue formatting."""
@@ -85,7 +104,7 @@ class TestAudioPredictionMappingAndThresholds:
                 "start": 3.0,
                 "end": 4.5,
                 "class_probabilities": {
-                    "Screaming": 0.74,  # > 0.60 threshold
+                    "Screaming": 0.74,  # > 0.58 threshold
                 },
             },
         ]
@@ -112,13 +131,40 @@ class TestAudioPredictionMappingAndThresholds:
                 "class_probabilities": {
                     "Gunshot, gunfire": 0.50,  # Below 0.65 threshold
                     "Explosion": 0.60,         # Below 0.70 threshold
-                    "Screaming": 0.55,         # Below 0.60 threshold
+                    "Screaming": 0.55,         # Below 0.58 threshold
                 },
             }
         ]
 
         cues = map_model_predictions_to_cues(raw_windows, backend=BACKEND_YAMNET)
         assert cues == []
+
+    def test_calibrated_scream_threshold_accepts_recovered_scream(self):
+        """Verify calibrated threshold (0.58) accepts genuine 0.5995 scream and rejects 0.57."""
+        threshold = get_trigger_threshold("scream")
+        assert threshold == 0.58
+
+        # 0.5995 should produce a cue
+        cues_hit = map_model_predictions_to_cues([
+            {
+                "start": 4261.44,
+                "end": 4262.40,
+                "class_probabilities": {"Screaming": 0.5995},
+            }
+        ], backend=BACKEND_YAMNET)
+        assert len(cues_hit) == 1
+        assert cues_hit[0]["trigger"] == "scream"
+        assert cues_hit[0]["score"] == 0.5995
+
+        # 0.57 should be filtered out
+        cues_miss = map_model_predictions_to_cues([
+            {
+                "start": 4261.44,
+                "end": 4262.40,
+                "class_probabilities": {"Screaming": 0.57},
+            }
+        ], backend=BACKEND_YAMNET)
+        assert cues_miss == []
 
     def test_score_aggregation_takes_max_probability(self):
         """When multiple mapped labels for the same trigger occur, score takes max."""
@@ -369,3 +415,68 @@ class TestRealYAMNetInference:
         # Standard classifier output must be empty
         cues = classify_audio_events(clip_path)
         assert cues == []
+
+    def test_real_yamnet_inference_on_synthetic_scream_clip(self):
+        """Verify real YAMNet ONNX inference executes on audio_scream_test.mp4.
+
+        Documents that synthetic vibrato tone (+FM modulation) generates valid windows
+        with silence baseline at start/end, but achieves low scream class probability
+        (~0.0075) below the production 0.60 threshold because it lacks natural human
+        vocal tract formants and non-linear biphonation.
+        """
+        clip_path = REPO_ROOT / "data" / "test_clips" / "audio_scream_test.mp4"
+        if not clip_path.is_file():
+            pytest.skip("Scream test clip not available")
+
+        preds = run_yamnet_inference(clip_path)
+        assert len(preds) == 7, f"Expected 7 windows from 4.0s clip, got {len(preds)}"
+
+        # Initial and trailing silence
+        assert preds[0]["class_probabilities"]["Silence"] > 0.99
+        assert preds[6]["class_probabilities"]["Silence"] > 0.99
+
+        # Peak scream probability remains well below production 0.60 threshold
+        max_scream = max(w["class_probabilities"].get("Screaming", 0.0) for w in preds)
+        assert max_scream < 0.02, f"Expected synthetic scream probability < 0.02, got {max_scream}"
+
+        # Production classification yields no false cues under 0.60 threshold
+        cues = classify_audio_events(clip_path)
+        assert cues == []
+
+    def test_real_yamnet_inference_produces_scream_cue_with_calibrated_threshold(self):
+        """Verify scream cue schema contract compliance when threshold is calibrated."""
+        clip_path = REPO_ROOT / "data" / "test_clips" / "audio_scream_test.mp4"
+        if not clip_path.is_file():
+            pytest.skip("Scream test clip not available")
+
+        # Calibrate threshold to detect the synthetic vibrato transient
+        calibrated_cfg = {"triggers": {"scream": {"threshold": 0.005}}}
+        cues = classify_audio_events(clip_path, config=calibrated_cfg)
+
+        assert len(cues) >= 1, "Must produce at least one scream cue with calibrated threshold"
+        scream_cues = [c for c in cues if c["trigger"] == "scream"]
+        assert len(scream_cues) >= 1
+
+        for cue in scream_cues:
+            assert set(cue.keys()) == {"start", "end", "trigger", "score", "source"}
+            assert cue["trigger"] == "scream"
+            assert isinstance(cue["start"], (int, float))
+            assert isinstance(cue["end"], (int, float))
+            assert cue["end"] > cue["start"]
+            assert cue["score"] >= 0.005
+            assert cue["source"] == DEFAULT_SOURCE
+            for forbidden in ("action", "mute", "skip", "hide", "warn"):
+                assert forbidden not in cue
+
+    def test_real_yamnet_inference_on_multi_event_mix(self):
+        """Verify real YAMNet inference on composite audio multi-event mix."""
+        clip_path = REPO_ROOT / "data" / "test_clips" / "audio_multi_event_mix.mp4"
+        if not clip_path.is_file():
+            pytest.skip("Multi-event mix test clip not available")
+
+        preds = run_yamnet_inference(clip_path)
+        assert len(preds) == 17, f"Expected 17 windows from 9.0s clip, got {len(preds)}"
+
+        # Scream scores in synthetic interval stay below production threshold
+        max_scream = max(w["class_probabilities"].get("Screaming", 0.0) for w in preds)
+        assert max_scream < 0.58

@@ -53,6 +53,7 @@ class PipelinePaths:
     dataset_report_json: Path
     dataset_report_md: Path
     jump_scare_detections: Optional[Path] = None
+    audio_events_detections: Optional[Path] = None
 
     @classmethod
     def default(cls, repo_root: Optional[Path] = None) -> PipelinePaths:
@@ -77,11 +78,16 @@ class PipelinePaths:
             dataset_report_json=reports_dir / "detection_evaluation_report.json",
             dataset_report_md=reports_dir / "detection_evaluation_report.md",
             jump_scare_detections=eval_dir / "jump_scare_detections.json",
+            audio_events_detections=eval_dir / "audio_events_detections.json",
         )
 
     @property
     def jump_scare_path(self) -> Path:
         return self.jump_scare_detections if self.jump_scare_detections is not None else (self.eval_dir / "jump_scare_detections.json")
+
+    @property
+    def audio_events_path(self) -> Path:
+        return self.audio_events_detections if self.audio_events_detections is not None else (self.eval_dir / "audio_events_detections.json")
 
 
 @dataclass(frozen=True)
@@ -94,6 +100,7 @@ class PipelineOptions:
     generate_media: bool = False
     dry_run: bool = False
     include_experimental: bool = False
+    include_audio_events: bool = False
     enable_stt: bool = False
     stt_backend: Optional[str] = None
     stt_model: Optional[str] = None
@@ -113,6 +120,7 @@ def check_prerequisites(
     paths: PipelinePaths,
     check_ffmpeg: bool = True,
     check_experimental: bool = False,
+    check_audio_events: bool = False,
     enable_stt: bool = False,
 ) -> List[str]:
     """Check required input files and binaries. Returns list of error messages (empty if OK)."""
@@ -144,6 +152,11 @@ def check_prerequisites(
         jump_scare_script = paths.repo_root / "scripts" / "detect_jump_scare.py"
         if not jump_scare_script.is_file():
             errors.append(f"Jump scare detector script not found: {jump_scare_script}")
+
+    if check_audio_events:
+        audio_events_script = paths.repo_root / "scripts" / "classify_audio_events.py"
+        if not audio_events_script.is_file():
+            errors.append(f"Audio event classifier script not found: {audio_events_script}")
 
     return errors
 
@@ -263,6 +276,29 @@ def build_pipeline_stages(
     )
     current_id += 1
 
+    # Optional Stage: Pretrained Audio Event Classifier (scream, gunshot, explosion)
+    if options.include_audio_events:
+        stages.append(
+            PipelineStage(
+                stage_id=current_id,
+                name="Classify Audio Events (audio_event_classifier)",
+                command=[
+                    py,
+                    str(paths.repo_root / "scripts" / "classify_audio_events.py"),
+                    "--input",
+                    str(paths.audio_wav),
+                    "--output",
+                    str(paths.audio_events_path),
+                    "--config",
+                    str(paths.config_yaml),
+                    "--strict",
+                ],
+                description="Detects acoustic events (scream, gunshot, explosion) using pretrained YAMNet classifier.",
+                expected_output=paths.audio_events_path,
+            )
+        )
+        current_id += 1
+
     # Optional Stages: Experimental Detectors
     if options.include_experimental:
         stages.append(
@@ -290,6 +326,8 @@ def build_pipeline_stages(
         str(paths.loudness_detections),
         str(paths.profanity_detections),
     ]
+    if options.include_audio_events:
+        package_inputs.append(str(paths.audio_events_path))
     if options.include_experimental:
         package_inputs.extend([
             str(paths.jump_scare_path),
@@ -403,7 +441,13 @@ def execute_pipeline(
 
     # Validate prerequisites
     if check_env:
-        errors = check_prerequisites(paths, check_ffmpeg=True, check_experimental=options.include_experimental, enable_stt=options.enable_stt)
+        errors = check_prerequisites(
+            paths,
+            check_ffmpeg=True,
+            check_experimental=options.include_experimental,
+            check_audio_events=options.include_audio_events,
+            enable_stt=options.enable_stt,
+        )
         if errors:
             print("=================================================================", file=sys.stderr)
             print("[ERROR] Pipeline prerequisites check failed:", file=sys.stderr)
@@ -523,6 +567,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Include experimental detectors (jump_scare) in pipeline execution and packaging.",
     )
     parser.add_argument(
+        "--include-audio-events",
+        action="store_true",
+        help="Include pretrained audio event classifier (scream, gunshot, explosion) in pipeline execution and packaging.",
+    )
+    parser.add_argument(
         "--skip-dataset-eval",
         action="store_true",
         help="Skip the dataset-wide evaluation stage and run only same-timeline evaluation.",
@@ -577,6 +626,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             loudness_detections=out_dir / "loudness_detections.json",
             profanity_detections=out_dir / "profanity_detections.json",
             jump_scare_detections=out_dir / "jump_scare_detections.json",
+            audio_events_detections=out_dir / "audio_events_detections.json",
             index_json=out_dir / "index.json",
             multi_report_json=reports_dir / "multi_detector_evaluation_report.json",
             multi_report_md=reports_dir / "multi_detector_evaluation_report.md",
@@ -597,6 +647,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         generate_media=args.generate_media,
         dry_run=args.dry_run,
         include_experimental=args.include_experimental,
+        include_audio_events=args.include_audio_events,
         enable_stt=args.enable_stt,
         stt_backend=args.stt_backend,
         stt_model=args.stt_model,

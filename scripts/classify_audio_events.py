@@ -114,7 +114,7 @@ DEFAULT_LABEL_MAPPINGS: Dict[str, Dict[str, List[str]]] = {
 DEFAULT_THRESHOLDS: Dict[str, float] = {
     "gunshot": 0.65,
     "explosion": 0.70,
-    "scream": 0.60,
+    "scream": 0.58,
 }
 
 

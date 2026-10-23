@@ -98,8 +98,7 @@
         "gunshot",
         "explosion",
         "scream",
-        "loud_spike",
-        "sustained_loudness",
+        "loudness",
         "insect",
         "jump_scare",
         "visible_blood"
@@ -118,6 +117,9 @@
           "$ref": "#/$defs/trigger_definition"
         },
         "scream": {
+          "$ref": "#/$defs/trigger_definition"
+        },
+        "loudness": {
           "$ref": "#/$defs/trigger_definition"
         },
         "loud_spike": {
@@ -536,6 +538,18 @@
         },
         "classifier_settings": {
           "type": "object"
+        },
+        "algorithms": {
+          "type": "object",
+          "properties": {
+            "spike": {
+              "type": "object"
+            },
+            "sustained": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": true
         },
         "matching_settings": {
           "type": "object"

@@ -109,17 +109,16 @@ detection:
 # ------------------------------------------------------------------------------
 # 3. Canonical Trigger Definitions
 # ------------------------------------------------------------------------------
-# All detectors and player components must use these 10 canonical identifiers:
+# All detectors and player components must use these 9 canonical identifiers:
 # 1. flashing
-# 2. loud_spike
-# 3. sustained_loudness
-# 4. gunshot
-# 5. explosion
-# 6. scream
-# 7. profanity
-# 8. insect
-# 9. jump_scare   (stretch / experimental)
-# 10. visible_blood
+# 2. loudness
+# 3. gunshot
+# 4. explosion
+# 5. scream
+# 6. profanity
+# 7. insect
+# 8. jump_scare   (stretch / experimental)
+# 9. visible_blood
 # ------------------------------------------------------------------------------
 triggers:
 
@@ -193,11 +192,11 @@ triggers:
         and must be empirically tuned against labeled synthetic and real-world flash clips.
 
   # ----------------------------------------------------------------------------
-  # B. Loud Spike (Audio — Rule-Based Signal Processing)
+  # B. Loudness (Audio — Canonical Consolidated Loudness Trigger)
   # ----------------------------------------------------------------------------
-  loud_spike:
-    display_name: "Sudden Loudness Increase"
-    description: "Abrupt, sharp increase in audio root-mean-square loudness relative to local background level."
+  loudness:
+    display_name: "Loud Audio / Loudness"
+    description: "Sudden sharp increases in audio loudness or sustained high-acoustic energy."
     enabled: true
     status: "baseline"
     modality: "audio"
@@ -206,7 +205,67 @@ triggers:
     input: "audio.wav (downmixed mono PCM, 44.1 kHz or 48 kHz)"
     timing_resolution_seconds: 0.1
     source: "loudness_detector"
-    threshold: 15.0  # Decibels above rolling median reference
+    threshold: 15.0
+    default_action: "reduce"
+    allowed_actions:
+      - "reduce"
+      - "mute"
+      - "warn"
+    padding_before_seconds: 0.3
+    padding_after_seconds: 0.7
+    merge_gap_seconds: 0.5
+    min_segment_duration_seconds: 0.1
+    max_segment_duration_seconds: 60.0
+
+    # Unified loudness controls both sudden-spike and sustained-loudness algorithms
+    algorithms:
+      spike:
+        enabled: true
+        source: "loudness_spike"
+        rms_window_duration_seconds: 0.1
+        decibel_scale: "dB_FS"
+        numerical_floor_db: -90.0
+        epsilon: 1.0e-9
+        rolling_median_duration_seconds: 10.0
+        relative_spike_threshold_db: 15.0
+        min_absolute_spike_dbfs: -18.0
+        leading_window_policy: "use_available_history"
+        segment_building_policy: "continuous_above_threshold"
+        padding_before_seconds: 0.3
+        padding_after_seconds: 0.7
+        merge_gap_seconds: 0.5
+        min_segment_duration_seconds: 0.1
+        max_segment_duration_seconds: 15.0
+      sustained:
+        enabled: true
+        source: "loudness_sustained"
+        rms_window_duration_seconds: 0.1
+        threshold_dbfs: -18.0
+        min_duration_seconds: 2.0
+        max_dip_seconds: 0.5
+        padding_before_seconds: 0.5
+        padding_after_seconds: 1.0
+        merge_gap_seconds: 2.0
+        min_segment_duration_seconds: 2.0
+        max_segment_duration_seconds: 60.0
+
+
+
+  # ----------------------------------------------------------------------------
+  # Legacy Loudness Triggers (Retained for Historical Fixtures & Index Reader)
+  # ----------------------------------------------------------------------------
+  loud_spike:
+    display_name: "Sudden Loudness Increase (Legacy)"
+    description: "Legacy trigger consolidated into loudness; retained for index compatibility."
+    enabled: false
+    status: "experimental"
+    modality: "audio"
+    method: "rule_based_signal_processing"
+    ml_model_required: false
+    input: "audio.wav (downmixed mono PCM, 44.1 kHz or 48 kHz)"
+    timing_resolution_seconds: 0.1
+    source: "loudness_detector"
+    threshold: 15.0
     default_action: "reduce"
     allowed_actions:
       - "reduce"
@@ -218,40 +277,9 @@ triggers:
     min_segment_duration_seconds: 0.1
     max_segment_duration_seconds: 15.0
 
-    # Algorithm-specific parameters
-    algorithm:
-      # Short-term RMS analysis window
-      rms_window_duration_seconds: 0.1
-      # Decibel conversion formula: 20 * log10(rms / reference_floor)
-      decibel_scale: "dB_FS"
-      # Numerical floor to prevent log(0) and -inf
-      numerical_floor_db: -90.0
-      epsilon: 1.0e-9
-      # Rolling median reference duration against which spikes are measured
-      rolling_median_duration_seconds: 10.0
-      # Spike threshold in dB relative to rolling median
-      relative_spike_threshold_db: 15.0
-      # Minimum absolute loudness in dBFS required to qualify as a loud spike
-      min_absolute_spike_dbfs: -18.0
-      # Handling of leading audio windows (first 10 seconds before full history exists)
-      leading_window_policy: "use_available_history"  # options: use_available_history, pad_with_initial_median
-      # Segment construction policy
-      segment_building_policy: "continuous_above_threshold"
-      # Important acoustic limitations
-      user_facing_semantics: "sudden loudness increase"
-      limitation_notes: >
-        This detector measures RELATIVE loudness increases against a 10-second rolling median.
-        It is designed to catch sudden gunshots, slams, or shouts in quiet-to-moderate scenes.
-        It will NOT reliably flag sustained, consistently loud audio (e.g. continuous war
-        battles, rock concerts, or sustained jet engines), where the median rises to meet the signal.
-
-
-  # ----------------------------------------------------------------------------
-  # Sustained Loudness (Audio — Long-Term RMS)
-  # ----------------------------------------------------------------------------
   sustained_loudness:
-    display_name: "Sustained Loudness"
-    description: "Prolonged high acoustic energy (e.g. continuous battles, loud score, sustained engines)."
+    display_name: "Sustained Loudness (Legacy)"
+    description: "Legacy trigger consolidated into loudness; retained for index compatibility."
     enabled: false
     status: "experimental"
     modality: "audio"

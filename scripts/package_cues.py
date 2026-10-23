@@ -54,7 +54,13 @@ class CueIdCollisionError(ValueError):
     pass
 
 
-def generate_cue_id(film_id: str, trigger: str, start: float, end: float) -> str:
+def generate_cue_id(
+    film_id: str,
+    trigger: str,
+    start: float,
+    end: float,
+    source: Optional[str] = None,
+) -> str:
     """Generate a deterministic, reproducible cue ID from film, trigger, and millisecond timestamps.
 
     Conversion rule:
@@ -63,7 +69,10 @@ def generate_cue_id(film_id: str, trigger: str, start: float, end: float) -> str
         If rounding causes end_ms <= start_ms, end_ms is guaranteed to be at least start_ms + 1.
 
     Format:
-        cue_{film_id}_{trigger}_{start_ms:06d}_{end_ms:06d}
+        For canonical loudness cues with source:
+            cue_{film_id}_{trigger}_{source}_{start_ms:06d}_{end_ms:06d}
+        For all other triggers (or if source is omitted):
+            cue_{film_id}_{trigger}_{start_ms:06d}_{end_ms:06d}
     """
     if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
         raise ValueError(f"Timestamps must be numeric: start={start}, end={end}")
@@ -88,6 +97,11 @@ def generate_cue_id(film_id: str, trigger: str, start: float, end: float) -> str
 
     clean_film_id = str(film_id).strip().replace(" ", "_").lower()
     clean_trigger = str(trigger).strip().lower()
+
+    if clean_trigger == "loudness" and source is not None:
+        clean_source = str(source).strip().replace(" ", "_").lower()
+        if clean_source:
+            return f"cue_{clean_film_id}_{clean_trigger}_{clean_source}_{start_ms:06d}_{end_ms:06d}"
 
     return f"cue_{clean_film_id}_{clean_trigger}_{start_ms:06d}_{end_ms:06d}"
 
@@ -181,6 +195,7 @@ def merge_detections(
         else:
             canonical_triggers = {
                 "flashing",
+                "loudness",
                 "loud_spike",
                 "sustained_loudness",
                 "gunshot",
@@ -227,6 +242,14 @@ def merge_detections(
             t_conf = config["triggers"][trigger]
             t_merge_gap = float(t_conf.get("merge_gap_seconds", default_merge_gap))
             t_max_duration = float(t_conf.get("max_segment_duration_seconds", max_segment_duration))
+            if trigger == "loudness" and "algorithms" in t_conf:
+                algos = t_conf["algorithms"]
+                if source == "loudness_spike" and "spike" in algos:
+                    t_merge_gap = float(algos["spike"].get("merge_gap_seconds", t_merge_gap))
+                    t_max_duration = float(algos["spike"].get("max_segment_duration_seconds", t_max_duration))
+                elif source == "loudness_sustained" and "sustained" in algos:
+                    t_merge_gap = float(algos["sustained"].get("merge_gap_seconds", t_merge_gap))
+                    t_max_duration = float(algos["sustained"].get("max_segment_duration_seconds", t_max_duration))
             if trigger == "profanity":
                 preserve_word_prec = bool(t_conf.get("preserve_word_precision", False))
                 word_merge_gap = float(t_conf.get("word_level_merge_gap_seconds", 0.0))
@@ -655,7 +678,7 @@ def package_cues(
         source_str = str(seg["source"])
         score_f = float(seg["score"])
 
-        cue_id = generate_cue_id(film_id, trigger_str, start_f, end_f)
+        cue_id = generate_cue_id(film_id, trigger_str, start_f, end_f, source=source_str)
 
         # Check for collision
         if cue_id in seen_ids:

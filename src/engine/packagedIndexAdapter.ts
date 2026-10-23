@@ -198,7 +198,12 @@ export function adaptPackagedIndex(
   const result: Cue[] = [];
 
   for (const packagedCue of index.cues) {
-    const policy = policies[packagedCue.trigger];
+    const canonicalTrigger =
+      packagedCue.trigger === 'loud_spike' || packagedCue.trigger === 'sustained_loudness'
+        ? 'loudness'
+        : packagedCue.trigger;
+
+    const policy = policies[canonicalTrigger] ?? policies[packagedCue.trigger];
 
     if (!policy) {
       throw new Error(`Missing policy for trigger "${packagedCue.trigger}".`);
@@ -241,7 +246,7 @@ export function adaptPackagedIndex(
       source: source as CueSource,
       action: action as CueAction,
       status: packagedCue.status ?? 'ready',
-      trigger: packagedCue.trigger,
+      trigger: canonicalTrigger,
       score: packagedCue.score,
       detectorSource: packagedCue.source,
     });

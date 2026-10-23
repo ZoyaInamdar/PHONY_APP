@@ -30,12 +30,27 @@ CANONICAL_TRIGGER_IDS = [
     "gunshot",
     "explosion",
     "scream",
+    "loudness",
     "loud_spike",
     "sustained_loudness",
     "insect",
     "jump_scare",
     "visible_blood",
 ]
+
+ACTIVE_CANONICAL_TRIGGER_IDS = [
+    "flashing",
+    "profanity",
+    "gunshot",
+    "explosion",
+    "scream",
+    "loudness",
+    "insect",
+    "jump_scare",
+    "visible_blood",
+]
+
+LEGACY_TRIGGER_IDS = ["loud_spike", "sustained_loudness"]
 
 ALLOWED_ACTIONS = ["hide", "blur", "mute", "reduce", "skip", "warn"]
 

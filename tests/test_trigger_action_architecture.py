@@ -27,8 +27,7 @@ CANONICAL_CONTRACT = {
     "gunshot": {"default": "mute", "allowed": ["reduce", "skip", "warn"]},
     "explosion": {"default": "reduce", "allowed": ["mute", "skip", "warn"]},
     "scream": {"default": "reduce", "allowed": ["mute", "skip", "warn"]},
-    "loud_spike": {"default": "reduce", "allowed": ["mute", "warn"]},
-    "sustained_loudness": {"default": "reduce", "allowed": ["mute", "warn", "skip"]},
+    "loudness": {"default": "reduce", "allowed": ["mute", "warn"]},
     "insect": {"default": "hide", "allowed": ["blur", "skip", "warn"]},
     "jump_scare": {"default": "warn", "allowed": ["hide", "mute", "skip"]},
     "visible_blood": {"default": "hide", "allowed": ["blur", "skip", "warn"]},
@@ -62,11 +61,11 @@ def test_typescript_centralized_contract_definitions():
       sanitizeActionOverrides,
     } from './src/engine/triggerContract.ts';
 
-    // 1. Verify 10 canonical triggers
-    assert.strictEqual(CANONICAL_TRIGGERS.length, 10);
-        const expectedTriggers = [
+    // 1. Verify 9 canonical triggers
+    assert.strictEqual(CANONICAL_TRIGGERS.length, 9);
+    const expectedTriggers = [
       'flashing', 'profanity', 'gunshot', 'explosion', 'scream',
-      'loud_spike', 'sustained_loudness', 'insect',
+      'loudness', 'insect',
       'jump_scare', 'visible_blood'
     ];
     for (const t of expectedTriggers) {
@@ -85,8 +84,7 @@ def test_typescript_centralized_contract_definitions():
       gunshot: { default: 'mute', allowed: ['reduce', 'skip', 'warn'] },
       explosion: { default: 'reduce', allowed: ['mute', 'skip', 'warn'] },
       scream: { default: 'reduce', allowed: ['mute', 'skip', 'warn'] },
-      loud_spike: { default: 'reduce', allowed: ['mute', 'warn'] },
-      sustained_loudness: { default: 'reduce', allowed: ['mute', 'warn', 'skip'] },
+      loudness: { default: 'reduce', allowed: ['mute', 'warn'] },
       insect: { default: 'hide', allowed: ['blur', 'skip', 'warn'] },
       jump_scare: { default: 'warn', allowed: ['hide', 'mute', 'skip'] },
       visible_blood: { default: 'hide', allowed: ['blur', 'skip', 'warn'] },

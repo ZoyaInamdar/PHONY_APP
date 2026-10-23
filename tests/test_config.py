@@ -25,6 +25,7 @@ EXPECTED_CONTRACT = {
     "gunshot": {"default": "mute", "allowed": ["mute", "reduce", "skip", "warn"]},
     "explosion": {"default": "reduce", "allowed": ["reduce", "mute", "skip", "warn"]},
     "scream": {"default": "reduce", "allowed": ["reduce", "mute", "skip", "warn"]},
+    "loudness": {"default": "reduce", "allowed": ["reduce", "mute", "warn"]},
     "loud_spike": {"default": "reduce", "allowed": ["reduce", "mute", "warn"]},
     "sustained_loudness": {"default": "reduce", "allowed": ["reduce", "mute", "warn", "skip"]},
     "insect": {"default": "hide", "allowed": ["hide", "blur", "skip", "warn"]},
@@ -139,20 +140,19 @@ def test_flashing_algorithm_configuration():
 
 
 def test_loud_spike_algorithm_configuration():
-    """Verify loud_spike trigger algorithm parameters."""
+    """Verify loudness trigger spike algorithm parameters."""
     config = load_config(CONFIG_PATH)
-    spike = config["triggers"]["loud_spike"]
-    algo = spike.get("algorithm", {})
+    loudness = config["triggers"]["loudness"]
+    algo = loudness.get("algorithms", {}).get("spike", {})
 
     assert algo.get("rms_window_duration_seconds") == pytest.approx(0.1)
     assert algo.get("rolling_median_duration_seconds") == pytest.approx(10.0)
     assert algo.get("relative_spike_threshold_db") == pytest.approx(15.0)
     assert algo.get("min_absolute_spike_dbfs") == pytest.approx(-18.0)
-    assert spike.get("threshold") == pytest.approx(15.0)
-    assert spike.get("merge_gap_seconds") == pytest.approx(0.5)
+    assert loudness.get("threshold") == pytest.approx(15.0)
+    assert loudness.get("merge_gap_seconds") == pytest.approx(0.5)
     assert algo.get("numerical_floor_db") <= -80.0
     assert "leading_window_policy" in algo
-    assert algo.get("user_facing_semantics") == "sudden loudness increase"
 
 
 def test_audio_classifier_triggers_unresolved_backends():
@@ -196,7 +196,7 @@ def test_spider_and_fast_motion_rejected():
 def test_experimental_stretch_features_disabled():
     """Verify experimental stretch features (jump_scare, sustained_loudness, insect, visible_blood) are disabled by default."""
     config = load_config(CONFIG_PATH)
-    for tid in ["jump_scare", "sustained_loudness", "insect", "visible_blood"]:
+    for tid in ["jump_scare", "insect", "visible_blood"]:
         t = config["triggers"][tid]
         assert t.get("status") == "experimental"
         assert t.get("enabled") is False
@@ -252,8 +252,8 @@ def test_schema_accepts_hide_and_reduce_actions():
 
     config["triggers"]["flashing"]["default_action"] = "hide"
     config["triggers"]["flashing"]["allowed_actions"] = ["hide", "warn"]
-    config["triggers"]["loud_spike"]["default_action"] = "reduce"
-    config["triggers"]["loud_spike"]["allowed_actions"] = ["reduce", "mute", "warn"]
+    config["triggers"]["loudness"]["default_action"] = "reduce"
+    config["triggers"]["loudness"]["allowed_actions"] = ["reduce", "mute", "warn"]
 
     errors = validate_schema_compliance(config, schema)
     assert len(errors) == 0, f"Schema should have accepted 'hide' and 'reduce', got errors: {errors}"

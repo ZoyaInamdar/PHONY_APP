@@ -14,11 +14,15 @@ export const CANONICAL_TRIGGERS = [
   'gunshot',
   'explosion',
   'scream',
-  'loud_spike',
-  'sustained_loudness',
+  'loudness',
   'insect',
   'jump_scare',
   'visible_blood',
+] as const;
+
+export const LEGACY_TRIGGERS = [
+  'loud_spike',
+  'sustained_loudness',
 ] as const;
 
 export type CanonicalTrigger = (typeof CANONICAL_TRIGGERS)[number];
@@ -45,7 +49,13 @@ export interface TriggerActionContract {
   readonly displayName: string;
 }
 
-export const TRIGGER_ACTION_CONTRACTS: Readonly<Record<CanonicalTrigger, TriggerActionContract>> = {
+export const TRIGGER_ACTION_CONTRACTS: Readonly<Record<CanonicalTrigger | 'loud_spike' | 'sustained_loudness', TriggerActionContract>> = {
+  loudness: {
+    defaultAction: 'reduce',
+    allowedAlternatives: ['mute', 'warn'],
+    modality: 'audio',
+    displayName: 'Loud Audio / Loudness',
+  },
   flashing: {
     defaultAction: 'hide',
     allowedAlternatives: ['skip', 'warn'],

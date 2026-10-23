@@ -48,8 +48,8 @@ function formatTriggerNoun(triggerType: string, count: number): string {
   if (norm === 'scene' || norm === 'skip') {
     return isPlural ? 'scenes' : 'scene';
   }
-  if (norm === 'loud_spike' || norm === 'loud spike') {
-    return isPlural ? 'loud spikes' : 'loud spike';
+  if (norm === 'loudness' || norm === 'loud_spike' || norm === 'loud spike' || norm === 'sustained_loudness') {
+    return isPlural ? 'loud scenes' : 'loud scene';
   }
   if (norm === 'jump_scare' || norm === 'jump scare') {
     return isPlural ? 'jump scares' : 'jump scare';

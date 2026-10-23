@@ -53,6 +53,9 @@ from scripts.timeline import sample_to_seconds, seconds_to_sample
 
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config.yaml"
 DEFAULT_SOURCE = "loudness_detector"
+DEFAULT_SPIKE_SOURCE = "loudness_spike"
+DEFAULT_SUSTAINED_SOURCE = "loudness_sustained"
+DEFAULT_TRIGGER = "loudness"
 
 # Baseline defaults aligned with config.yaml (triggers.loud_spike.algorithm)
 DEFAULT_RMS_WINDOW_SEC = 0.1             # 100 ms RMS analysis window
@@ -193,13 +196,14 @@ def stream_wav_windows(
 def detect_loud_spikes(
     window_data: List[Tuple[int, int, float]],
     sample_rate: int,
-    relative_spike_threshold_db: float = DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB,
+    relative_spike_threshold_db: Optional[float] = None,
     rolling_median_duration_sec: float = DEFAULT_ROLLING_MEDIAN_SEC,
     window_duration_sec: float = DEFAULT_RMS_WINDOW_SEC,
-    min_absolute_spike_dbfs: float = DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS,
+    min_absolute_spike_dbfs: Optional[float] = None,
     leading_window_policy: str = DEFAULT_LEADING_WINDOW_POLICY,
     initial_median_db: Optional[float] = None,
-    source: str = DEFAULT_SOURCE,
+    source: str = DEFAULT_SPIKE_SOURCE,
+    trigger: str = DEFAULT_TRIGGER,
 ) -> List[Dict[str, Any]]:
     """Detect sudden loudness spikes relative to rolling median background.
 
@@ -288,7 +292,7 @@ def detect_loud_spikes(
         detections.append({
             "start": round(start_sec, 4),
             "end": round(end_sec, 4),
-            "trigger": "loud_spike",
+            "trigger": trigger,
             "score": best_score,
             "source": source,
         })
@@ -299,11 +303,12 @@ def detect_loud_spikes(
 def detect_sustained_loudness(
     window_data: List[Tuple[int, int, float]],
     sample_rate: int,
-    threshold_dbfs: float = DEFAULT_SUSTAINED_THRESHOLD_DBFS,
-    min_duration_sec: float = DEFAULT_SUSTAINED_MIN_DURATION_SEC,
+    threshold_dbfs: Optional[float] = None,
+    min_duration_sec: Optional[float] = None,
     max_dip_sec: float = DEFAULT_SUSTAINED_MAX_DIP_SEC,
     window_duration_sec: float = DEFAULT_RMS_WINDOW_SEC,
-    source: str = DEFAULT_SOURCE,
+    source: str = DEFAULT_SUSTAINED_SOURCE,
+    trigger: str = DEFAULT_TRIGGER,
 ) -> List[Dict[str, Any]]:
     """Detect sustained loudness events above a threshold with tolerance for brief dips.
 
@@ -321,6 +326,11 @@ def detect_sustained_loudness(
     """
     if not window_data:
         return []
+
+    if threshold_dbfs is None:
+        threshold_dbfs = DEFAULT_SUSTAINED_THRESHOLD_DBFS
+    if min_duration_sec is None:
+        min_duration_sec = DEFAULT_SUSTAINED_MIN_DURATION_SEC
 
     max_dip_windows = max(0, int(round(max_dip_sec / window_duration_sec)))
     min_windows = max(1, int(round(min_duration_sec / window_duration_sec)))
@@ -382,7 +392,7 @@ def detect_sustained_loudness(
         detections.append({
             "start": round(start_sec, 4),
             "end": round(end_sec, 4),
-            "trigger": "sustained_loudness",
+            "trigger": trigger,
             "score": r["score"],
             "source": source,
         })
@@ -409,7 +419,19 @@ def detect_loudness_from_samples(
     if config is None:
         config = load_detector_config()
 
-    spike_algo = config.get("triggers", {}).get("loud_spike", {}).get("algorithm", {})
+    triggers_cfg = config.get("triggers", {})
+    loudness_cfg = triggers_cfg.get("loudness", {})
+
+    if loudness_cfg and not loudness_cfg.get("enabled", True):
+        return []
+
+    algos = loudness_cfg.get("algorithms", {})
+    spike_algo = algos.get("spike", {}) if "spike" in algos else triggers_cfg.get("loud_spike", {}).get("algorithm", {})
+    sustained_algo = algos.get("sustained", {}) if "sustained" in algos else triggers_cfg.get("sustained_loudness", {})
+
+    spike_enabled = spike_algo.get("enabled", True) if "enabled" in spike_algo else triggers_cfg.get("loud_spike", {}).get("enabled", True)
+    sustained_enabled = sustained_algo.get("enabled", True) if "enabled" in sustained_algo else triggers_cfg.get("sustained_loudness", {}).get("enabled", True)
+
     window_sec = float(spike_algo.get("rms_window_duration_seconds", DEFAULT_RMS_WINDOW_SEC))
     rolling_med_sec = float(spike_algo.get("rolling_median_duration_seconds", DEFAULT_ROLLING_MEDIAN_SEC))
 
@@ -424,9 +446,19 @@ def detect_loudness_from_samples(
         )
 
     if sustained_threshold_dbfs is None:
-        sustained_threshold_dbfs = DEFAULT_SUSTAINED_THRESHOLD_DBFS
+        sustained_threshold_dbfs = float(
+            sustained_algo.get("threshold_dbfs", sustained_algo.get("threshold", DEFAULT_SUSTAINED_THRESHOLD_DBFS))
+        )
     if sustained_min_duration_sec is None:
-        sustained_min_duration_sec = DEFAULT_SUSTAINED_MIN_DURATION_SEC
+        sustained_min_duration_sec = float(
+            sustained_algo.get("min_duration_seconds", sustained_algo.get("min_segment_duration_seconds", DEFAULT_SUSTAINED_MIN_DURATION_SEC))
+        )
+    sustained_max_dip_sec = float(
+        sustained_algo.get("max_dip_seconds", DEFAULT_SUSTAINED_MAX_DIP_SEC)
+    )
+
+    spike_source = spike_algo.get("source", DEFAULT_SPIKE_SOURCE) if source == DEFAULT_SOURCE else source
+    sustained_source = sustained_algo.get("source", DEFAULT_SUSTAINED_SOURCE) if source == DEFAULT_SOURCE else source
 
     window_samples = max(1, seconds_to_sample(window_sec, sample_rate, rounding="round"))
     total_samples = len(samples)
@@ -449,7 +481,7 @@ def detect_loudness_from_samples(
 
     detections: List[Dict[str, Any]] = []
 
-    if "spike" in modes:
+    if "spike" in modes and spike_enabled:
         detections.extend(
             detect_loud_spikes(
                 window_data=window_data,
@@ -459,19 +491,22 @@ def detect_loudness_from_samples(
                 window_duration_sec=window_sec,
                 min_absolute_spike_dbfs=min_absolute_spike_dbfs,
                 initial_median_db=initial_median_db,
-                source=source,
+                source=spike_source,
+                trigger=DEFAULT_TRIGGER,
             )
         )
 
-    if "sustained" in modes:
+    if "sustained" in modes and sustained_enabled:
         detections.extend(
             detect_sustained_loudness(
                 window_data=window_data,
                 sample_rate=sample_rate,
                 threshold_dbfs=sustained_threshold_dbfs,
                 min_duration_sec=sustained_min_duration_sec,
+                max_dip_sec=sustained_max_dip_sec,
                 window_duration_sec=window_sec,
-                source=source,
+                source=sustained_source,
+                trigger=DEFAULT_TRIGGER,
             )
         )
 
@@ -495,7 +530,19 @@ def detect_loudness_from_wav(
     if config is None:
         config = load_detector_config()
 
-    spike_algo = config.get("triggers", {}).get("loud_spike", {}).get("algorithm", {})
+    triggers_cfg = config.get("triggers", {})
+    loudness_cfg = triggers_cfg.get("loudness", {})
+
+    if loudness_cfg and not loudness_cfg.get("enabled", True):
+        return []
+
+    algos = loudness_cfg.get("algorithms", {})
+    spike_algo = algos.get("spike", {}) if "spike" in algos else triggers_cfg.get("loud_spike", {}).get("algorithm", {})
+    sustained_algo = algos.get("sustained", {}) if "sustained" in algos else triggers_cfg.get("sustained_loudness", {})
+
+    spike_enabled = spike_algo.get("enabled", True) if "enabled" in spike_algo else triggers_cfg.get("loud_spike", {}).get("enabled", True)
+    sustained_enabled = sustained_algo.get("enabled", True) if "enabled" in sustained_algo else triggers_cfg.get("sustained_loudness", {}).get("enabled", True)
+
     window_sec = float(spike_algo.get("rms_window_duration_seconds", DEFAULT_RMS_WINDOW_SEC))
     rolling_med_sec = float(spike_algo.get("rolling_median_duration_seconds", DEFAULT_ROLLING_MEDIAN_SEC))
 
@@ -504,10 +551,25 @@ def detect_loudness_from_wav(
             spike_algo.get("relative_spike_threshold_db", DEFAULT_RELATIVE_SPIKE_THRESHOLD_DB)
         )
 
+    if min_absolute_spike_dbfs is None:
+        min_absolute_spike_dbfs = float(
+            spike_algo.get("min_absolute_spike_dbfs", DEFAULT_MIN_ABSOLUTE_SPIKE_DBFS)
+        )
+
     if sustained_threshold_dbfs is None:
-        sustained_threshold_dbfs = DEFAULT_SUSTAINED_THRESHOLD_DBFS
+        sustained_threshold_dbfs = float(
+            sustained_algo.get("threshold_dbfs", sustained_algo.get("threshold", DEFAULT_SUSTAINED_THRESHOLD_DBFS))
+        )
     if sustained_min_duration_sec is None:
-        sustained_min_duration_sec = DEFAULT_SUSTAINED_MIN_DURATION_SEC
+        sustained_min_duration_sec = float(
+            sustained_algo.get("min_duration_seconds", sustained_algo.get("min_segment_duration_seconds", DEFAULT_SUSTAINED_MIN_DURATION_SEC))
+        )
+    sustained_max_dip_sec = float(
+        sustained_algo.get("max_dip_seconds", DEFAULT_SUSTAINED_MAX_DIP_SEC)
+    )
+
+    spike_source = spike_algo.get("source", DEFAULT_SPIKE_SOURCE) if source == DEFAULT_SOURCE else source
+    sustained_source = sustained_algo.get("source", DEFAULT_SUSTAINED_SOURCE) if source == DEFAULT_SOURCE else source
 
     # Stream windows directly
     window_data: List[Tuple[int, int, float]] = []
@@ -524,7 +586,7 @@ def detect_loudness_from_wav(
 
     detections: List[Dict[str, Any]] = []
 
-    if "spike" in modes:
+    if "spike" in modes and spike_enabled:
         detections.extend(
             detect_loud_spikes(
                 window_data=window_data,
@@ -534,19 +596,22 @@ def detect_loudness_from_wav(
                 window_duration_sec=window_sec,
                 min_absolute_spike_dbfs=min_absolute_spike_dbfs,
                 initial_median_db=initial_median_db,
-                source=source,
+                source=spike_source,
+                trigger=DEFAULT_TRIGGER,
             )
         )
 
-    if "sustained" in modes:
+    if "sustained" in modes and sustained_enabled:
         detections.extend(
             detect_sustained_loudness(
                 window_data=window_data,
                 sample_rate=sample_rate,
                 threshold_dbfs=sustained_threshold_dbfs,
                 min_duration_sec=sustained_min_duration_sec,
+                max_dip_sec=sustained_max_dip_sec,
                 window_duration_sec=window_sec,
-                source=source,
+                source=sustained_source,
+                trigger=DEFAULT_TRIGGER,
             )
         )
 

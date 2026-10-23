@@ -457,7 +457,11 @@ def detect_jump_scare(
             config=config,
             modes=("spike",),
         )
-        audio_spikes = [ev for ev in raw_loudness if ev.get("trigger") == "loud_spike"]
+        audio_spikes = [
+            ev for ev in raw_loudness
+            if (ev.get("trigger") == "loudness" and ev.get("source") in ("loudness_spike", "loudness_detector"))
+            or ev.get("trigger") == "loud_spike"
+        ]
     except Exception as exc:
         audio_spikes = []
     finally:

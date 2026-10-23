@@ -122,8 +122,8 @@ def test_short_loud_spike():
 
     assert len(events) == 1
     ev = events[0]
-    assert ev["trigger"] == "loud_spike"
-    assert ev["source"] == "loudness_detector"
+    assert ev["trigger"] == "loudness"
+    assert ev["source"] == "loudness_spike"
     assert pytest.approx(ev["start"], abs=0.05) == 2.0
     assert pytest.approx(ev["end"], abs=0.05) == 2.2
     assert 0.0 <= ev["score"] <= 1.0
@@ -155,8 +155,8 @@ def test_sustained_loud_audio():
 
     assert len(events) == 1
     ev = events[0]
-    assert ev["trigger"] == "sustained_loudness"
-    assert ev["source"] == "loudness_detector"
+    assert ev["trigger"] == "loudness"
+    assert ev["source"] == "loudness_sustained"
     assert pytest.approx(ev["start"], abs=0.05) == 1.0
     assert pytest.approx(ev["end"], abs=0.05) == 3.5
     assert (ev["end"] - ev["start"]) >= 2.0
@@ -224,7 +224,7 @@ def test_spike_boundary_threshold_sensitivity():
         min_absolute_spike_dbfs=-40.0,
     )
     assert len(events_super) == 1
-    assert events_super[0]["trigger"] == "loud_spike"
+    assert events_super[0]["trigger"] == "loudness"
 
 
 def test_sustained_boundary_threshold_sensitivity():
@@ -251,7 +251,7 @@ def test_sustained_boundary_threshold_sensitivity():
         sustained_min_duration_sec=2.0,
     )
     assert len(events_super) == 1
-    assert events_super[0]["trigger"] == "sustained_loudness"
+    assert events_super[0]["trigger"] == "loudness"
 
 
 # ==============================================================================
@@ -321,7 +321,7 @@ def test_spike_crossing_window_boundary():
     # Must be merged into a single event, NOT separate fragmented events
     assert len(events) == 1
     ev = events[0]
-    assert ev["trigger"] == "loud_spike"
+    assert ev["trigger"] == "loudness"
     assert ev["start"] <= 1.0
     assert ev["end"] >= 1.1
     assert (ev["end"] - ev["start"]) >= 0.15
@@ -466,14 +466,14 @@ def test_contract_compliance_and_packaging_integration():
     det = events[0]
 
     # Validate against package_cues shared contract
-    canonical_triggers = {"flashing", "loud_spike", "gunshot", "explosion", "scream", "profanity", "insect"}
+    canonical_triggers = {"flashing", "loudness", "loud_spike", "gunshot", "explosion", "scream", "profanity", "insect"}
     validate_raw_detection(det, canonical_triggers=canonical_triggers)
 
     # Test merge_detections can consume it cleanly
     merged = merge_detections([det], canonical_triggers=canonical_triggers)
     assert len(merged) == 1
-    assert merged[0]["trigger"] == "loud_spike"
-    assert merged[0]["source"] == "loudness_detector"
+    assert merged[0]["trigger"] == "loudness"
+    assert merged[0]["source"] == "loudness_spike"
 
 
 # ==============================================================================
@@ -494,8 +494,8 @@ def test_real_audio_streaming_smoke_test():
     for ev in events:
         assert 0.0 <= ev["start"] < ev["end"] <= 635.0
         assert 0.0 <= ev["score"] <= 1.0
-        assert ev["trigger"] == "loud_spike"
-        assert ev["source"] == "loudness_detector"
+        assert ev["trigger"] == "loudness"
+        assert ev["source"] == "loudness_spike"
 
 
 # ==============================================================================
@@ -534,7 +534,7 @@ def test_cli_execution(tmp_path: Path):
     assert data["schema_version"] == 1
     assert data["record_type"] == "raw_detections"
     assert len(data["detections"]) == 1
-    assert data["detections"][0]["trigger"] == "loud_spike"
+    assert data["detections"][0]["trigger"] == "loudness"
 
     # Test alias scripts/loudness_detector.py
     cmd_alias = [
@@ -589,7 +589,7 @@ def test_exponential_decay_spike_exact_onset_and_duration_regression():
 
     # Onset must match 1.50s within one analysis window (0.1s)
     assert pytest.approx(det["start"], abs=0.05) == spike_start
-    assert det["trigger"] == "loud_spike"
+    assert det["trigger"] == "loudness"
     # Under calibrated 15.0 dB relative threshold (div 37.5), ~17.5 dB delta yields score ~0.466
     assert det["score"] >= 0.45
     # The detected interval must stay within the spike window
@@ -718,7 +718,7 @@ def test_run10_opening_scream_and_brass_stinger_detection():
         )
         assert len(detections) == 1, f"Expected 1 detection for {name}, got {detections}"
         det = detections[0]
-        assert det["trigger"] == "loud_spike"
+        assert det["trigger"] == "loudness"
         assert pytest.approx(det["start"], abs=0.05) == onset_sec
         assert det["score"] >= 0.40
 

@@ -108,8 +108,7 @@ export interface PlayerScreenProps {
 
 export const CANONICAL_TRIGGER_CATEGORIES = [
   'flashing',
-  'loud_spike',
-  'sustained_loudness',
+  'loudness',
   'gunshot',
   'explosion',
   'scream',

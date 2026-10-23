@@ -49,6 +49,12 @@ export const DEFAULT_TRIGGER_POLICIES: TriggerPolicies = {
     default_action: 'reduce',
     allowed_actions: ['reduce', 'mute', 'skip', 'warn'],
   },
+  loudness: {
+    enabled: true,
+    modality: 'audio',
+    default_action: 'reduce',
+    allowed_actions: ['reduce', 'mute', 'warn'],
+  },
   loud_spike: {
     enabled: true,
     modality: 'audio',

@@ -306,9 +306,9 @@ class TestLoudnessDetectorRegression:
             raw_cues = detect_loudness_from_wav(wav_path, modes=("spike",))
             assert isinstance(raw_cues, list)
             # Must detect the spike without error
-            assert any(c.get("trigger") == "loud_spike" for c in raw_cues)
-            # Must preserve source='loudness_detector'
-            assert all(c.get("source") == "loudness_detector" for c in raw_cues)
+            assert any(c.get("trigger") in ("loudness", "loud_spike") for c in raw_cues)
+            # Must preserve source provenance
+            assert all(c.get("source") in ("loudness_spike", "loudness_detector") for c in raw_cues)
 
 
 class TestCLIExecution:

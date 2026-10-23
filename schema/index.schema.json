@@ -120,6 +120,7 @@
             "gunshot",
             "explosion",
             "scream",
+            "loudness",
             "loud_spike",
             "sustained_loudness",
             "insect",
